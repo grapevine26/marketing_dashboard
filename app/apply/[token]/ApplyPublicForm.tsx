@@ -51,12 +51,12 @@ export default function ApplyPublicForm({
 
   if (submitted) {
     return (
-      <div className="p-8 rounded-3xl bg-[#131418] border border-[#22242A] text-center space-y-3 shadow-2xl font-sans">
+      <div className="p-6 sm:p-8 rounded-3xl bg-[#131418] border border-[#22242A] text-center space-y-3 shadow-2xl font-sans">
         <div className="w-12 h-12 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center mx-auto">
           <CheckCircle2 className="w-6 h-6" />
         </div>
-        <h2 className="text-lg font-bold text-zinc-100">지원이 성공적으로 완료되었습니다!</h2>
-        <p className="text-xs text-zinc-400">
+        <h2 className="text-base sm:text-lg font-bold text-zinc-100">지원이 성공적으로 완료되었습니다!</h2>
+        <p className="text-xs text-zinc-400 leading-relaxed">
           선정되신 분들께는 기재해주신 연락처로 개별 안내 메시지를 발송해 드립니다.
         </p>
       </div>
@@ -64,7 +64,7 @@ export default function ApplyPublicForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="p-8 rounded-3xl bg-[#131418] border border-[#22242A] space-y-5 shadow-2xl font-sans">
+    <form onSubmit={handleSubmit} className="p-5 sm:p-8 rounded-3xl bg-[#131418] border border-[#22242A] space-y-4 sm:space-y-5 shadow-2xl font-sans">
       <div className="space-y-1">
         <label className="text-xs font-semibold text-zinc-300">성함 / 활동명 *</label>
         <input
@@ -73,7 +73,7 @@ export default function ApplyPublicForm({
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           placeholder="홍길동"
-          className="w-full px-3.5 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
+          className="w-full px-3.5 py-3 sm:py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
         />
       </div>
 
@@ -85,11 +85,11 @@ export default function ApplyPublicForm({
           value={formData.sns_link}
           onChange={(e) => setFormData({ ...formData, sns_link: e.target.value })}
           placeholder="https://instagram.com/your_id"
-          className="w-full px-3.5 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
+          className="w-full px-3.5 py-3 sm:py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1">
           <label className="text-xs font-semibold text-zinc-300">연락처 *</label>
           <input
@@ -98,7 +98,7 @@ export default function ApplyPublicForm({
             value={formData.contact}
             onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
             placeholder="010-1234-5678"
-            className="w-full px-3.5 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
+            className="w-full px-3.5 py-3 sm:py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
           />
         </div>
 
@@ -109,7 +109,7 @@ export default function ApplyPublicForm({
             required
             value={formData.nationality}
             onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
-            className="w-full px-3.5 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
+            className="w-full px-3.5 py-3 sm:py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
           />
         </div>
       </div>
@@ -123,11 +123,11 @@ export default function ApplyPublicForm({
             value={formData.shipping_address}
             onChange={(e) => setFormData({ ...formData, shipping_address: e.target.value })}
             placeholder="서울특별시 강남구 테헤란로 123 401호"
-            className="w-full px-3.5 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
+            className="w-full px-3.5 py-3 sm:py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
           />
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1">
             <label className="text-xs font-semibold text-zinc-300">방문 희망 일정 *</label>
             <input
@@ -136,7 +136,7 @@ export default function ApplyPublicForm({
               value={formData.visit_schedule}
               onChange={(e) => setFormData({ ...formData, visit_schedule: e.target.value })}
               placeholder="예: 9월 10일 오후 3시"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
+              className="w-full px-3.5 py-3 sm:py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
             />
           </div>
           <div className="space-y-1">
@@ -149,7 +149,7 @@ export default function ApplyPublicForm({
               onChange={(e) =>
                 setFormData({ ...formData, visit_party_size: Number(e.target.value) })
               }
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
+              className="w-full px-3.5 py-3 sm:py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
             />
           </div>
         </div>
@@ -172,41 +172,41 @@ export default function ApplyPublicForm({
                     custom_answers: { ...formData.custom_answers, [q.id]: e.target.value },
                   })
                 }
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
+                className="w-full px-3.5 py-3 sm:py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
               />
             </div>
           ))}
         </div>
       )}
 
-      <div className="pt-2 border-t border-[#22242A] space-y-2 text-xs text-zinc-400">
-        <label className="flex items-center gap-2 cursor-pointer">
+      <div className="pt-2 border-t border-[#22242A] space-y-3 text-xs text-zinc-400">
+        <label className="flex items-start gap-2.5 cursor-pointer py-1">
           <input
             type="checkbox"
             required
             checked={formData.privacy_agreed}
             onChange={(e) => setFormData({ ...formData, privacy_agreed: e.target.checked })}
-            className="accent-blue-600"
+            className="accent-blue-600 w-4 h-4 mt-0.5 rounded"
           />
-          <span>(필수) 개인정보 수집 및 리워드 배송/일정 안내를 위한 이용에 동의합니다.</span>
+          <span className="leading-snug">(필수) 개인정보 수집 및 리워드 배송/일정 안내를 위한 이용에 동의합니다.</span>
         </label>
-        <label className="flex items-center gap-2 cursor-pointer">
+        <label className="flex items-start gap-2.5 cursor-pointer py-1">
           <input
             type="checkbox"
             checked={formData.secondary_use_agreed}
             onChange={(e) =>
               setFormData({ ...formData, secondary_use_agreed: e.target.checked })
             }
-            className="accent-blue-600"
+            className="accent-blue-600 w-4 h-4 mt-0.5 rounded"
           />
-          <span>(선택) 제작된 콘텐츠의 브랜드 2차 마케팅 활용에 동의합니다.</span>
+          <span className="leading-snug">(선택) 제작된 콘텐츠의 브랜드 2차 마케팅 활용에 동의합니다.</span>
         </label>
       </div>
 
       <button
         type="submit"
         disabled={submitting}
-        className="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-500/25 transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
+        className="w-full py-3.5 sm:py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-blue-500/25 transition disabled:opacity-50 inline-flex items-center justify-center gap-2 active:scale-[0.98]"
       >
         {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
         <span>인플루언서 지원서 제출하기</span>

@@ -57,12 +57,12 @@ export default function PreSurveyPublicForm({
 
   if (submitted) {
     return (
-      <div className="p-8 rounded-3xl bg-[#131418] border border-[#22242A] text-center space-y-3 shadow-2xl font-sans">
+      <div className="p-6 sm:p-8 rounded-3xl bg-[#131418] border border-[#22242A] text-center space-y-3 shadow-2xl font-sans">
         <div className="w-12 h-12 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center mx-auto">
           <CheckCircle2 className="w-6 h-6" />
         </div>
-        <h2 className="text-lg font-bold text-zinc-100">사전조사서가 성공적으로 제출되었습니다!</h2>
-        <p className="text-xs text-zinc-400">
+        <h2 className="text-base sm:text-lg font-bold text-zinc-100">사전조사서가 성공적으로 제출되었습니다!</h2>
+        <p className="text-xs text-zinc-400 leading-relaxed">
           입력해주신 내용을 바탕으로 에이전시 전담 매니저가 인플루언서 모집을 시작합니다.
         </p>
       </div>
@@ -70,11 +70,11 @@ export default function PreSurveyPublicForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="p-8 rounded-3xl bg-[#131418] border border-[#22242A] space-y-6 shadow-2xl font-sans">
+    <form onSubmit={handleSubmit} className="p-5 sm:p-8 rounded-3xl bg-[#131418] border border-[#22242A] space-y-6 shadow-2xl font-sans">
       <div className="space-y-5 divide-y divide-[#22242A]">
         {template.questions.map((q, idx) => (
-          <div key={q.id} className={idx > 0 ? "pt-5 space-y-2" : "space-y-2"}>
-            <div className="flex items-center justify-between">
+          <div key={q.id} className={idx > 0 ? "pt-5 space-y-2.5" : "space-y-2.5"}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <label className="text-xs font-bold text-zinc-200">
                 {idx + 1}. {q.question} {q.required && <span className="text-blue-400">*</span>}
               </label>
@@ -82,7 +82,7 @@ export default function PreSurveyPublicForm({
                 type="button"
                 disabled={loadingAiMap[q.id]}
                 onClick={() => handleAiAssist(q.id, q.question)}
-                className="px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 text-[11px] font-semibold transition inline-flex items-center gap-1"
+                className="self-start sm:self-auto px-2.5 py-1.5 sm:py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center gap-1"
               >
                 {loadingAiMap[q.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                 <span>AI 추천받기</span>
@@ -104,7 +104,7 @@ export default function PreSurveyPublicForm({
       <button
         type="submit"
         disabled={submitting}
-        className="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-500/25 transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
+        className="w-full py-3.5 sm:py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-blue-500/25 transition disabled:opacity-50 inline-flex items-center justify-center gap-2 active:scale-[0.98]"
       >
         {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
         <span>사전조사 제출 완료하기</span>

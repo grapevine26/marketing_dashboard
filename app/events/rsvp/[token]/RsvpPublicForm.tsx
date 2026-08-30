@@ -50,13 +50,13 @@ export default function RsvpPublicForm({ event }: { event: MarketingEvent }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-left font-sans">
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         <label className="text-xs font-semibold text-zinc-300">참석 여부 선택 *</label>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => setFormData({ ...formData, rsvp_status: "attending" })}
-            className={`py-2 rounded-xl text-xs font-bold transition border ${
+            className={`py-3 sm:py-2 rounded-xl text-xs font-bold transition border active:scale-95 ${
               formData.rsvp_status === "attending"
                 ? "bg-indigo-600 border-indigo-500 text-white shadow-sm"
                 : "bg-[#090A0C] border-[#22242A] text-zinc-400"
@@ -67,7 +67,7 @@ export default function RsvpPublicForm({ event }: { event: MarketingEvent }) {
           <button
             type="button"
             onClick={() => setFormData({ ...formData, rsvp_status: "declined" })}
-            className={`py-2 rounded-xl text-xs font-medium transition border ${
+            className={`py-3 sm:py-2 rounded-xl text-xs font-medium transition border active:scale-95 ${
               formData.rsvp_status === "declined"
                 ? "bg-red-600 border-red-500 text-white"
                 : "bg-[#090A0C] border-[#22242A] text-zinc-400"
@@ -86,7 +86,7 @@ export default function RsvpPublicForm({ event }: { event: MarketingEvent }) {
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           placeholder="홍길동"
-          className="w-full px-3 py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
+          className="w-full px-3 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
         />
       </div>
 
@@ -98,11 +98,11 @@ export default function RsvpPublicForm({ event }: { event: MarketingEvent }) {
           value={formData.sns_link}
           onChange={(e) => setFormData({ ...formData, sns_link: e.target.value })}
           placeholder="https://instagram.com/your_id"
-          className="w-full px-3 py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
+          className="w-full px-3 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div className="space-y-1">
           <label className="text-xs font-semibold text-zinc-300">연락처 *</label>
           <input
@@ -111,7 +111,7 @@ export default function RsvpPublicForm({ event }: { event: MarketingEvent }) {
             value={formData.contact}
             onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
             placeholder="010-1234-5678"
-            className="w-full px-3 py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
+            className="w-full px-3 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
           />
         </div>
 
@@ -123,7 +123,7 @@ export default function RsvpPublicForm({ event }: { event: MarketingEvent }) {
             max={5}
             value={formData.party_size}
             onChange={(e) => setFormData({ ...formData, party_size: Number(e.target.value) })}
-            className="w-full px-3 py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
+            className="w-full px-3 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
           />
         </div>
       </div>
@@ -131,7 +131,7 @@ export default function RsvpPublicForm({ event }: { event: MarketingEvent }) {
       <button
         type="submit"
         disabled={submitting}
-        className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 transition disabled:opacity-50 inline-flex items-center justify-center gap-2"
+        className="w-full py-3.5 sm:py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-indigo-500/25 transition disabled:opacity-50 inline-flex items-center justify-center gap-2 active:scale-[0.98]"
       >
         {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
         <span>RSVP 회신 제출하기</span>

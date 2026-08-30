@@ -48,7 +48,7 @@ export default function TokenShareBox({ campaign }: { campaign: Campaign }) {
   };
 
   return (
-    <div className="p-6 rounded-3xl bg-[#131418] border border-[#22242A] space-y-4 shadow-xl">
+    <div className="p-5 sm:p-7 rounded-3xl bg-[#131418] border border-[#22242A] space-y-4 shadow-xl font-sans">
       <div className="flex items-center gap-2 text-sm font-bold text-zinc-100">
         <Share2 className="w-4 h-4 text-blue-400" />
         <span>캠페인 외부 공유 전용 링크 (토큰 기반 무로그인)</span>
@@ -58,44 +58,44 @@ export default function TokenShareBox({ campaign }: { campaign: Campaign }) {
         {links.map((item) => (
           <div
             key={item.key}
-            className="p-4 rounded-2xl bg-[#090A0C] border border-[#22242A] space-y-2 flex flex-col justify-between"
+            className="p-4 rounded-2xl bg-[#090A0C] border border-[#22242A] space-y-2.5 flex flex-col justify-between"
           >
             <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-zinc-200">{item.title}</span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold text-zinc-200 truncate">{item.title}</span>
                 <a
                   href={item.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-zinc-400 hover:text-blue-400 transition p-1"
+                  className="text-zinc-400 hover:text-blue-400 p-1 shrink-0"
                 >
-                  <ExternalLink className="w-3.5 h-3.5" />
+                  <ExternalLink className="w-4 h-4" />
                 </a>
               </div>
-              <p className="text-[11px] text-zinc-500 mt-0.5">{item.desc}</p>
+              <p className="text-[11px] text-zinc-500 mt-0.5 leading-relaxed">{item.desc}</p>
             </div>
 
-            <div className="flex items-center gap-2 pt-2 border-t border-[#181A20]">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-2 border-t border-[#181A20]">
               <input
                 type="text"
                 readOnly
                 value={item.url}
-                className="w-full bg-transparent text-[11px] text-zinc-400 font-mono focus:outline-none truncate"
+                className="w-full bg-[#131418] sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-lg text-[11px] text-zinc-400 font-mono focus:outline-none truncate border sm:border-0 border-[#22242A]"
               />
               <button
                 type="button"
                 onClick={() => handleCopy(item.key, item.url)}
-                className="px-2.5 py-1 rounded-lg bg-[#181A20] hover:bg-[#22242A] text-zinc-300 text-xs font-medium shrink-0 inline-flex items-center gap-1 transition"
+                className="w-full sm:w-auto px-3 py-2 sm:py-1 rounded-lg bg-[#181A20] hover:bg-[#22242A] text-zinc-300 active:scale-95 text-xs font-medium shrink-0 inline-flex items-center justify-center gap-1.5 transition"
               >
                 {copiedKey === item.key ? (
                   <>
-                    <Check className="w-3 h-3 text-blue-400" />
-                    <span className="text-blue-400">복사됨</span>
+                    <Check className="w-3.5 h-3.5 text-blue-400" />
+                    <span className="text-blue-400 font-bold">복사됨</span>
                   </>
                 ) : (
                   <>
-                    <Copy className="w-3 h-3 text-zinc-400" />
-                    <span>복사</span>
+                    <Copy className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>링크 복사</span>
                   </>
                 )}
               </button>
