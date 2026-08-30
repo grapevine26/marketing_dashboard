@@ -1,0 +1,203 @@
+{
+  "campaigns": [
+    {
+      "id": "c1",
+      "name": "글로우랩 하이드라 세럼 인플루언서 시딩",
+      "company_name": "글로우랩 코스메틱",
+      "campaign_type": "shipping",
+      "status": "active",
+      "pre_survey_token": "ps-glowlab-2026",
+      "apply_form_token": "apply-glowlab-2026",
+      "applicants_share_token": "app-share-glowlab-2026",
+      "seeding_sheet_share_token": "sheet-share-glowlab-2026",
+      "created_at": "2026-08-30T10:00:00.000Z"
+    }
+  ],
+  "pre_survey_template": {
+    "id": 1,
+    "questions": [
+      {
+        "id": "q1",
+        "question": "이번 캠페인에서 홍보하고자 하는 제품/서비스의 핵심 특징은 무엇인가요?",
+        "type": "textarea",
+        "required": true,
+        "placeholder": "예: 히알루론산 10중 배합으로 72시간 지속되는 보습력"
+      },
+      {
+        "id": "q2",
+        "question": "타겟 고객층 및 희망 인플루언서 톤앤매너를 알려주세요.",
+        "type": "textarea",
+        "required": true,
+        "placeholder": "예: 2030 여성, 자연스러운 일상 스킨케어 루틴 스타일"
+      },
+      {
+        "id": "q3",
+        "question": "콘텐츠 제작 시 반드시 포함되어야 할 필수 키워드 및 가이드라인이 있나요?",
+        "type": "textarea",
+        "required": false,
+        "placeholder": "예: 필수 해시태그 #수분세럼 #속건조해결, 텍스처 롤링 컷 포함"
+      }
+    ]
+  },
+  "pre_survey_responses": [
+    {
+      "id": "psr1",
+      "campaign_id": "c1",
+      "answers": {
+        "q1": "저희 글로우랩 하이드라 세럼의 핵심 특징은 '속건조 3초 개선'이라는 강력한 임상 효과와 '10중 저분자 히알루론산 배합'입니다. 피부 겉만 촉촉하게 하는 것이 아니라, 10가지 저분자 히알루론산이 피부 깊숙한 곳까지 침투하여 층층이 수분을 빈틈없이 채워주어 근본적인 속건조를 해결해줍니다. 실제로 인체 적용 시험을 통해 단 3초 만에 속건조가 개선됨이 확인되어, 즉각적이고 지속적인 수분감을 선사합니다. 끈적임 없이 산뜻하게 흡수되는 텍스처로 모든 피부 타입이 편안하게 사용할 수 있습니다.",
+        "q2": "글로우랩 하이드라 세럼의 핵심 타겟 고객층은 20대 후반에서 30대 중반의 직장인 여성입니다. 이들은 바쁜 일상 속에서도 피부 건강에 대한 관심이 높고, 성분에 대한 이해도가 있으며, 자신에게 맞는 효과적인 제품을 찾기 위해 적극적으로 정보를 탐색하는 경향이 있습니다. 따라서 인플루언서는 단순히 제품을 소개하는 것을 넘어, 하이드라 세럼의 주요 성분(예: 히알루론산, 판테놀 등)이 피부에 어떤 긍정적인 영향을 주는지 과학적이고 심층적으로 분석하여 전달해주시면 좋겠습니다. 또한, 바쁜 직장인 여성들이 실제 루틴에 제품을 어떻게 효과적으로 활용할 수 있는지 실용적인 팁과 함께 솔직하고 진정성 있는 사용 후기를 보여주며, 신뢰감을 주는 톤앤매너로 소통하는 인플루언서를 희망합니다. 피부 고민에 대한 공감대를 형성하고, 글로우랩 하이드라 세럼이 그들의 피부 갈증을 해결해 줄 수 있는 ‘똑똑한 선택’임을 어필해주시길 바랍니다.",
+        "q3": "네, 캠페인 콘텐츠 제작 시 아래 필수 키워드 및 가이드라인을 반드시 포함하여 주시면 감사하겠습니다.\n\n**[필수 키워드 및 해시태그]**\n*   **필수 해시태그:** #속건조세럼 #글로우랩 #수분폭탄세럼\n*   **추천 키워드 (자유롭게 활용):** #겉보속촉 #수분진정 #환절기세럼 #글로우랩하이드라세럼 #피부속수분\n\n**[필수 가이드라인]**\n1.  **콘텐츠 핵심 내용:** 글로우랩 하이드라 세럼 사용을 통한 '속건조 개선', '풍부한 수분 공급', '피부 진정' 및 '건강한 윤기'에 초점을 맞춰주세요.\n2.  **필수 포함 이미지/영상:** 세럼 도포 전후 '속건조 개선' 및 '수분감 증진'이 명확히 드러나는 비포 & 애프터 컷(사진 또는 영상)을 필수로 포함하며, 세럼을 직접 바르는 장면을 권장합니다.\n3.  **강조할 포인트:**\n    *   **제형 및 사용감:** 끈적임 없이 산뜻하게 흡수되면서도 피부 속 깊이 차오르는 수분감.\n    *   **효과:** 피부 속당김 해소, 촉촉함과 함께 건강하게 빛나는 피부 표현.\n4.  **피해야 할 표현:** 과장되거나 의학적인 효능을 암시하는 문구는 지양해 주세요.\n5.  **톤앤매너:** 진정성 있는 사용 후기 형태로, 독자들이 공감할 수 있는 솔직하고 친근한 어조로 작성 부탁드립니다."
+      },
+      "filled_by": "company",
+      "used_ai_assist": true,
+      "submitted_at": "2026-08-30T15:50:00.668Z"
+    }
+  ],
+  "campaign_form_configs": [
+    {
+      "id": "cfc1",
+      "campaign_id": "c1",
+      "intro_text": "안녕하세요! 글로우랩 신제품 '하이드라 세럼' 런칭 기념 인플루언서 시딩 체험단을 모집합니다. 솔직하고 감각적인 뷰티 콘텐츠를 함께 만들어갈 분들의 많은 지원 바랍니다 ✨",
+      "custom_questions": [
+        {
+          "id": "cq1",
+          "label": "현재 피부 타입 및 가장 큰 고민을 적어주세요.",
+          "type": "text",
+          "required": true
+        },
+        {
+          "id": "cq2",
+          "label": "평소 뷰티 콘텐츠 업로드 주기",
+          "type": "text",
+          "required": false
+        }
+      ],
+      "is_published": true,
+      "updated_at": "2026-08-30T11:30:00.000Z"
+    }
+  ],
+  "applicants": [
+    {
+      "id": "a1",
+      "campaign_id": "c1",
+      "name": "이지은",
+      "sns_link": "https://instagram.com/jieun_beauty",
+      "nationality": "대한민국",
+      "contact": "010-1234-5678",
+      "shipping_address": "서울특별시 강남구 테헤란로 123 401호",
+      "custom_answers": {
+        "cq1": "수부지 타입, 환절기 속당김 심함",
+        "cq2": "주 3~4회 릴스 및 피드"
+      },
+      "privacy_agreed": true,
+      "secondary_use_agreed": true,
+      "status": "selected",
+      "status_changed_by": "agency",
+      "status_changed_at": "2026-08-30T13:00:00.000Z",
+      "applied_at": "2026-08-30T12:00:00.000Z"
+    },
+    {
+      "id": "a2",
+      "campaign_id": "c1",
+      "name": "박민서",
+      "sns_link": "https://instagram.com/minseo_daily",
+      "nationality": "대한민국",
+      "contact": "010-9876-5432",
+      "shipping_address": "경기도 성남시 분당구 판교역로 100",
+      "custom_answers": {
+        "cq1": "건성, 수분 진정 케어 선호",
+        "cq2": "주 2회 업로드"
+      },
+      "privacy_agreed": true,
+      "secondary_use_agreed": true,
+      "status": "reserved",
+      "status_changed_by": "agency",
+      "status_changed_at": "2026-08-30T13:05:00.000Z",
+      "applied_at": "2026-08-30T12:30:00.000Z"
+    }
+  ],
+  "seeding_records": [
+    {
+      "id": "sr1",
+      "campaign_id": "c1",
+      "applicant_id": "a1",
+      "shipping_address": "서울특별시 강남구 테헤란로 123 401호",
+      "visit_scheduled_at": null,
+      "visit_party_size": null,
+      "progress_stage": "가이드전달완료",
+      "upload_deadline": "2026-09-10",
+      "upload_link": "",
+      "views": 0,
+      "engagement": 0,
+      "notes": "송장번호 CJ 123456789",
+      "updated_at": "2026-08-30T14:00:00.000Z"
+    }
+  ],
+  "reports": [],
+  "events": [
+    {
+      "id": "ev1",
+      "title": "글로우랩 2026 F/W 신제품 런칭 VIP 프라이빗 파티",
+      "company_name": "글로우랩 코스메틱",
+      "event_date": "2026-09-15",
+      "event_time": "18:00 - 21:00",
+      "location": "서울 성동구 성수이로 88 보테가 성수 2F",
+      "capacity": 30,
+      "dress_code": "클린 화이트 & 블루 포인트",
+      "guide_text": "신제품 하이드라 세럼 체험존 및 럭키드로우, 핑거푸드가 준비되어 있습니다.",
+      "rsvp_token": "rsvp-glowlab-fw2026",
+      "created_at": "2026-08-30T15:00:00.000Z"
+    }
+  ],
+  "event_guests": [
+    {
+      "id": "gst1",
+      "event_id": "ev1",
+      "name": "김하늘",
+      "sns_link": "https://instagram.com/haneul_style",
+      "contact": "010-3333-4444",
+      "rsvp_status": "attending",
+      "party_size": 2,
+      "checked_in": false,
+      "checked_in_at": null,
+      "review_link": null,
+      "notes": "동반인 1명 포함",
+      "updated_at": "2026-08-30T16:00:00.000Z"
+    }
+  ],
+  "sns_channels": [
+    {
+      "id": "ch1",
+      "name": "글로우랩 공식 인스타그램",
+      "platform": "instagram",
+      "company_name": "글로우랩 코스메틱",
+      "handle": "glowlab_official"
+    }
+  ],
+  "sns_posts": [
+    {
+      "id": "post1",
+      "channel_id": "ch1",
+      "scheduled_date": "2026-09-02",
+      "scheduled_time": "18:00",
+      "content_type": "reels",
+      "title": "3초 속건조 탈출! 하이드라 세럼 텍스처 릴스",
+      "visual_description": "유리볼에 떨어지는 워터리한 제형 클로즈업 + 피부 롤링 컷",
+      "caption_copy": "단 3초 만에 차오르는 깊은 수분감 💧\n글로우랩 하이드라 세럼으로 환절기 속건조 완벽 해결!",
+      "hashtags": [
+        "#글로우랩",
+        "#하이드라세럼",
+        "#수분세럼",
+        "#속건조해결",
+        "#올영세럼추천"
+      ],
+      "status": "approved",
+      "review_token": "rev-post1-glowlab",
+      "client_feedback": "카피 깔끔하고 좋습니다. 예정대로 발행 부탁드려요!",
+      "reach": 0,
+      "engagement": 0,
+      "published_url": null,
+      "created_at": "2026-08-30T16:30:00.000Z"
+    }
+  ]
+}

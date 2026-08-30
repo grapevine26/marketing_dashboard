@@ -1,0 +1,177 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createEventAction } from "./actions";
+import { Plus, X, Loader2, Calendar, MapPin, Users, Sparkles } from "lucide-react";
+
+export default function NewEventModal() {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  const [formData, setFormData] = useState({
+    title: "",
+    company_name: "",
+    event_date: "",
+    event_time: "15:00 - 18:00",
+    location: "",
+    capacity: 30,
+    dress_code: "스마트 캐주얼",
+    guide_text: "신제품 웰컴 기프트 및 VIP 체험 프로그램이 준비되어 있습니다.",
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await createEventAction(formData);
+      setOpen(false);
+      router.push(`/events/${res.event.id}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold shadow-md transition"
+      >
+        <Plus className="w-4 h-4" />
+        <span>새 행사 만들기</span>
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white">신규 인플루언서 행사 등록</h2>
+              <button
+                onClick={() => setOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-300">행사명 *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="예: 글로우랩 2026 F/W 런칭 VIP 프라이빗 파티"
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-300">브랜드 / 광고주 *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.company_name}
+                    onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                    placeholder="예: 글로우랩 코스메틱"
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-300">정원 (명) *</label>
+                  <input
+                    type="number"
+                    min={1}
+                    required
+                    value={formData.capacity}
+                    onChange={(e) => setFormData({ ...formData, capacity: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-300">행사 일자 *</label>
+                  <input
+                    type="date"
+                    required
+                    value={formData.event_date}
+                    onChange={(e) => setFormData({ ...formData, event_date: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-300">행사 시간 *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.event_time}
+                    onChange={(e) => setFormData({ ...formData, event_time: e.target.value })}
+                    placeholder="18:00 - 21:00"
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-300">행사 장소 *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  placeholder="예: 서울 성동구 성수이로 88 보테가 성수 2F"
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-300">드레스코드</label>
+                <input
+                  type="text"
+                  value={formData.dress_code}
+                  onChange={(e) => setFormData({ ...formData, dress_code: e.target.value })}
+                  placeholder="예: 클린 화이트 & 블루 포인트"
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-300">초대장 안내문구</label>
+                <textarea
+                  rows={2}
+                  value={formData.guide_text}
+                  onChange={(e) => setFormData({ ...formData, guide_text: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-md transition disabled:opacity-50"
+                >
+                  {loading ? "생성 중..." : "행사 생성하기"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
