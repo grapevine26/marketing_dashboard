@@ -22,7 +22,7 @@ export default function UnifiedCalendarWidget({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-emerald-400" />
+            <Calendar className="w-5 h-5 text-blue-400" />
             <span>통합 마케팅 타임라인 & 캘린더 ({filtered.length}건)</span>
           </h2>
           <p className="text-xs text-zinc-400 mt-0.5">
@@ -35,7 +35,7 @@ export default function UnifiedCalendarWidget({
           <button
             onClick={() => setFilterType("all")}
             className={`px-3 py-1.5 rounded-xl font-semibold transition ${
-              filterType === "all" ? "bg-emerald-600 text-white shadow-sm" : "text-zinc-400 hover:text-white"
+              filterType === "all" ? "bg-blue-600 text-white shadow-sm" : "text-zinc-400 hover:text-white"
             }`}
           >
             전체 ({scheduleItems.length})
@@ -44,7 +44,7 @@ export default function UnifiedCalendarWidget({
             onClick={() => setFilterType("seeding")}
             className={`px-3 py-1.5 rounded-xl font-semibold transition ${
               filterType === "seeding"
-                ? "bg-emerald-700 text-white shadow-sm"
+                ? "bg-blue-700 text-white shadow-sm"
                 : "text-zinc-400 hover:text-white"
             }`}
           >
@@ -54,7 +54,7 @@ export default function UnifiedCalendarWidget({
             onClick={() => setFilterType("event")}
             className={`px-3 py-1.5 rounded-xl font-semibold transition ${
               filterType === "event"
-                ? "bg-amber-600 text-white shadow-sm"
+                ? "bg-indigo-600 text-white shadow-sm"
                 : "text-zinc-400 hover:text-white"
             }`}
           >
@@ -64,7 +64,7 @@ export default function UnifiedCalendarWidget({
             onClick={() => setFilterType("sns")}
             className={`px-3 py-1.5 rounded-xl font-semibold transition ${
               filterType === "sns"
-                ? "bg-teal-600 text-white shadow-sm"
+                ? "bg-sky-600 text-white shadow-sm"
                 : "text-zinc-400 hover:text-white"
             }`}
           >
@@ -83,16 +83,16 @@ export default function UnifiedCalendarWidget({
             <Link
               key={item.id}
               href={item.link}
-              className="p-4 rounded-2xl bg-[#090A0C] border border-[#22242A] hover:border-[#353942] hover:bg-[#0E1013] transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+              className="p-4 rounded-2xl bg-[#090A0C] border border-[#22242A] hover:border-[#30343F] hover:bg-[#0E1013] transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
             >
               <div className="flex items-start sm:items-center gap-3">
                 <div
                   className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                     item.type === "seeding"
-                      ? "bg-emerald-500/10 text-emerald-400"
+                      ? "bg-blue-500/10 text-blue-400"
                       : item.type === "event"
-                      ? "bg-amber-500/10 text-amber-400"
-                      : "bg-teal-500/10 text-teal-400"
+                      ? "bg-indigo-500/10 text-indigo-400"
+                      : "bg-sky-500/10 text-sky-400"
                   }`}
                 >
                   {item.type === "seeding" && <FolderKanban className="w-4 h-4" />}
@@ -101,7 +101,7 @@ export default function UnifiedCalendarWidget({
                 </div>
 
                 <div className="space-y-0.5">
-                  <div className="text-sm font-bold text-zinc-100 group-hover:text-emerald-400 transition">
+                  <div className="text-sm font-bold text-zinc-100 group-hover:text-blue-400 transition">
                     {item.title}
                   </div>
                   <div className="text-xs text-zinc-400">{item.subtitle}</div>
@@ -116,15 +116,15 @@ export default function UnifiedCalendarWidget({
                 <span
                   className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
                     item.type === "seeding"
-                      ? "bg-emerald-500/10 text-emerald-400"
+                      ? "bg-blue-500/10 text-blue-400"
                       : item.type === "event"
-                      ? "bg-amber-500/10 text-amber-400"
-                      : "bg-teal-500/10 text-teal-400"
+                      ? "bg-indigo-500/10 text-indigo-400"
+                      : "bg-sky-500/10 text-sky-400"
                   }`}
                 >
                   {item.status}
                 </span>
-                <ArrowRight className="w-4 h-4 text-zinc-500 group-hover:text-emerald-400 group-hover:translate-x-0.5 transition" />
+                <ArrowRight className="w-4 h-4 text-zinc-500 group-hover:text-blue-400 group-hover:translate-x-0.5 transition" />
               </div>
             </Link>
           ))}
