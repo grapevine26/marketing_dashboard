@@ -26,7 +26,7 @@ export default async function DashboardOverviewPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6 font-sans">
-      {/* Top Banner - Compact on Mobile */}
+      {/* Top Banner */}
       <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-[#131418] border border-[#22242A] flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 shadow-xl">
         <div className="space-y-1">
           <div className="flex items-center gap-1.5 text-blue-400 text-xs font-semibold">
@@ -58,9 +58,9 @@ export default async function DashboardOverviewPage() {
         </div>
       </div>
 
-      {/* 3 Core Modules - Compact Horizontal Cards on Mobile, 3-Col on Desktop */}
+      {/* 3 Core Modules without A/B/C prefixes */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4">
-        {/* Module A */}
+        {/* Seeding */}
         <Link
           href="/campaigns"
           className="group p-3.5 sm:p-5 rounded-2xl bg-[#131418] border border-[#22242A] hover:border-blue-500/40 hover:bg-[#181A20] transition flex items-center justify-between sm:flex-col sm:items-stretch sm:justify-between gap-3 shadow-md active:scale-[0.99]"
@@ -70,11 +70,8 @@ export default async function DashboardOverviewPage() {
               <FolderKanban className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider hidden sm:block">
-                MODULE A
-              </div>
               <h2 className="text-sm sm:text-base font-bold text-zinc-100 group-hover:text-blue-400 transition">
-                A. 인플루언서 시딩
+                인플루언서 시딩
               </h2>
               <p className="text-[11px] text-zinc-400 hidden sm:block mt-0.5">
                 사전조사 • 신청폼 • 선정 • 송장추적
@@ -91,7 +88,7 @@ export default async function DashboardOverviewPage() {
           </div>
         </Link>
 
-        {/* Module B */}
+        {/* Events */}
         <Link
           href="/events"
           className="group p-3.5 sm:p-5 rounded-2xl bg-[#131418] border border-[#22242A] hover:border-indigo-500/40 hover:bg-[#181A20] transition flex items-center justify-between sm:flex-col sm:items-stretch sm:justify-between gap-3 shadow-md active:scale-[0.99]"
@@ -101,11 +98,8 @@ export default async function DashboardOverviewPage() {
               <PartyPopper className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider hidden sm:block">
-                MODULE B
-              </div>
               <h2 className="text-sm sm:text-base font-bold text-zinc-100 group-hover:text-indigo-400 transition">
-                B. 인플루언서 행사
+                인플루언서 행사
               </h2>
               <p className="text-[11px] text-zinc-400 hidden sm:block mt-0.5">
                 VIP 초청장 • RSVP • 현장 체크인
@@ -122,7 +116,7 @@ export default async function DashboardOverviewPage() {
           </div>
         </Link>
 
-        {/* Module C */}
+        {/* SNS */}
         <Link
           href="/sns"
           className="group p-3.5 sm:p-5 rounded-2xl bg-[#131418] border border-[#22242A] hover:border-sky-500/40 hover:bg-[#181A20] transition flex items-center justify-between sm:flex-col sm:items-stretch sm:justify-between gap-3 shadow-md active:scale-[0.99]"
@@ -132,11 +126,8 @@ export default async function DashboardOverviewPage() {
               <Camera className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider hidden sm:block">
-                MODULE C
-              </div>
               <h2 className="text-sm sm:text-base font-bold text-zinc-100 group-hover:text-sky-400 transition">
-                C. SNS 채널 운영
+                SNS 채널 운영
               </h2>
               <p className="text-[11px] text-zinc-400 hidden sm:block mt-0.5">
                 콘텐츠 기획 • Gemini AI • 시안 검수

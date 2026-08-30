@@ -1,6 +1,6 @@
 import { getEvents, getEventGuests } from "@/lib/db";
 import Link from "next/link";
-import { Plus, Calendar, MapPin, Users, ArrowRight, PartyPopper } from "lucide-react";
+import { Calendar, MapPin, ArrowRight, PartyPopper } from "lucide-react";
 import NewEventModal from "./NewEventModal";
 
 export const revalidate = 0;
@@ -14,7 +14,7 @@ export default async function EventsListPage() {
         <div>
           <h1 className="text-2xl font-bold text-zinc-100 tracking-tight flex items-center gap-2">
             <PartyPopper className="w-6 h-6 text-indigo-400" />
-            <span>B. 인플루언서 행사 관리</span>
+            <span>인플루언서 행사 관리</span>
           </h1>
           <p className="text-sm text-zinc-400">
             팝업스토어, 런칭 파티 등 오프라인 행사의 인플루언서 초청(RSVP), 참석자 명단 및 실시간 현장 체크인을 관리합니다.

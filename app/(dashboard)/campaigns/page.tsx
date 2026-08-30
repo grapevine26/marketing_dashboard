@@ -1,6 +1,6 @@
 import { getCampaigns } from "@/lib/db";
 import Link from "next/link";
-import { Plus, ArrowRight, Truck, Building2, FolderKanban } from "lucide-react";
+import { Plus, ArrowRight, Building2, FolderKanban } from "lucide-react";
 
 export const revalidate = 0;
 
@@ -13,7 +13,7 @@ export default async function CampaignsPage() {
         <div>
           <h1 className="text-2xl font-bold text-zinc-100 tracking-tight flex items-center gap-2">
             <FolderKanban className="w-6 h-6 text-blue-400" />
-            <span>A. 인플루언서 시딩 캠페인</span>
+            <span>인플루언서 시딩 캠페인</span>
           </h1>
           <p className="text-sm text-zinc-400">
             사전조사부터 신청폼, 인플루언서 선정, 배송/방문 관리시트 및 결과보고서까지 원스톱으로 관리합니다.

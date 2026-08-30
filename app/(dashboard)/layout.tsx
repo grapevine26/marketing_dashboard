@@ -39,19 +39,19 @@ export default function DashboardLayout({
       group: "마케팅 실행 모듈",
       items: [
         {
-          name: "A. 인플루언서 시딩",
+          name: "인플루언서 시딩",
           href: "/campaigns",
           icon: FolderKanban,
           color: "text-blue-400",
         },
         {
-          name: "B. 인플루언서 행사 (RSVP)",
+          name: "인플루언서 행사 (RSVP)",
           href: "/events",
           icon: PartyPopper,
           color: "text-indigo-400",
         },
         {
-          name: "C. SNS 채널 운영",
+          name: "SNS 채널 운영",
           href: "/sns",
           icon: Camera,
           color: "text-sky-400",
@@ -80,16 +80,13 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#090A0C] text-zinc-100 font-sans antialiased">
-      {/* Mobile Top Header (Visible on < md screens) */}
+      {/* Mobile Top Header */}
       <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-[#0D0E12]/95 backdrop-blur-md border-b border-[#22242A]">
         <Link href="/" className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white text-xs shadow-md shadow-blue-500/20">
             M
           </div>
           <span className="font-bold text-zinc-100 text-sm tracking-tight">마케팅 올인원</span>
-          <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/20">
-            PRO
-          </span>
         </Link>
 
         <button
@@ -110,7 +107,7 @@ export default function DashboardLayout({
         />
       )}
 
-      {/* Sidebar Drawer (Mobile Slide-out & Desktop Static Sidebar) */}
+      {/* Sidebar Drawer */}
       <aside
         className={`fixed md:sticky top-0 bottom-0 left-0 z-50 w-72 md:w-64 border-r border-[#22242A] bg-[#0D0E12] flex flex-col p-4 space-y-6 shrink-0 transition-transform duration-300 ease-in-out md:translate-x-0 ${
           mobileMenuOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"
@@ -124,9 +121,6 @@ export default function DashboardLayout({
             </div>
             <div>
               <span className="font-bold text-zinc-100 text-sm tracking-tight">마케팅 올인원</span>
-              <span className="ml-1.5 text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/20">
-                PRO
-              </span>
             </div>
           </Link>
 
