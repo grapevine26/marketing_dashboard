@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   TrendingUp,
   Settings,
+  Palette,
   Building2,
 } from "lucide-react";
 import UnifiedCalendarWidget from "./UnifiedCalendarWidget";
@@ -60,6 +61,13 @@ export default async function HomePage() {
           >
             <Calendar className="w-4 h-4" />
             <span>오버뷰 / 통합 캘린더</span>
+          </Link>
+          <Link
+            href="/design-preview"
+            className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-indigo-300 bg-indigo-950/40 border border-indigo-900/50 hover:text-white hover:bg-indigo-900/50 transition"
+          >
+            <Palette className="w-4 h-4 text-indigo-400" />
+            <span>🎨 대시보드 시안 3종 비교</span>
           </Link>
 
           <div className="pt-5 px-3 pb-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
@@ -132,22 +140,29 @@ export default async function HomePage() {
 
             <div className="flex flex-wrap gap-2.5">
               <Link
+                href="/design-preview"
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold shadow-md transition flex items-center gap-1.5"
+              >
+                <Palette className="w-4 h-4" />
+                <span>🎨 시안 3종 비교</span>
+              </Link>
+              <Link
                 href="/campaigns/new"
                 className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md transition"
               >
-                + 새 시딩 캠페인
+                + 새 시딩
               </Link>
               <Link
                 href="/events"
                 className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-md transition"
               >
-                + 새 오프라인 행사
+                + 새 행사
               </Link>
               <Link
                 href="/sns"
                 className="px-4 py-2.5 rounded-xl bg-pink-600 hover:bg-pink-500 text-white text-xs font-bold shadow-md transition"
               >
-                + 새 SNS 콘텐츠
+                + 새 SNS
               </Link>
             </div>
           </div>

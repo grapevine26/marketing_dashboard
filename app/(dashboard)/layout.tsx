@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FolderKanban, PlusCircle, Settings, Home, Sparkles, PartyPopper, Camera, Calendar } from "lucide-react";
+import { FolderKanban, PlusCircle, Settings, Home, Sparkles, PartyPopper, Camera, Calendar, Palette } from "lucide-react";
 
 export default function DashboardLayout({
   children,
@@ -34,6 +34,13 @@ export default function DashboardLayout({
           >
             <Calendar className="w-4 h-4 text-blue-400" />
             <span>오버뷰 / 통합 캘린더</span>
+          </Link>
+          <Link
+            href="/design-preview"
+            className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-indigo-300 bg-indigo-950/40 border border-indigo-900/50 hover:text-white hover:bg-indigo-900/50 transition"
+          >
+            <Palette className="w-4 h-4 text-indigo-400" />
+            <span>🎨 대시보드 시안 3종 비교</span>
           </Link>
 
           <div className="pt-5 px-3 pb-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
