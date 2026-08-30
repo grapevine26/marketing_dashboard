@@ -76,20 +76,20 @@ export default function NewPostModal({ channels }: { channels: SnsChannel[] }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-pink-600 hover:bg-pink-500 text-white text-sm font-semibold shadow-md transition"
+        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold shadow-md transition"
       >
         <Plus className="w-4 h-4" />
         <span>새 콘텐츠 기획 등록</span>
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[#131418] border border-[#22242A] rounded-3xl p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto font-sans">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-white">신규 SNS 콘텐츠 기획안 등록</h2>
+              <h2 className="text-base font-bold text-zinc-100">신규 SNS 콘텐츠 기획안 등록</h2>
               <button
                 onClick={() => setOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white"
+                className="p-1 rounded-lg text-zinc-400 hover:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -98,11 +98,11 @@ export default function NewPostModal({ channels }: { channels: SnsChannel[] }) {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-300">운영 채널 *</label>
+                  <label className="text-xs font-semibold text-zinc-300">운영 채널 *</label>
                   <select
                     value={formData.channel_id}
                     onChange={(e) => setFormData({ ...formData, channel_id: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-pink-500"
+                    className="w-full px-3 py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
                   >
                     {channels.map((ch) => (
                       <option key={ch.id} value={ch.id}>
@@ -113,13 +113,13 @@ export default function NewPostModal({ channels }: { channels: SnsChannel[] }) {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-300">콘텐츠 유형 *</label>
+                  <label className="text-xs font-semibold text-zinc-300">콘텐츠 유형 *</label>
                   <select
                     value={formData.content_type}
                     onChange={(e) =>
                       setFormData({ ...formData, content_type: e.target.value as any })
                     }
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-pink-500 uppercase"
+                    className="w-full px-3 py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500 uppercase"
                   >
                     <option value="reels">릴스 (Reels)</option>
                     <option value="feed">피드 이미지 (Feed)</option>
@@ -131,42 +131,42 @@ export default function NewPostModal({ channels }: { channels: SnsChannel[] }) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-300">발행 예정 일자 *</label>
+                  <label className="text-xs font-semibold text-zinc-300">발행 예정 일자 *</label>
                   <input
                     type="date"
                     required
                     value={formData.scheduled_date}
                     onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-pink-500"
+                    className="w-full px-3 py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-300">발행 시간 *</label>
+                  <label className="text-xs font-semibold text-zinc-300">발행 시간 *</label>
                   <input
                     type="text"
                     required
                     value={formData.scheduled_time}
                     onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })}
                     placeholder="18:00"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-pink-500"
+                    className="w-full px-3 py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-300">콘텐츠 제목 / 주제 *</label>
+                <label className="text-xs font-semibold text-zinc-300">콘텐츠 제목 / 주제 *</label>
                 <input
                   type="text"
                   required
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder="예: 3초 속건조 탈출! 하이드라 세럼 텍스처 릴스"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-pink-500"
+                  className="w-full px-3 py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-300">비주얼 시안 / 연출 설명 *</label>
+                <label className="text-xs font-semibold text-zinc-300">비주얼 시안 / 연출 설명 *</label>
                 <textarea
                   rows={2}
                   required
@@ -175,23 +175,23 @@ export default function NewPostModal({ channels }: { channels: SnsChannel[] }) {
                     setFormData({ ...formData, visual_description: e.target.value })
                   }
                   placeholder="예: 유리볼에 떨어지는 워터리 제형 클로즈업 + 피부 롤링 비포애프터"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-pink-500"
+                  className="w-full px-3 py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
                 />
               </div>
 
-              <div className="space-y-1.5 pt-2 border-t border-slate-800">
+              <div className="space-y-1.5 pt-2 border-t border-[#22242A]">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-300">캡션 본문 (카피)</label>
+                  <label className="text-xs font-semibold text-zinc-300">캡션 본문 (카피)</label>
                   <button
                     type="button"
                     disabled={loadingAi}
                     onClick={handleAiAssist}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-pink-500/20 text-pink-300 border border-pink-500/30 text-[11px] font-semibold transition"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[11px] font-semibold transition"
                   >
                     {loadingAi ? (
                       <Loader2 className="w-3 h-3 animate-spin" />
                     ) : (
-                      <Sparkles className="w-3 h-3 text-pink-400" />
+                      <Sparkles className="w-3 h-3 text-sky-400" />
                     )}
                     <span>Gemini AI 카피 작성</span>
                   </button>
@@ -202,18 +202,18 @@ export default function NewPostModal({ channels }: { channels: SnsChannel[] }) {
                   value={formData.caption_copy}
                   onChange={(e) => setFormData({ ...formData, caption_copy: e.target.value })}
                   placeholder="캡션 본문 내용을 입력하세요."
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-pink-500"
+                  className="w-full px-3 py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-300">해시태그 (공백 구분)</label>
+                <label className="text-xs font-semibold text-zinc-300">해시태그 (공백 구분)</label>
                 <input
                   type="text"
                   value={formData.hashtags}
                   onChange={(e) => setFormData({ ...formData, hashtags: e.target.value })}
                   placeholder="#글로우랩 #수분세럼 #올영추천"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:outline-none focus:border-pink-500"
+                  className="w-full px-3 py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
                 />
               </div>
 
@@ -221,14 +221,14 @@ export default function NewPostModal({ channels }: { channels: SnsChannel[] }) {
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium"
+                  className="px-4 py-2 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 text-xs font-medium"
                 >
                   취소
                 </button>
                 <button
                   type="submit"
                   disabled={loadingSubmit}
-                  className="px-5 py-2 rounded-xl bg-pink-600 hover:bg-pink-500 text-white text-xs font-semibold shadow-md transition disabled:opacity-50"
+                  className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold shadow-md transition disabled:opacity-50"
                 >
                   {loadingSubmit ? "등록 중..." : "기획안 등록"}
                 </button>

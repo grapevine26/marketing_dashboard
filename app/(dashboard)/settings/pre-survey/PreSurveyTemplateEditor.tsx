@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { PreSurveyTemplate, PreSurveyQuestion } from "@/lib/db/types";
 import { saveTemplateAction } from "./actions";
-import { Plus, Trash2, Save, Check } from "lucide-react";
+import { Plus, Trash2, Save, CheckCircle2, ArrowLeft, Loader2 } from "lucide-react";
+import Link from "next/link";
 
 export default function PreSurveyTemplateEditor({
   initialTemplate,
@@ -13,121 +14,128 @@ export default function PreSurveyTemplateEditor({
   const [questions, setQuestions] = useState<PreSurveyQuestion[]>(
     initialTemplate.questions || []
   );
-  const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
-  const addQuestion = () => {
+  const handleAdd = () => {
     const newQ: PreSurveyQuestion = {
-      id: "q_" + Date.now(),
+      id: `q_${Date.now()}`,
       question: "",
       type: "textarea",
       required: true,
-      placeholder: "",
+      placeholder: "답변 가이드를 입력하세요...",
     };
     setQuestions([...questions, newQ]);
   };
 
-  const removeQuestion = (id: string) => {
+  const handleRemove = (id: string) => {
     setQuestions(questions.filter((q) => q.id !== id));
-  };
-
-  const updateQuestion = (id: string, patch: Partial<PreSurveyQuestion>) => {
-    setQuestions(
-      questions.map((q) => (q.id === id ? { ...q, ...patch } : q))
-    );
   };
 
   const handleSave = async () => {
     setSaving(true);
-    await saveTemplateAction({ id: 1, questions });
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    try {
+      await saveTemplateAction({
+        id: initialTemplate.id,
+        questions,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+    <div className="space-y-6 max-w-4xl mx-auto font-sans">
+      <div className="space-y-1">
+        <Link
+          href="/"
+          className="text-xs text-zinc-400 hover:text-white inline-flex items-center gap-1 transition"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>대시보드로 돌아가기</span>
+        </Link>
+        <h1 className="text-xl font-bold text-zinc-100">사전조사 글로벌 템플릿 관리</h1>
+        <p className="text-xs text-zinc-400">
+          모든 신규 캠페인 생성 시 기본으로 적용되는 사전조사 질문 틀을 편집합니다.
+        </p>
+      </div>
+
+      <div className="p-8 rounded-3xl bg-[#131418] border border-[#22242A] space-y-6 shadow-xl">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-white">사전 질문 목록 ({questions.length}개)</h2>
+          <h2 className="text-sm font-bold text-zinc-100">기본 질문 목록 ({questions.length}문항)</h2>
           <button
             type="button"
-            onClick={addQuestion}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition"
+            onClick={handleAdd}
+            className="px-3 py-1.5 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-200 text-xs font-semibold inline-flex items-center gap-1 transition"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>질문 추가</span>
           </button>
         </div>
 
-        {questions.length === 0 ? (
-          <p className="text-sm text-slate-400 py-8 text-center">등록된 질문이 없습니다.</p>
-        ) : (
-          <div className="space-y-4">
-            {questions.map((q, idx) => (
-              <div
-                key={q.id}
-                className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-blue-400">질문 #{idx + 1}</span>
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={q.required}
-                        onChange={(e) => updateQuestion(q.id, { required: e.target.checked })}
-                      />
-                      <span>필수 질문</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => removeQuestion(q.id)}
-                      className="p-1 rounded text-slate-400 hover:text-red-400 transition"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
+        <div className="space-y-4">
+          {questions.map((q, idx) => (
+            <div
+              key={q.id}
+              className="p-5 rounded-2xl bg-[#090A0C] border border-[#22242A] space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-mono text-zinc-500 font-bold">문항 {idx + 1}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemove(q.id)}
+                  className="p-1 text-zinc-500 hover:text-red-400 transition"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
 
+              <div className="space-y-2">
                 <input
                   type="text"
                   value={q.question}
-                  onChange={(e) => updateQuestion(q.id, { question: e.target.value })}
-                  placeholder="질문 내용을 입력하세요"
-                  className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-blue-500"
+                  onChange={(e) => {
+                    const updated = [...questions];
+                    updated[idx].question = e.target.value;
+                    setQuestions(updated);
+                  }}
+                  placeholder="질문 제목을 입력하세요..."
+                  className="w-full px-3 py-2 rounded-lg bg-[#131418] border border-[#22242A] text-zinc-100 text-xs font-bold focus:outline-none focus:border-blue-500"
                 />
-
                 <input
                   type="text"
                   value={q.placeholder || ""}
-                  onChange={(e) => updateQuestion(q.id, { placeholder: e.target.value })}
-                  placeholder="광고주 입력 안내 가이드(Placeholder)"
-                  className="w-full px-3 py-1.5 rounded-lg bg-slate-900/60 border border-slate-800 text-slate-300 text-xs focus:outline-none focus:border-blue-500"
+                  onChange={(e) => {
+                    const updated = [...questions];
+                    updated[idx].placeholder = e.target.value;
+                    setQuestions(updated);
+                  }}
+                  placeholder="플레이스홀더 예시 텍스트..."
+                  className="w-full px-3 py-1.5 rounded-lg bg-[#131418] border border-[#22242A] text-zinc-400 text-xs focus:outline-none focus:border-blue-500"
                 />
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ))}
+        </div>
 
-        <div className="pt-4 flex justify-end gap-3">
+        <div className="pt-4 border-t border-[#22242A] flex items-center justify-between">
+          <div>
+            {saved && (
+              <span className="text-xs text-blue-400 font-semibold flex items-center gap-1">
+                <CheckCircle2 className="w-4 h-4" /> 템플릿이 저장되었습니다!
+              </span>
+            )}
+          </div>
           <button
             type="button"
-            onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-md transition disabled:opacity-50"
+            onClick={handleSave}
+            className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md transition disabled:opacity-50 inline-flex items-center gap-1.5"
           >
-            {saved ? (
-              <>
-                <Check className="w-4 h-4 text-emerald-300" />
-                <span>저장 완료!</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                <span>{saving ? "저장 중..." : "템플릿 저장하기"}</span>
-              </>
-            )}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            <span>템플릿 저장</span>
           </button>
         </div>
       </div>

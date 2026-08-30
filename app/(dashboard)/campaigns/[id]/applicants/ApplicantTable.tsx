@@ -3,7 +3,16 @@
 import { useState } from "react";
 import { Campaign, Applicant, ApplicantStatus } from "@/lib/db/types";
 import { changeApplicantStatusAction } from "./actions";
-import { Download, ExternalLink, AlertTriangle, Check, Clock, XCircle, Search, Filter } from "lucide-react";
+import {
+  Search,
+  ExternalLink,
+  Download,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  AlertTriangle,
+  Users,
+} from "lucide-react";
 
 export default function ApplicantTable({
   campaign,
@@ -17,247 +26,168 @@ export default function ApplicantTable({
   isPublicShare?: boolean;
 }) {
   const [applicants, setApplicants] = useState<Applicant[]>(initialApplicants);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
-  const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const handleStatusChange = async (applicantId: string, newStatus: ApplicantStatus) => {
-    setLoadingId(applicantId);
-    try {
-      await changeApplicantStatusAction({
-        applicantId,
-        status: newStatus,
-        changedBy: isPublicShare ? "company" : "agency",
-        campaignId: campaign.id,
-      });
+  const handleStatusChange = async (applicantId: string, status: ApplicantStatus) => {
+    await changeApplicantStatusAction({
+      applicantId,
+      status,
+      changedBy: isPublicShare ? "company" : "agency",
+      campaignId: campaign.id,
+    });
 
-      setApplicants((prev) =>
-        prev.map((a) =>
-          a.id === applicantId
-            ? {
-                ...a,
-                status: newStatus,
-                status_changed_by: isPublicShare ? "company" : "agency",
-                status_changed_at: new Date().toISOString(),
-              }
-            : a
-        )
-      );
-    } finally {
-      setLoadingId(null);
-    }
+    setApplicants((prev) =>
+      prev.map((a) =>
+        a.id === applicantId ? { ...a, status, status_changed_by: isPublicShare ? "company" : "agency" } : a
+      )
+    );
   };
 
   const filtered = applicants.filter((a) => {
     if (statusFilter !== "all" && a.status !== statusFilter) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      return (
-        a.name.toLowerCase().includes(q) ||
-        a.sns_link.toLowerCase().includes(q) ||
-        a.contact.includes(q)
-      );
-    }
-    return true;
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      a.name.toLowerCase().includes(q) ||
+      a.contact.includes(q) ||
+      a.sns_link.toLowerCase().includes(q)
+    );
   });
 
   const selectedCount = applicants.filter((a) => a.status === "selected").length;
   const reservedCount = applicants.filter((a) => a.status === "reserved").length;
 
   return (
-    <div className="space-y-4">
-      {/* Top Filter and Actions Bar */}
-      <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
+    <div className="p-6 sm:p-8 rounded-3xl bg-[#131418] border border-[#22242A] space-y-6 shadow-xl font-sans">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <div className="relative w-64">
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="이름, SNS, 연락처 검색..."
-              className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              placeholder="이름, 연락처, SNS 검색..."
+              className="w-full pl-8 pr-3 py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
             />
-            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
+            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-3" />
           </div>
 
-          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
-            <button
-              onClick={() => setStatusFilter("all")}
-              className={`px-3 py-1 rounded-lg font-medium transition ${
-                statusFilter === "all" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
-              }`}
-            >
-              전체 ({applicants.length})
-            </button>
-            <button
-              onClick={() => setStatusFilter("selected")}
-              className={`px-3 py-1 rounded-lg font-medium transition ${
-                statusFilter === "selected"
-                  ? "bg-emerald-600 text-white"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              최종선정 ({selectedCount})
-            </button>
-            <button
-              onClick={() => setStatusFilter("reserved")}
-              className={`px-3 py-1 rounded-lg font-medium transition ${
-                statusFilter === "reserved"
-                  ? "bg-amber-600 text-white"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              예비선정 ({reservedCount})
-            </button>
-          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500 font-semibold"
+          >
+            <option value="all">전체 ({applicants.length})</option>
+            <option value="applied">미선정 ({applicants.filter((a) => a.status === "applied").length})</option>
+            <option value="selected">최종선정 ({selectedCount})</option>
+            <option value="reserved">예비선정 ({reservedCount})</option>
+          </select>
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+        <div className="flex items-center gap-2">
           <a
             href={`/api/applicants/export?campaignId=${campaign.id}`}
-            download
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition"
+            className="px-4 py-2 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-200 text-xs font-semibold inline-flex items-center gap-1.5 transition border border-[#22242A]"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>CSV 내보내기</span>
+            <span>CSV 다운로드 (UTF-8)</span>
           </a>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden overflow-x-auto">
+      <div className="rounded-2xl border border-[#22242A] overflow-hidden overflow-x-auto">
         <table className="w-full text-left text-xs">
-          <thead className="bg-slate-950/80 text-slate-400 border-b border-slate-800 font-semibold">
+          <thead className="bg-[#090A0C] text-zinc-400 border-b border-[#22242A]">
             <tr>
-              <th className="p-3.5">인플루언서</th>
-              <th className="p-3.5">SNS 채널</th>
+              <th className="p-3.5">지원자명</th>
+              <th className="p-3.5">SNS 계정</th>
               <th className="p-3.5">연락처 / 국적</th>
-              <th className="p-3.5">
-                {campaign.campaign_type === "shipping" ? "배송지 주소" : "방문일정 / 인원"}
-              </th>
-              <th className="p-3.5">추가 답변</th>
-              <th className="p-3.5">현재 상태</th>
-              <th className="p-3.5 text-center">선정 액션</th>
+              <th className="p-3.5">중복 감지</th>
+              <th className="p-3.5">선정 상태</th>
+              <th className="p-3.5 text-right">선정 결정 액션</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800/60 text-slate-300">
+          <tbody className="divide-y divide-[#22242A] text-zinc-300">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-slate-500">
-                  조건에 맞는 지원자가 없습니다.
+                <td colSpan={6} className="p-8 text-center text-zinc-500">
+                  접수된 지원자가 없습니다.
                 </td>
               </tr>
             ) : (
-              filtered.map((app) => {
-                const dups = duplicatesObj[app.id];
-                return (
-                  <tr key={app.id} className="hover:bg-slate-800/40 transition">
-                    <td className="p-3.5 font-medium text-white">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-semibold">{app.name}</span>
-                        {dups && dups.length > 0 && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-[10px] text-red-400">
-                            <AlertTriangle className="w-3 h-3" />
-                            <span>{dups.join(", ")}</span>
-                          </span>
-                        )}
-                      </div>
-                    </td>
+              filtered.map((a) => {
+                const dups = duplicatesObj[a.contact] || duplicatesObj[a.sns_link] || [];
+                const hasDups = dups.length > 1;
 
+                return (
+                  <tr key={a.id} className="hover:bg-[#181A20] transition">
+                    <td className="p-3.5 font-bold text-zinc-100">{a.name}</td>
                     <td className="p-3.5">
                       <a
-                        href={app.sns_link}
+                        href={a.sns_link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-400 hover:underline inline-flex items-center gap-1 max-w-[180px] truncate"
+                        className="text-blue-400 hover:underline inline-flex items-center gap-1 truncate max-w-[140px]"
                       >
-                        <span className="truncate">{app.sns_link}</span>
+                        <span>{a.sns_link}</span>
                         <ExternalLink className="w-3 h-3 shrink-0" />
                       </a>
                     </td>
-
-                    <td className="p-3.5 space-y-0.5">
-                      <div className="font-mono text-slate-200">{app.contact}</div>
-                      <div className="text-[11px] text-slate-400">{app.nationality}</div>
-                    </td>
-
-                    <td className="p-3.5 max-w-[200px]">
-                      {campaign.campaign_type === "shipping" ? (
-                        <span className="text-slate-300 line-clamp-2">
-                          {app.shipping_address || "-"}
-                        </span>
-                      ) : (
-                        <div className="space-y-0.5">
-                          <span className="text-slate-200">{app.visit_schedule || "-"}</span>
-                          <div className="text-[11px] text-slate-400">
-                            {app.visit_party_size ? `${app.visit_party_size}명` : ""}
-                          </div>
-                        </div>
-                      )}
-                    </td>
-
-                    <td className="p-3.5 max-w-[180px]">
-                      {Object.keys(app.custom_answers || {}).length > 0 ? (
-                        <div className="space-y-1 text-[11px] text-slate-400">
-                          {Object.entries(app.custom_answers).map(([k, v]) => (
-                            <div key={k} className="truncate">
-                              • {String(v)}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-slate-600">-</span>
-                      )}
-                    </td>
-
                     <td className="p-3.5">
-                      {app.status === "selected" && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold">
-                          <Check className="w-3 h-3" /> 최종선정
+                      <div className="font-mono text-zinc-200">{a.contact}</div>
+                      <div className="text-[10px] text-zinc-500">{a.nationality}</div>
+                    </td>
+                    <td className="p-3.5">
+                      {hasDups ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-semibold">
+                          <AlertTriangle className="w-3 h-3" />
+                          <span>중복 {dups.length}회</span>
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-zinc-500">정상</span>
+                      )}
+                    </td>
+                    <td className="p-3.5">
+                      {a.status === "selected" && (
+                        <span className="px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[11px] font-bold">
+                          최종선정 ✓
                         </span>
                       )}
-                      {app.status === "reserved" && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-semibold">
-                          <Clock className="w-3 h-3" /> 예비선정
+                      {a.status === "reserved" && (
+                        <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[11px] font-semibold">
+                          예비선정
                         </span>
                       )}
-                      {app.status === "rejected" && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 text-xs">
-                          <XCircle className="w-3 h-3" /> 미선정
-                        </span>
-                      )}
-                      {app.status === "applied" && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 text-xs">
-                          접수됨
+                      {a.status === "applied" && (
+                        <span className="px-2 py-0.5 rounded-full bg-[#181A20] text-zinc-400 text-[11px]">
+                          미선정
                         </span>
                       )}
                     </td>
-
-                    <td className="p-3.5 text-center">
+                    <td className="p-3.5 text-right">
                       <div className="inline-flex items-center gap-1.5">
                         <button
                           type="button"
-                          disabled={loadingId === app.id || app.status === "selected"}
-                          onClick={() => handleStatusChange(app.id, "selected")}
-                          className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition disabled:opacity-40"
+                          onClick={() => handleStatusChange(a.id, "selected")}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
+                            a.status === "selected"
+                              ? "bg-blue-600 text-white shadow-sm"
+                              : "bg-[#181A20] hover:bg-[#22242A] text-zinc-300"
+                          }`}
                         >
                           최종선정
                         </button>
                         <button
                           type="button"
-                          disabled={loadingId === app.id || app.status === "reserved"}
-                          onClick={() => handleStatusChange(app.id, "reserved")}
-                          className="px-2.5 py-1 rounded-lg bg-amber-600/80 hover:bg-amber-500 text-white text-xs font-semibold transition disabled:opacity-40"
+                          onClick={() => handleStatusChange(a.id, "reserved")}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
+                            a.status === "reserved"
+                              ? "bg-amber-600 text-white shadow-sm"
+                              : "bg-[#181A20] hover:bg-[#22242A] text-zinc-300"
+                          }`}
                         >
-                          예비선정
-                        </button>
-                        <button
-                          type="button"
-                          disabled={loadingId === app.id || app.status === "rejected"}
-                          onClick={() => handleStatusChange(app.id, "rejected")}
-                          className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-red-400 text-xs transition disabled:opacity-40"
-                        >
-                          제외
+                          예비
                         </button>
                       </div>
                     </td>

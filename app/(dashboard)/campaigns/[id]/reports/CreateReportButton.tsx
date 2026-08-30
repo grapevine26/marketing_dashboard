@@ -24,13 +24,9 @@ export default function CreateReportButton({ campaignId }: { campaignId: string 
       type="button"
       disabled={loading}
       onClick={handleCreate}
-      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold shadow-md transition disabled:opacity-50"
+      className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md transition disabled:opacity-50 inline-flex items-center gap-1.5"
     >
-      {loading ? (
-        <Loader2 className="w-4 h-4 animate-spin" />
-      ) : (
-        <Plus className="w-4 h-4" />
-      )}
+      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
       <span>새 결과보고서 생성</span>
     </button>
   );
