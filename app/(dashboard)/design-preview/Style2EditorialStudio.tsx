@@ -1,193 +1,126 @@
 "use client";
 
 import {
-  TrendingUp,
-  CheckCircle2,
   Calendar,
-  Eye,
-  Users,
-  Search,
-  Filter,
+  FolderKanban,
+  PartyPopper,
+  Camera,
   ArrowRight,
   Clock,
   Sparkles,
-  ChevronDown,
+  CheckCircle2,
 } from "lucide-react";
 
-export default function StyleBLinearDark() {
+export default function Theme2GraphiteEmerald() {
   return (
-    <div className="bg-[#0D1117] text-slate-100 p-8 rounded-3xl border border-slate-800 space-y-6 shadow-2xl font-sans">
-      {/* Top Bar with Filter & Search */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-800/80">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-white tracking-tight">
-              실무 마케팅 오퍼레이션 대시보드
-            </h2>
-            <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-semibold">
-              Live Ops
-            </span>
+    <div className="bg-[#090A0C] text-zinc-100 p-6 sm:p-8 rounded-3xl border border-[#22242A] space-y-6 font-sans shadow-2xl">
+      {/* Top Banner */}
+      <div className="p-6 rounded-2xl bg-gradient-to-r from-[#181A1F] via-[#121316] to-[#0D1F18] border border-[#2B2E36] flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1.5">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
+            <Sparkles className="w-3 h-3" />
+            <span>Obsidian Graphite & Emerald Theme</span>
           </div>
-          <p className="text-xs text-slate-400">
-            캠페인 파이프라인, 실시간 인플루언서 이행률 및 성과 지표
+          <h2 className="text-xl font-bold text-zinc-100">통합 마케팅 오버뷰 & 전체 일정</h2>
+          <p className="text-xs text-zinc-400">
+            Raycast / Supabase 스타일: 깊은 흑연 블랙과 선명한 에메랄드로 시인성이 뛰어납니다.
           </p>
         </div>
-
-        <div className="flex items-center gap-2">
-          <div className="relative w-56">
-            <input
-              type="text"
-              placeholder="인플루언서 또는 캠페인 검색..."
-              className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-            />
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
-          </div>
-          <button className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition">
-            + 새 작업
+        <div className="flex gap-2">
+          <button className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition">
+            + 새 시딩
+          </button>
+          <button className="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold border border-zinc-700 transition">
+            + 새 행사
           </button>
         </div>
       </div>
 
-      {/* 4-KPI Metric Cards with Progress Bars */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-3">
-          <div className="flex items-center justify-between text-xs text-slate-400">
-            <span>활성 시딩 캠페인</span>
-            <Users className="w-4 h-4 text-blue-400" />
-          </div>
-          <div className="text-2xl font-extrabold text-white">08개</div>
-          <div className="space-y-1">
-            <div className="flex justify-between text-[11px] text-slate-400">
-              <span>목표 달성률</span>
-              <span className="text-blue-400 font-semibold">92%</span>
+      {/* 3-Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="p-5 rounded-2xl bg-[#131418] border border-[#22242A] hover:border-emerald-500/40 transition space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+              <FolderKanban className="w-4 h-4" />
             </div>
-            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-              <div className="bg-blue-500 h-full w-[92%]" />
-            </div>
+            <span className="text-xs text-emerald-400 font-semibold">관리 →</span>
           </div>
+          <div>
+            <span className="text-xs text-zinc-400">A. 인플루언서 시딩</span>
+            <div className="text-2xl font-bold text-zinc-100 mt-0.5">8개 캠페인</div>
+          </div>
+          <p className="text-[11px] text-zinc-500">사전조사, 신청폼, 시딩시트, 결과보고서</p>
         </div>
 
-        <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-3">
-          <div className="flex items-center justify-between text-xs text-slate-400">
-            <span>인플루언서 업로드율</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="text-2xl font-extrabold text-white">96.4%</div>
-          <div className="space-y-1">
-            <div className="flex justify-between text-[11px] text-slate-400">
-              <span>150건 중 145건 완료</span>
-              <span className="text-emerald-400 font-semibold">+4.2%</span>
+        <div className="p-5 rounded-2xl bg-[#131418] border border-[#22242A] hover:border-amber-500/40 transition space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
+              <PartyPopper className="w-4 h-4" />
             </div>
-            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-              <div className="bg-emerald-500 h-full w-[96%]" />
-            </div>
+            <span className="text-xs text-amber-400 font-semibold">관리 →</span>
           </div>
+          <div>
+            <span className="text-xs text-zinc-400">B. 오프라인 행사</span>
+            <div className="text-2xl font-bold text-zinc-100 mt-0.5">3개 행사 등록</div>
+          </div>
+          <p className="text-[11px] text-zinc-500">모바일 RSVP, 명단 관리, 현장 체크인</p>
         </div>
 
-        <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-3">
-          <div className="flex items-center justify-between text-xs text-slate-400">
-            <span>총 누적 조회수 (Reach)</span>
-            <Eye className="w-4 h-4 text-purple-400" />
-          </div>
-          <div className="text-2xl font-extrabold text-white">4.12M</div>
-          <div className="space-y-1">
-            <div className="flex justify-between text-[11px] text-slate-400">
-              <span>전월 2.9M 대비</span>
-              <span className="text-purple-400 font-semibold">▲ 42%</span>
+        <div className="p-5 rounded-2xl bg-[#131418] border border-[#22242A] hover:border-teal-500/40 transition space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center">
+              <Camera className="w-4 h-4" />
             </div>
-            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-              <div className="bg-purple-500 h-full w-[85%]" />
-            </div>
+            <span className="text-xs text-teal-400 font-semibold">관리 →</span>
           </div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-3">
-          <div className="flex items-center justify-between text-xs text-slate-400">
-            <span>오프라인 행사 RSVP</span>
-            <Calendar className="w-4 h-4 text-amber-400" />
+          <div>
+            <span className="text-xs text-zinc-400">C. SNS 채널 운영</span>
+            <div className="text-2xl font-bold text-zinc-100 mt-0.5">12개 기획안</div>
           </div>
-          <div className="text-2xl font-extrabold text-white">28 / 30명</div>
-          <div className="space-y-1">
-            <div className="flex justify-between text-[11px] text-slate-400">
-              <span>정원 마감률</span>
-              <span className="text-amber-400 font-semibold">93.3%</span>
-            </div>
-            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-              <div className="bg-amber-500 h-full w-[93%]" />
-            </div>
-          </div>
+          <p className="text-[11px] text-zinc-500">AI 캡션 작성, 캘린더, 광고주 컨펌</p>
         </div>
       </div>
 
-      {/* Pipeline Funnel & Action Table */}
-      <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4">
+      {/* Calendar Timeline Widget */}
+      <div className="p-6 rounded-2xl bg-[#131418] border border-[#22242A] space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-white">실시간 시딩 파이프라인 단계별 현황</h3>
-          <div className="flex items-center gap-1.5 text-xs text-slate-400">
-            <span>필터:</span>
-            <button className="px-2 py-1 rounded bg-slate-800 text-white font-medium">전체</button>
-            <button className="px-2 py-1 rounded hover:bg-slate-800 transition">D-Day 임박만</button>
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-emerald-400" />
+            <h3 className="text-sm font-bold text-zinc-200">통합 마케팅 일정</h3>
+          </div>
+          <div className="flex gap-1 bg-[#090A0C] p-1 rounded-xl border border-[#22242A] text-xs">
+            <span className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold">전체</span>
+            <span className="px-2.5 py-1 text-zinc-400">시딩 마감</span>
+            <span className="px-2.5 py-1 text-zinc-400">행사</span>
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-800 overflow-hidden">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950 text-slate-400 border-b border-slate-800">
-              <tr>
-                <th className="p-3">캠페인 / 브랜드</th>
-                <th className="p-3">구분</th>
-                <th className="p-3">진행 단계</th>
-                <th className="p-3">현황</th>
-                <th className="p-3">마감 D-Day</th>
-                <th className="p-3 text-right">관리</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 text-slate-300">
-              <tr className="hover:bg-slate-800/40 transition">
-                <td className="p-3 font-semibold text-white">
-                  글로우랩 하이드라 세럼
-                  <span className="block text-[11px] text-slate-400 font-normal">글로우랩 코스메틱</span>
-                </td>
-                <td className="p-3">
-                  <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[11px]">배송형</span>
-                </td>
-                <td className="p-3">
-                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold text-[11px]">
-                    가이드전달완료 ✓
-                  </span>
-                </td>
-                <td className="p-3 text-slate-400">선정 24명 / 지원 128명</td>
-                <td className="p-3 font-mono text-emerald-400 font-semibold">D-3 (09/10)</td>
-                <td className="p-3 text-right">
-                  <button className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-[11px]">
-                    시딩시트 열기
-                  </button>
-                </td>
-              </tr>
+        <div className="space-y-2">
+          <div className="p-3.5 rounded-xl bg-[#090A0C] border border-[#22242A] flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                <FolderKanban className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-zinc-200">[시딩 마감] 이지은 (글로우랩 코스메틱)</div>
+                <div className="text-[11px] text-zinc-400">하이드라 세럼 시딩 • 수령완료</div>
+              </div>
+            </div>
+            <span className="font-mono text-xs text-emerald-400 font-semibold">2026-09-10 (D-3)</span>
+          </div>
 
-              <tr className="hover:bg-slate-800/40 transition">
-                <td className="p-3 font-semibold text-white">
-                  성수 VIP 런칭 파티
-                  <span className="block text-[11px] text-slate-400 font-normal">글로우랩 코스메틱</span>
-                </td>
-                <td className="p-3">
-                  <span className="px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 text-[11px]">오프라인</span>
-                </td>
-                <td className="p-3">
-                  <span className="px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-400 font-semibold text-[11px]">
-                    참석확정 28명
-                  </span>
-                </td>
-                <td className="p-3 text-slate-400">정원 30명 (잔여 2석)</td>
-                <td className="p-3 font-mono text-purple-400 font-semibold">09/15 (D-15)</td>
-                <td className="p-3 text-right">
-                  <button className="px-2.5 py-1 rounded-lg bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 text-[11px]">
-                    체크인 화면
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div className="p-3.5 rounded-xl bg-[#090A0C] border border-[#22242A] flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                <PartyPopper className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-zinc-200">[오프라인 행사] 성수 VIP 런칭 파티</div>
+                <div className="text-[11px] text-zinc-400">보테가 성수 2F • 참석 28/30명 확정</div>
+              </div>
+            </div>
+            <span className="font-mono text-xs text-amber-400 font-semibold">2026-09-15 18:00</span>
+          </div>
         </div>
       </div>
     </div>
