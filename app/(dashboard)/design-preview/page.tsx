@@ -1,35 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import Style1OpsConsole from "./Style1OpsConsole";
-import Style2EditorialStudio from "./Style2EditorialStudio";
-import Style3ObsidianGlass from "./Style3ObsidianGlass";
-import { Layers, Terminal, Sparkles, Zap, Check } from "lucide-react";
+import StyleAEnterpriseLight from "./Style1OpsConsole";
+import StyleBLinearDark from "./Style2EditorialStudio";
+import StyleCBentoModular from "./Style3ObsidianGlass";
+import { LayoutGrid, Moon, Sun, Layers, Check } from "lucide-react";
 
 export default function DesignPreviewPage() {
-  const [activeTab, setActiveTab] = useState<"style1" | "style2" | "style3">("style3");
+  const [activeTab, setActiveTab] = useState<"light" | "dark" | "bento">("dark");
 
   const styles = [
     {
-      id: "style1",
-      name: "시안 1: Cyber-Dense Ops Terminal",
-      desc: "고밀도 모노스페이스 트레이딩/운영 터미널 (시스템 관제 최적화)",
-      icon: Terminal,
-      color: "border-emerald-500 text-emerald-400",
+      id: "light",
+      name: "시안 A: Enterprise Clean Light",
+      desc: "Stripe / 토스 스타일의 신뢰감 있고 깔끔한 화이트 실무 대시보드",
+      icon: Sun,
+      color: "text-amber-500",
     },
     {
-      id: "style2",
-      name: "시안 2: Editorial Agency Studio",
-      desc: "크리에이티브 에이전시 매거진 (우아한 세리프 & 넉넉한 여백)",
-      icon: Sparkles,
-      color: "border-amber-500 text-amber-400",
+      id: "dark",
+      name: "시안 B: Linear Pro Dark",
+      desc: "Linear / Vercel 스타일의 직관적인 다크 테마 & 프로그레스 지표",
+      icon: Moon,
+      color: "text-blue-400",
     },
     {
-      id: "style3",
-      name: "시안 3: Obsidian Linear Glass",
-      desc: "모던 다크 글래스모피즘 SaaS (네온 글로우 & 뎁스 레이어)",
-      icon: Zap,
-      color: "border-blue-500 text-blue-400",
+      id: "bento",
+      name: "시안 C: Bento Grid Modular Hub",
+      desc: "타임라인 캘린더 + 실시간 위젯이 결합된 모던 벤토 그리드 허브",
+      icon: LayoutGrid,
+      color: "text-purple-400",
     },
   ];
 
@@ -38,13 +38,13 @@ export default function DesignPreviewPage() {
       <div>
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold">
           <Layers className="w-3.5 h-3.5" />
-          <span>UI/UX Pro Max • 3 Distinct Design Personas</span>
+          <span>UI/UX Pro Max • 실무 중심 대시보드 3종</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-white mt-2">
-          대시보드 디자인 시안 3종 비교 갤러리
+          실제 실무용 대시보드 UI/UX 시안 3종 비교
         </h1>
         <p className="text-xs sm:text-sm text-slate-400 mt-1">
-          단순한 색상 변경이 아닌, <strong>타이포그래피, 정보 밀도, 인터랙션 구조</strong>가 완전히 다른 3가지 디자인 철학을 확인해보세요.
+          에이전시 마케터가 매일 보면서 업무를 처리하기에 가장 직관적이고 효율적인 3가지 대시보드 레이아웃입니다.
         </p>
       </div>
 
@@ -78,9 +78,9 @@ export default function DesignPreviewPage() {
 
       {/* Render Active Style Preview */}
       <div className="pt-2">
-        {activeTab === "style1" && <Style1OpsConsole />}
-        {activeTab === "style2" && <Style2EditorialStudio />}
-        {activeTab === "style3" && <Style3ObsidianGlass />}
+        {activeTab === "light" && <StyleAEnterpriseLight />}
+        {activeTab === "dark" && <StyleBLinearDark />}
+        {activeTab === "bento" && <StyleCBentoModular />}
       </div>
     </div>
   );
