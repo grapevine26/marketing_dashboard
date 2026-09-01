@@ -29,7 +29,7 @@ export async function generateFormIntro(
 이모지를 적절히 활용하고, 2~4문단 정도로 깔끔하게 작성해주세요.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.6-flash",
       contents: prompt,
     });
 

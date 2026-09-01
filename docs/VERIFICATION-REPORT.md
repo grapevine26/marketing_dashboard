@@ -200,3 +200,12 @@ Playwright(Chromium Headless)를 구동하여 실제 Next.js 프로덕션 서버
 | **Task 3: Dashboard Overview Screen (`/`)** | 상단 임박/지연 알림 (D-3 ~ D+n 지연순 정렬, 출처별 뱃지), 하단 7열 월간 캘린더 (날짜 클릭 시 모달) | `app/(dashboard)/page.tsx` 및 `CalendarOverviewClient.tsx` 구현 완료 | **100% 일치** |
 
 ---
+### 🤖 Gemini AI 모델 업그레이드 내역
+- **적용 모델**: `gemini-3.6-flash` (기존 `gemini-2.5-flash`에서 공식 최신 모델로 전면 전환)
+- **적용 대상 모듈 5종**:
+  1. `lib/ai/eventPlanAssist.ts` (행사 운영안 기획 초안)
+  2. `lib/ai/snsCaptionAssist.ts` (SNS 캡션 및 해시태그 생성)
+  3. `lib/ai/snsPlanAssist.ts` (SNS 채널 운영 제안서 기획 초안)
+  4. `lib/ai/preSurveyAssist.ts` (사전조사서 작성 어시스트)
+  5. `lib/ai/formIntroAssist.ts` (지원폼 소개글 생성)
+- **공통 설정**: `ThinkingLevel.MINIMAL` 적용 및 에러 시 안전 폴백 유지
