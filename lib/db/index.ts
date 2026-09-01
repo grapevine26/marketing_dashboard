@@ -514,6 +514,19 @@ export async function createCampaign(data: {
   };
 
   db.campaigns.unshift(newCamp);
+
+  // Auto-initialize default form config
+  db.form_configs.push({
+    id: crypto.randomUUID(),
+    campaign_id: newCamp.id,
+    intro_text: `${data.company_name}의 ${data.name} ${
+      data.campaign_type === "shipping" ? "제품배송형" : "현장방문형"
+    } 인플루언서 체험단을 모집합니다 ✨\n솔직하고 감각적인 리뷰 콘텐츠를 함께 만들어갈 크리에이터 분들의 많은 지원 바랍니다.`,
+    custom_questions: [],
+    is_published: true,
+    created_at: new Date().toISOString(),
+  });
+
   await writeDb(db);
   return newCamp;
 }
