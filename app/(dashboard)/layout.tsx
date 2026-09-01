@@ -98,6 +98,12 @@ export default function DashboardLayout({
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
+    if (href === "/events") {
+      return pathname.startsWith("/events") || pathname.includes("/events");
+    }
+    if (href === "/campaigns") {
+      return pathname.startsWith("/campaigns") && !pathname.includes("/events");
+    }
     return pathname.startsWith(href);
   };
 
