@@ -21,7 +21,23 @@ import {
 } from "./types";
 import { generateDefaultPptBuffer, extractPlaceholders } from "../ppt/engine";
 
-const DB_PATH = path.join(process.cwd(), ".data", "db.json");
+import os from "os";
+
+// Vercel serverless environment is read-only except /tmp
+function getDbFilePath(): string {
+  if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+    return path.join(os.tmpdir(), "marketing_db.json");
+  }
+  return path.join(process.cwd(), ".data", "db.json");
+}
+
+const DB_PATH = getDbFilePath();
+
+// In-memory cache for ultra-fast and resilient serverless execution
+declare global {
+  // eslint-disable-next-line no-var
+  var _marketingDbCache: DatabaseSchema | undefined;
+}
 
 interface DatabaseSchema {
   campaigns: Campaign[];
@@ -43,18 +59,32 @@ interface DatabaseSchema {
   sns_contents: SnsContent[];
 }
 
-function ensureDataDir() {
-  const dir = path.dirname(DB_PATH);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+function ensureDataDir(filePath: string) {
+  try {
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  } catch (err) {
+    console.warn("Could not create data directory, using in-memory mode:", err);
   }
 }
 async function getInitialData(): Promise<DatabaseSchema> {
-  const eventPptBuf = await generateDefaultPptBuffer("event");
-  const eventPhs = await extractPlaceholders(eventPptBuf);
+  let eventPptBuf: Buffer = Buffer.from("");
+  let eventPhs = ["브랜드명", "행사명", "행사일시", "행사장소", "행사개요", "프로그램"];
+  let snsPptBuf: Buffer = Buffer.from("");
+  let snsPhs = ["브랜드명", "채널명", "계약기간", "운영목표", "타겟오디언스", "콘텐츠방향성", "월별계획"];
 
-  const snsPptBuf = await generateDefaultPptBuffer("sns");
-  const snsPhs = await extractPlaceholders(snsPptBuf);
+  try {
+    const rawEvent = await generateDefaultPptBuffer("event");
+    eventPptBuf = Buffer.from(rawEvent);
+    eventPhs = await extractPlaceholders(eventPptBuf);
+    const rawSns = await generateDefaultPptBuffer("sns");
+    snsPptBuf = Buffer.from(rawSns);
+    snsPhs = await extractPlaceholders(snsPptBuf);
+  } catch (err) {
+    console.warn("Could not generate initial PPT buffers in serverless env:", err);
+  }
 
   const sampleCampaignId = "c1a2b3c4-0001-4000-8000-000000000001";
   const sampleEventId = "e1a2b3c4-0001-4000-8000-000000000001";
@@ -402,19 +432,46 @@ async function getInitialData(): Promise<DatabaseSchema> {
   };
 }
 export async function readDb(): Promise<DatabaseSchema> {
-  ensureDataDir();
-  if (!fs.existsSync(DB_PATH)) {
-    const initial = await getInitialData();
-    fs.writeFileSync(DB_PATH, JSON.stringify(initial, null, 2), "utf-8");
-    return initial;
+  if (globalThis._marketingDbCache) {
+    return globalThis._marketingDbCache;
   }
-  const raw = fs.readFileSync(DB_PATH, "utf-8");
-  return JSON.parse(raw) as DatabaseSchema;
+
+  const filePath = getDbFilePath();
+  ensureDataDir(filePath);
+
+  try {
+    if (fs.existsSync(filePath)) {
+      const raw = fs.readFileSync(filePath, "utf-8");
+      const parsed = JSON.parse(raw) as DatabaseSchema;
+      globalThis._marketingDbCache = parsed;
+      return parsed;
+    }
+  } catch (err) {
+    console.warn("Could not read DB file, fallback to initial data:", err);
+  }
+
+  const initial = await getInitialData();
+  globalThis._marketingDbCache = initial;
+
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(initial, null, 2), "utf-8");
+  } catch (err) {
+    console.warn("Could not write initial DB file (running in-memory):", err);
+  }
+
+  return initial;
 }
 
 export async function writeDb(data: DatabaseSchema): Promise<void> {
-  ensureDataDir();
-  fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), "utf-8");
+  globalThis._marketingDbCache = data;
+  const filePath = getDbFilePath();
+  ensureDataDir(filePath);
+
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+  } catch (err) {
+    console.warn("Could not persist DB to disk (running in-memory):", err);
+  }
 }
 
 // 1. Campaigns & Seeding APIs (Subproject A)

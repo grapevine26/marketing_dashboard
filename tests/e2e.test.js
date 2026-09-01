@@ -1,4 +1,4 @@
-﻿const { chromium } = require('playwright');
+const { chromium } = require('playwright');
 
 const BASE_URL = 'http://localhost:3000';
 
