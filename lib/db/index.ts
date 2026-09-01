@@ -655,6 +655,12 @@ export async function updateApplicantStatus(
         created_at: new Date().toISOString(),
       });
     }
+  } else {
+    // If unselected/cancelled (status: applied, reserved, rejected), remove from active seeding sheet
+    const seedingIdx = db.seeding_records.findIndex((s) => s.applicant_id === applicantId);
+    if (seedingIdx >= 0) {
+      db.seeding_records.splice(seedingIdx, 1);
+    }
   }
 
   await writeDb(db);

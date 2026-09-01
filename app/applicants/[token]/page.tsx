@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCampaignByToken, getApplicantsByCampaignId } from "@/lib/db";
-import { Building2, ExternalLink, Users, Download } from "lucide-react";
+import { Building2, ExternalLink, Users, Download, CheckCircle2, Clock } from "lucide-react";
 
 export const revalidate = 0;
 
@@ -26,10 +26,10 @@ export default async function PublicApplicantsSharePage({
             <span>{campaign.company_name}</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-zinc-100 mt-1">
-            {campaign.name} - 지원자 심사 및 선정 현황
+            {campaign.name} - 인플루언서 지원 현황 및 심사 명단
           </h1>
           <p className="text-xs text-zinc-400">
-            총 {applicants.length}명의 지원자 중 최종선정 {selectedCount}명 / 예비선정 {reservedCount}명
+            총 {applicants.length}명 접수 / 최종선정 {selectedCount}명 / 예비 {reservedCount}명
           </p>
         </div>
 
@@ -46,7 +46,7 @@ export default async function PublicApplicantsSharePage({
       <div className="block sm:hidden space-y-3">
         {applicants.length === 0 ? (
           <div className="p-8 text-center text-zinc-500 text-xs border border-dashed border-[#22242A] rounded-2xl bg-[#131418]">
-            지원자가 없습니다.
+            접수된 지원자가 없습니다.
           </div>
         ) : (
           applicants.map((a) => (
@@ -60,18 +60,18 @@ export default async function PublicApplicantsSharePage({
                   <span className="text-[10px] text-zinc-500">({a.nationality})</span>
                 </div>
                 {a.status === "selected" && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30 font-bold text-[10px]">
-                    최종선정 ✓
+                  <span className="px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30 font-bold text-[10px] flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> 최종선정 ✨
                   </span>
                 )}
                 {a.status === "reserved" && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[10px] font-semibold">
-                    예비선정
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[10px] font-semibold flex items-center gap-1">
+                    <Clock className="w-3 h-3" /> 예비선정
                   </span>
                 )}
                 {a.status === "applied" && (
                   <span className="px-2 py-0.5 rounded-full bg-[#181A20] text-zinc-500 text-[10px]">
-                    미선정
+                    대기중
                   </span>
                 )}
               </div>
@@ -98,11 +98,11 @@ export default async function PublicApplicantsSharePage({
         <table className="w-full text-left text-xs">
           <thead className="bg-[#090A0C] text-zinc-400 border-b border-[#22242A]">
             <tr>
-              <th className="p-3.5">지원자</th>
+              <th className="p-3.5">이름</th>
               <th className="p-3.5">SNS 링크</th>
               <th className="p-3.5">국적</th>
-              <th className="p-3.5">상태</th>
-              <th className="p-3.5">지원 일자</th>
+              <th className="p-3.5">선정 상태</th>
+              <th className="p-3.5">접수 일시</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#22242A] text-zinc-300">
@@ -123,18 +123,18 @@ export default async function PublicApplicantsSharePage({
                 <td className="p-3.5">{a.nationality}</td>
                 <td className="p-3.5">
                   {a.status === "selected" && (
-                    <span className="px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold text-[11px]">
-                      최종선정 ✓
+                    <span className="px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold text-[11px] inline-flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> 최종선정 ✨
                     </span>
                   )}
                   {a.status === "reserved" && (
-                    <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[11px] font-semibold">
-                      예비선정
+                    <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[11px] font-semibold inline-flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> 예비선정
                     </span>
                   )}
                   {a.status === "applied" && (
                     <span className="px-2 py-0.5 rounded-full bg-[#181A20] text-zinc-500 text-[11px]">
-                      미선정
+                      대기중
                     </span>
                   )}
                 </td>
