@@ -52,7 +52,7 @@ export default async function ReportsListPage({
                 <div className="flex items-center justify-between text-xs text-zinc-500 font-mono">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5" />
-                    {new Date(rep.generated_at).toLocaleString()}
+                    {new Date(rep.generated_at || rep.created_at).toLocaleString()}
                   </span>
                   <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-semibold text-[10px]">
                     스냅샷 보존
@@ -62,15 +62,15 @@ export default async function ReportsListPage({
                 <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-[#090A0C] border border-[#22242A] text-center text-xs">
                   <div>
                     <span className="text-[10px] text-zinc-500 block">최종선정</span>
-                    <span className="font-bold text-zinc-200">{rep.snapshot_data.metrics.selectedCount}명</span>
+                    <span className="font-bold text-zinc-200">{rep.snapshot_data?.metrics?.selectedCount || 0}명</span>
                   </div>
                   <div>
                     <span className="text-[10px] text-zinc-500 block">업로드완료</span>
-                    <span className="font-bold text-blue-400">{rep.snapshot_data.metrics.completedUploads}건</span>
+                    <span className="font-bold text-blue-400">{rep.snapshot_data?.metrics?.completedUploads || 0}건</span>
                   </div>
                   <div>
                     <span className="text-[10px] text-zinc-500 block">총 조회수</span>
-                    <span className="font-bold text-emerald-400">{rep.snapshot_data.metrics.totalViews.toLocaleString()}회</span>
+                    <span className="font-bold text-emerald-400">{(rep.snapshot_data?.metrics?.totalViews || 0).toLocaleString()}회</span>
                   </div>
                 </div>
               </div>

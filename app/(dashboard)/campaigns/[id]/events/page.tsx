@@ -1,73 +1,74 @@
-import { getAllEvents, getCampaigns, getEventInvitees } from "@/lib/db";
+import { notFound } from "next/navigation";
+import { getCampaignById, getEventsByCampaignId, getEventInvitees, getEventChecklistItems } from "@/lib/db";
 import Link from "next/link";
-import { Calendar, MapPin, ArrowRight, PartyPopper, Plus, Building2 } from "lucide-react";
+import { PartyPopper, Calendar, MapPin, Plus, ArrowRight, CheckCircle2, ChevronLeft } from "lucide-react";
+import NewCampaignEventModal from "./NewCampaignEventModal";
 
 export const revalidate = 0;
 
-export default async function AllEventsOverviewPage() {
-  const [events, campaigns] = await Promise.all([
-    getAllEvents(),
-    getCampaigns(),
-  ]);
+export default async function CampaignEventsPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const campaign = await getCampaignById(id);
+  if (!campaign) notFound();
 
-  const campaignMap = new Map(campaigns.map((c) => [c.id, c]));
+  const events = await getEventsByCampaignId(campaign.id);
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto font-sans">
+    <div className="space-y-6 max-w-5xl mx-auto font-sans">
+      <div className="flex items-center gap-2 text-xs text-zinc-400">
+        <Link href={`/campaigns/${campaign.id}`} className="hover:text-blue-400 flex items-center gap-1">
+          <ChevronLeft className="w-3.5 h-3.5" />
+          <span>{campaign.name} 허브</span>
+        </Link>
+        <span>/</span>
+        <span className="text-zinc-200">인플루언서 행사 관리</span>
+      </div>
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-zinc-100 tracking-tight flex items-center gap-2">
             <PartyPopper className="w-6 h-6 text-indigo-400" />
-            <span>인플루언서 행사 관리 (전체)</span>
+            <span>캠페인 연계 인플루언서 행사</span>
           </h1>
           <p className="text-xs sm:text-sm text-zinc-400">
-            캠페인에 등록된 오프라인 행사, VIP 런칭 파티, 팝업스토어 초청(RSVP) 및 체크리스트를 통합 조회합니다.
+            {campaign.company_name} 브랜드 행사의 운영안(PPT), 인플루언서 초청(RSVP) 및 체크리스트를 관리합니다.
           </p>
         </div>
-      </div>
 
-      {/* Campaign List Quick Link to add events */}
-      <div className="p-4 rounded-2xl bg-[#131418] border border-[#22242A] space-y-2">
-        <span className="text-xs font-bold text-zinc-300">캠페인별 새 행사 등록 바로가기:</span>
-        <div className="flex flex-wrap gap-2">
-          {campaigns.map((c) => (
-            <Link
-              key={c.id}
-              href={`/campaigns/${c.id}/events`}
-              className="px-3 py-1.5 rounded-xl bg-[#090A0C] hover:bg-[#181A20] border border-[#22242A] text-xs text-zinc-200 inline-flex items-center gap-1.5 transition"
-            >
-              <Building2 className="w-3 h-3 text-indigo-400" />
-              <span>{c.name}</span>
-              <ArrowRight className="w-3 h-3 text-zinc-500" />
-            </Link>
-          ))}
-        </div>
+        <NewCampaignEventModal campaignId={campaign.id} />
       </div>
 
       {events.length === 0 ? (
         <div className="p-12 text-center border border-dashed border-[#22242A] rounded-2xl bg-[#131418] space-y-3">
           <PartyPopper className="w-8 h-8 text-zinc-600 mx-auto" />
           <p className="text-zinc-400 text-xs sm:text-sm">등록된 행사가 없습니다.</p>
-          <p className="text-zinc-500 text-xs">위의 캠페인을 선택하여 새로운 인플루언서 행사를 등록하세요.</p>
+          <p className="text-zinc-500 text-xs">상단의 [새 행사 만들기] 버튼을 눌러 VIP 파티/팝업 행사를 등록해보세요.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {events.map(async (ev) => {
-            const camp = campaignMap.get(ev.campaign_id);
-            const invitees = await getEventInvitees(ev.id);
+            const [invitees, checklists] = await Promise.all([
+              getEventInvitees(ev.id),
+              getEventChecklistItems(ev.id),
+            ]);
             const attendingCount = invitees.filter((i) => i.rsvp_status === "attending").length;
             const attendedCount = invitees.filter((i) => i.attended).length;
+            const doneChecklists = checklists.filter((c) => c.done).length;
 
             return (
               <Link
                 key={ev.id}
-                href={`/campaigns/${ev.campaign_id}/events/${ev.id}`}
+                href={`/campaigns/${campaign.id}/events/${ev.id}`}
                 className="group p-5 rounded-2xl bg-[#131418] border border-[#22242A] hover:border-indigo-500/40 hover:bg-[#181A20] transition flex flex-col justify-between space-y-4 shadow-md active:scale-[0.99]"
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs font-semibold">
-                      {ev.status === "preparing" ? "준비중" : ev.status === "done" ? "행사완료" : "취소"}
+                      {ev.status === "preparing" ? "준비중" : ev.status === "done" ? "행사완료" : "취소됨"}
                     </span>
                     <span className="text-xs text-zinc-400 flex items-center gap-1 font-mono">
                       <Calendar className="w-3.5 h-3.5" />
@@ -76,7 +77,6 @@ export default async function AllEventsOverviewPage() {
                   </div>
 
                   <div>
-                    <span className="text-[11px] text-zinc-500 font-medium block">{camp?.company_name || "캠페인"}</span>
                     <h2 className="text-base font-bold text-zinc-100 group-hover:text-indigo-400 transition leading-snug">
                       {ev.name}
                     </h2>

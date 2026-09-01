@@ -1,5 +1,15 @@
+// Subproject A: Seeding Types
 export type CampaignType = "shipping" | "visit";
-export type CampaignStatus = "draft" | "active" | "completed";
+export type CampaignStatus = "draft" | "recruiting" | "selecting" | "seeding" | "reporting" | "completed";
+export type ApplicantStatus = "applied" | "selected" | "reserved" | "dropped";
+export type ProgressStage =
+  | "선정완료"
+  | "발송완료"
+  | "가이드전달완료"
+  | "수령완료"
+  | "방문완료"
+  | "확정완료"
+  | "업로드완료";
 
 export interface Campaign {
   id: string;
@@ -17,10 +27,9 @@ export interface Campaign {
 export interface PreSurveyQuestion {
   id: string;
   question: string;
-  type: "text" | "textarea" | "select";
-  options?: string[];
-  required: boolean;
   placeholder?: string;
+  type?: string;
+  required: boolean;
 }
 
 export interface PreSurveyTemplate {
@@ -32,29 +41,27 @@ export interface PreSurveyResponse {
   id: string;
   campaign_id: string;
   answers: Record<string, string>;
-  filled_by: "company" | "agency";
   used_ai_assist: boolean;
   submitted_at: string;
 }
 
-export interface CustomQuestion {
+export interface CustomFormQuestion {
   id: string;
   label: string;
-  type: "text" | "textarea" | "select";
+  type: "text" | "number" | "select" | "checkbox";
   required: boolean;
   options?: string[];
 }
+export type CustomQuestion = CustomFormQuestion;
 
 export interface CampaignFormConfig {
   id: string;
   campaign_id: string;
   intro_text: string;
-  custom_questions: CustomQuestion[];
+  custom_questions: CustomFormQuestion[];
   is_published: boolean;
-  updated_at: string;
+  created_at: string;
 }
-
-export type ApplicantStatus = "applied" | "selected" | "reserved" | "rejected";
 
 export interface Applicant {
   id: string;
@@ -63,156 +70,169 @@ export interface Applicant {
   sns_link: string;
   nationality: string;
   contact: string;
-  shipping_address?: string | null;
-  visit_schedule?: string | null;
-  visit_party_size?: number | null;
-  custom_answers: Record<string, any>;
+  shipping_address?: string;
+  visit_schedule?: string;
+  visit_party_size?: number;
+  custom_answers?: Record<string, any>;
   privacy_agreed: boolean;
   secondary_use_agreed: boolean;
   status: ApplicantStatus;
-  status_changed_by?: "agency" | "company" | null;
-  status_changed_at?: string | null;
+  status_changed_by: "agency" | "company";
   applied_at: string;
 }
-
-export type ProgressStage =
-  | "선정완료"
-  | "발송완료"
-  | "가이드전달완료"
-  | "수령완료"
-  | "방문완료"
-  | "확정완료"
-  | "업로드완료";
 
 export interface SeedingRecord {
   id: string;
   campaign_id: string;
   applicant_id: string;
-  shipping_address?: string | null;
-  visit_scheduled_at?: string | null;
-  visit_party_size?: number | null;
   progress_stage: ProgressStage;
-  upload_deadline?: string | null;
-  upload_link?: string | null;
+  upload_deadline: string | null;
+  upload_link: string | null;
   views: number;
   engagement: number;
-  notes?: string | null;
-  updated_at: string;
+  notes: string | null;
+  shipping_address?: string;
+  visit_scheduled_at?: string;
+  updated_at?: string;
+  created_at: string;
 }
 
-export interface CustomSection {
+export interface CustomReportSection {
   id: string;
   title: string;
   content: string;
 }
+export type CustomSection = CustomReportSection;
 
-export interface ReportSnapshot {
-  campaign: Campaign;
-  applicants: (Applicant & { seeding?: SeedingRecord | null })[];
-  metrics: {
-    totalApplicants: number;
-    selectedCount: number;
-    completedUploads: number;
-    totalViews: number;
-    totalEngagement: number;
-  };
-}
-
-export interface Report {
+export interface CampaignReport {
   id: string;
   campaign_id: string;
   title: string;
-  snapshot_data: ReportSnapshot;
-  custom_sections: CustomSection[];
-  generated_at: string;
+  snapshot_data?: any;
+  custom_sections: CustomReportSection[];
+  generated_at?: string;
+  created_at: string;
+}
+export type Report = CampaignReport;
+
+// Shared PPT Template Types (B & C Shared)
+export type PptTemplateKind = "event" | "sns";
+
+export interface PptTemplate {
+  id: string;
+  kind: PptTemplateKind;
+  name: string;
+  storage_path?: string;
+  file_data?: string; // Base64 buffer storage for local engine
+  placeholders: string[];
+  uploaded_at: string;
 }
 
-// ---------------- Subproject B: Events ----------------
-export type EventRsvpStatus = "attending" | "declined" | "pending";
+// Subproject B: Event Types (Belongs to Campaign)
+export type EventStatus = "preparing" | "done" | "canceled";
+export type EventRsvpStatus = "pending" | "attending" | "not_attending";
 
 export interface MarketingEvent {
   id: string;
-  title: string;
-  company_name: string;
-  event_date: string; // YYYY-MM-DD or ISO
-  event_time: string; // e.g. "15:00 - 18:00"
-  location: string;
-  capacity: number;
-  dress_code?: string;
-  guide_text: string;
-  rsvp_token: string;
+  campaign_id: string; // Foreign Key to Campaign
+  name: string;
+  event_at: string | null; // ISO datetime
+  venue: string | null;
+  memo: string | null;
+  status: EventStatus;
   created_at: string;
 }
 
-export interface EventGuest {
+export interface EventInvitee {
   id: string;
   event_id: string;
+  applicant_id: string | null; // Foreign Key to Applicant (if imported)
   name: string;
-  sns_link: string;
-  contact: string;
+  sns_url: string | null;
+  contact: string | null;
   rsvp_status: EventRsvpStatus;
-  party_size: number;
-  checked_in: boolean;
-  checked_in_at?: string | null;
-  review_link?: string | null;
-  notes?: string | null;
+  attended: boolean; // Day-of check-in
+  memo: string | null;
+  created_at: string;
+}
+
+export interface EventChecklistItem {
+  id: string;
+  event_id: string;
+  label: string;
+  due_date: string | null; // YYYY-MM-DD
+  assignee: string | null;
+  done: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface EventPlan {
+  id: string;
+  event_id: string;
+  template_id: string; // FK to PptTemplate
+  field_values: Record<string, string>;
   updated_at: string;
 }
 
-// ---------------- Subproject C: SNS Management ----------------
-export type SnsPlatform = "instagram" | "youtube" | "tiktok" | "blog";
-export type SnsContentType = "feed" | "reels" | "story" | "shorts" | "post";
-export type SnsPostStatus = "draft" | "review" | "approved" | "published";
+// Subproject C: SNS Operation Types (Independent Accounts)
+export type SnsPlatform = "instagram" | "youtube" | "tiktok" | "other";
+export type SnsAccountStatus = "active" | "ended";
+export type SnsContentStatus =
+  | "planning"
+  | "producing"
+  | "pending_approval"
+  | "approved"
+  | "posted";
 
-export interface SnsChannel {
+export interface SnsAccount {
   id: string;
-  name: string;
-  platform: SnsPlatform;
   company_name: string;
+  platform: SnsPlatform;
   handle: string;
-}
-
-export interface SnsPost {
-  id: string;
-  channel_id: string;
-  scheduled_date: string; // YYYY-MM-DD
-  scheduled_time?: string; // HH:mm
-  content_type: SnsContentType;
-  title: string;
-  visual_description: string;
-  caption_copy: string;
-  hashtags: string[];
-  status: SnsPostStatus;
-  review_token: string;
-  client_feedback?: string | null;
-  reach?: number;
-  engagement?: number;
-  published_url?: string | null;
+  starts_on: string | null; // YYYY-MM-DD
+  ends_on: string | null; // YYYY-MM-DD
+  status: SnsAccountStatus;
+  intake_token: string; // Public intake token
+  approval_token: string; // Public approval token
   created_at: string;
 }
 
-// ---------------- Subproject D: Unified Calendar Schedule ----------------
-export interface UnifiedScheduleItem {
-  id: string;
-  type: "seeding" | "event" | "sns";
-  date: string; // YYYY-MM-DD
-  title: string;
-  subtitle: string;
-  status: string;
-  badgeColor: string;
-  link: string;
+export interface SnsIntakeTemplate {
+  id: number;
+  questions: PreSurveyQuestion[];
 }
 
-export interface DBData {
-  campaigns: Campaign[];
-  pre_survey_template: PreSurveyTemplate;
-  pre_survey_responses: PreSurveyResponse[];
-  campaign_form_configs: CampaignFormConfig[];
-  applicants: Applicant[];
-  seeding_records: SeedingRecord[];
-  reports: Report[];
-  events: MarketingEvent[];
-  event_guests: EventGuest[];
-  sns_channels: SnsChannel[];
-  sns_posts: SnsPost[];
+export interface SnsIntakeResponse {
+  id: string;
+  account_id: string;
+  answers: Record<string, string>;
+  submitted_at: string;
+}
+
+export interface SnsPlan {
+  id: string;
+  account_id: string;
+  template_id: string | null; // FK to PptTemplate (nullable)
+  field_values: Record<string, string>;
+  updated_at: string;
+}
+
+export interface SnsContent {
+  id: string;
+  account_id: string;
+  title: string;
+  scheduled_on: string | null; // YYYY-MM-DD
+  assignee: string | null;
+  status: SnsContentStatus;
+  caption: string | null;
+  hashtags: string | null;
+  media_note: string | null; // Internal production note (hidden on public approval)
+  client_comment: string | null; // Feedback from client
+  post_url: string | null;
+  view_count: number | null;
+  like_count: number | null;
+  comment_count: number | null;
+  status_changed_at: string | null;
+  created_at: string;
 }

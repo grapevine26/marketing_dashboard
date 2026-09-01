@@ -34,6 +34,7 @@ export default async function CampaignSeedingSheetPage({
       views: 0,
       engagement: 0,
       notes: null,
+      created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
     return { applicant: app, seeding };

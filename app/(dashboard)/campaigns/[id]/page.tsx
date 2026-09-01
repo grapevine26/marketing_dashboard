@@ -5,7 +5,8 @@ import {
   getApplicantsByCampaignId,
   getSeedingRecordsByCampaignId,
   getPreSurveyResponse,
-  getCampaignFormConfig,
+  getFormConfig,
+  getEventsByCampaignId,
 } from "@/lib/db";
 import TokenShareBox from "./TokenShareBox";
 import {
@@ -17,10 +18,9 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock,
-  ExternalLink,
   Sparkles,
   Building2,
-  Truck,
+  PartyPopper,
 } from "lucide-react";
 
 export const revalidate = 0;
@@ -34,11 +34,12 @@ export default async function CampaignDetailPage({
   const campaign = await getCampaignById(id);
   if (!campaign) notFound();
 
-  const [applicants, seedingRecords, preSurvey, formConfig] = await Promise.all([
+  const [applicants, seedingRecords, preSurvey, formConfig, events] = await Promise.all([
     getApplicantsByCampaignId(id),
     getSeedingRecordsByCampaignId(id),
     getPreSurveyResponse(id),
-    getCampaignFormConfig(id),
+    getFormConfig(id),
+    getEventsByCampaignId(id),
   ]);
 
   const selectedCount = applicants.filter((a) => a.status === "selected").length;
@@ -82,6 +83,34 @@ export default async function CampaignDetailPage({
 
       {/* 4 Public Token Share Links */}
       <TokenShareBox campaign={campaign} />
+
+      {/* Event Section Entry */}
+      <div className="p-5 rounded-3xl bg-gradient-to-r from-indigo-950/30 to-[#131418] border border-indigo-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0">
+            <PartyPopper className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-zinc-100">캠페인 연계 인플루언서 행사 (서브프로젝트 B)</h2>
+              <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-bold">
+                {events.length}개 행사
+              </span>
+            </div>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              브랜드 VIP 런칭 파티, 팝업스토어 초청(RSVP), 운영안 PPT 및 준비 체크리스트 관리
+            </p>
+          </div>
+        </div>
+
+        <Link
+          href={`/campaigns/${campaign.id}/events`}
+          className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition active:scale-95 shrink-0"
+        >
+          <span>행사 관리 허브 바로가기</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
 
       {/* 5-Step Workflow Cards */}
       <div className="space-y-3">

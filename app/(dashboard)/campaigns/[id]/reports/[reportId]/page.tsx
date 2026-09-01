@@ -30,8 +30,9 @@ export default async function ReportDetailPage({
   if (!report || !campaign) notFound();
 
   const { snapshot_data } = report;
-  const { metrics, applicants } = snapshot_data;
-  const selectedApplicants = applicants.filter((a) => a.status === "selected");
+  const metrics = snapshot_data?.metrics || { totalApplicants: 0, selectedCount: 0, completedUploads: 0, totalViews: 0, totalEngagement: 0, avgEngagementRate: 0 };
+  const applicants = snapshot_data?.applicants || [];
+  const selectedApplicants = applicants.filter((a: any) => a.status === "selected");
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -47,7 +48,7 @@ export default async function ReportDetailPage({
           </Link>
           <h1 className="text-2xl font-bold text-white tracking-tight">{report.title}</h1>
           <p className="text-xs text-slate-400">
-            생성일시: {new Date(report.generated_at).toLocaleString("ko-KR")}
+            생성일시: {new Date(report.generated_at || report.created_at).toLocaleString("ko-KR")}
           </p>
         </div>
 
@@ -131,7 +132,7 @@ export default async function ReportDetailPage({
                   </td>
                 </tr>
               ) : (
-                selectedApplicants.map((app) => (
+                selectedApplicants.map((app: any) => (
                   <tr key={app.id} className="hover:bg-slate-800/30">
                     <td className="p-3 font-semibold text-white">{app.name}</td>
                     <td className="p-3">

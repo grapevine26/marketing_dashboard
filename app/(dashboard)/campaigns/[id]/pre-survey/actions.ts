@@ -12,7 +12,6 @@ export async function saveAgencyPreSurveyAction(params: {
   const res = await upsertPreSurveyResponse({
     campaign_id: params.campaignId,
     answers: params.answers,
-    filled_by: "agency",
     used_ai_assist: params.usedAiAssist,
   });
   revalidatePath(`/campaigns/${params.campaignId}`);

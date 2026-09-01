@@ -13,6 +13,8 @@ import {
   Menu,
   X,
   ChevronRight,
+  Presentation,
+  Sliders,
 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -62,10 +64,22 @@ export default function DashboardLayout({
       group: "에이전시 설정",
       items: [
         {
-          name: "사전조사 템플릿 관리",
+          name: "시딩 사전조사 템플릿",
           href: "/settings/pre-survey",
           icon: Settings,
           color: "text-zinc-400",
+        },
+        {
+          name: "SNS 사전설문 기본틀",
+          href: "/settings/sns-intake",
+          icon: Sliders,
+          color: "text-sky-400",
+        },
+        {
+          name: "공용 PPT 템플릿 관리",
+          href: "/settings/ppt-templates",
+          icon: Presentation,
+          color: "text-amber-400",
         },
       ],
     },
@@ -175,7 +189,7 @@ export default function DashboardLayout({
               <span>Gemini AI 활성화</span>
             </div>
             <p className="text-zinc-400 leading-relaxed text-[10px]">
-              사전조사 추천 • 모집글 작성 • SNS 캡션 생성을 지원합니다.
+              사전조사 • 행사 기획 • SNS 캡션 • 운영안 제안서를 지원합니다.
             </p>
           </div>
         </div>

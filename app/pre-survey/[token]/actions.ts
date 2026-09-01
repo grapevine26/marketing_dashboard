@@ -14,7 +14,6 @@ export async function submitPublicPreSurveyAction(params: {
   const res = await upsertPreSurveyResponse({
     campaign_id: campaign.id,
     answers: params.answers,
-    filled_by: "company",
     used_ai_assist: params.usedAiAssist,
   });
 

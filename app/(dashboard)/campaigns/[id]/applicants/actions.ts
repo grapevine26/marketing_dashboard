@@ -10,11 +10,12 @@ export async function changeApplicantStatusAction(params: {
   changedBy: "agency" | "company";
   campaignId: string;
 }) {
-  const applicant = await updateApplicantStatus({
-    applicantId: params.applicantId,
-    status: params.status,
-    changedBy: params.changedBy,
-  });
+  const applicant = await updateApplicantStatus(
+    params.applicantId,
+    params.status,
+    params.changedBy,
+    params.campaignId
+  );
 
   revalidatePath(`/campaigns/${params.campaignId}`);
   revalidatePath(`/campaigns/${params.campaignId}/applicants`);

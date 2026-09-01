@@ -24,7 +24,7 @@ export function seedingSheetToCSV(
     seeding.upload_link || "-",
     seeding.views,
     seeding.engagement,
-    seeding.shipping_address || seeding.visit_scheduled_at || "-",
+    applicant.shipping_address || applicant.visit_schedule || "-",
     seeding.notes || "-",
   ]);
 

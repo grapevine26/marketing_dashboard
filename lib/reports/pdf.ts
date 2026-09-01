@@ -57,7 +57,7 @@ export async function generateReportPDF(report: Report): Promise<Buffer> {
       .text(
         `캠페인: ${campaign.name} | 브랜드: ${campaign.company_name} | 유형: ${
           campaign.campaign_type === "shipping" ? "제품배송형" : "현장방문형"
-        } | 생성일시: ${new Date(report.generated_at).toLocaleString("ko-KR")}`
+        } | 생성일시: ${new Date(report.generated_at || report.created_at).toLocaleString("ko-KR")}`
       )
       .moveDown(1.5);
 
@@ -97,11 +97,11 @@ export async function generateReportPDF(report: Report): Promise<Buffer> {
     // Selected Influencer Table Summary
     doc.fillColor("#111827").fontSize(14).text("■ 참여 인플루언서 목록").moveDown(0.5);
 
-    const selectedList = applicants.filter((a) => a.status === "selected");
+    const selectedList = applicants.filter((a: any) => a.status === "selected");
     if (selectedList.length === 0) {
       doc.fontSize(10).fillColor("#6B7280").text("최종 선정된 인플루언서가 없습니다.");
     } else {
-      selectedList.forEach((inf, idx) => {
+      selectedList.forEach((inf: any, idx: number) => {
         const stage = inf.seeding?.progress_stage || "선정완료";
         const link = inf.seeding?.upload_link || "미등록";
         const views = inf.seeding?.views || 0;

@@ -1,71 +1,64 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 
-export interface SnsCaptionAssistRequest {
+export async function generateSnsCaptionDraft(params: {
   brandName: string;
-  contentType: string;
-  topicTitle: string;
-  visualDescription: string;
-  platform?: string;
-}
-
-export interface SnsCaptionAssistResponse {
-  captionCopy: string;
-  hashtags: string[];
-}
-
-export async function generateSnsCaption(
-  request: SnsCaptionAssistRequest
-): Promise<SnsCaptionAssistResponse> {
+  platform: string;
+  handle: string;
+  title: string;
+  scheduledOn?: string | null;
+  mediaNote?: string | null;
+}): Promise<{ caption: string; hashtags: string }> {
   const apiKey = process.env.GEMINI_API_KEY;
-
   if (!apiKey) {
     return {
-      captionCopy: `✨ ${request.brandName}의 신규 콘텐츠입니다.\n\n${request.topicTitle}\n\n지금 바로 확인해보세요!`,
-      hashtags: [`#${request.brandName.replace(/\s+/g, "")}`, "#신제품", "#뷰티스타그램", "#데일리추천"],
+      caption: "AI 제안 실패 — 직접 입력해주세요.",
+      hashtags: `#${params.brandName.replace(/\s+/g, "")} #마케팅`,
     };
   }
 
   try {
     const ai = new GoogleGenAI({ apiKey });
-    const prompt = `당신은 트렌디한 SNS 채널(인스타그램/릴스/틱톡)을 전담 운영하는 전문 소셜 미디어 마케터입니다.
+    const prompt = `
+당신은 트렌디한 감각을 지닌 공식 SNS 마케팅 전문 카피라이터입니다.
+아래 브랜드 및 콘텐츠 기획 정보를 바탕으로 고객의 시선을 사로잡는 매력적인 ${params.platform} 캡션 본문과 해시태그를 작성해주세요.
 
-[콘텐츠 정보]
-- 브랜드/광고주: ${request.brandName}
-- 콘텐츠 형태: ${request.contentType}
-- 주제/제목: ${request.topicTitle}
-- 비주얼 시안 설명: ${request.visualDescription}
-- 플랫폼: ${request.platform || "instagram"}
+[브랜드 및 채널 정보]
+- 브랜드명: ${params.brandName}
+- 플랫폼: ${params.platform} (@${params.handle})
+- 콘텐츠 제목/주제: ${params.title}
+- 비주얼 및 연출 메모: ${params.mediaNote || "없음"}
 
-위 정보를 바탕으로 인게이지먼트와 도달률을 극대화할 수 있는 감각적이고 매력적인 SNS 캡션 본문(이모지 적절히 활용, 줄바꿈 포함)과, 최적의 관련 해시태그 5~8개를 작성해주세요.
-
-반드시 아래 JSON 형식으로만 응답해주세요:
+[출력 형식]
+반드시 다음 JSON 객체 형식으로만 응답하세요:
 {
-  "captionCopy": "캡션 본문 내용...",
-  "hashtags": ["#해시태그1", "#해시태그2", "#해시태그3", "#해시태그4", "#해시태그5"]
-}`;
+  "caption": "자연스러운 이모지와 줄바꿈이 포함된 본문 카피",
+  "hashtags": "#브랜드명 #핵심키워드1 #핵심키워드2 #핵심키워드3"
+}
+`;
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
       config: {
-        responseMimeType: "application/json",
+        maxOutputTokens: 800,
+        thinkingConfig: {
+          thinkingLevel: ThinkingLevel.MINIMAL,
+        },
       },
     });
 
-    const text = response.text || "{}";
-    const parsed = JSON.parse(text);
-
+    const text = response.text || "";
+    const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(cleanJson);
     return {
-      captionCopy: parsed.captionCopy || "콘텐츠를 확인해보세요!",
-      hashtags: Array.isArray(parsed.hashtags)
-        ? parsed.hashtags
-        : [`#${request.brandName.replace(/\s+/g, "")}`, "#추천"],
+      caption: parsed.caption || "AI 제안 실패 — 직접 입력해주세요.",
+      hashtags: parsed.hashtags || `#${params.brandName.replace(/\s+/g, "")}`,
     };
   } catch (error) {
-    console.error("Gemini SNS Caption error:", error);
+    console.error("Gemini SNS Caption Assist Error:", error);
     return {
-      captionCopy: `✨ ${request.brandName}의 신규 콘텐츠입니다.\n\n${request.topicTitle}`,
-      hashtags: [`#${request.brandName.replace(/\s+/g, "")}`, "#신제품", "#추천"],
+      caption: "AI 제안 실패 — 직접 입력해주세요.",
+      hashtags: `#${params.brandName.replace(/\s+/g, "")} #마케팅`,
     };
   }
 }

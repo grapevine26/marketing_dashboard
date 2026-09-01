@@ -16,9 +16,7 @@ export function applicantsToCSV(applicants: Applicant[]): string {
     a.name,
     a.status === "selected"
       ? "최종선정"
-      : a.status === "reserved"
-      ? "예비선정"
-      : a.status === "rejected"
+      : a.status === "dropped"
       ? "미선정"
       : "지원완료",
     a.sns_link,

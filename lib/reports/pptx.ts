@@ -23,7 +23,7 @@ export async function generateReportPPTX(report: Report): Promise<Buffer> {
   });
   slide1.addText(
     `브랜드: ${campaign.company_name}  |  캠페인: ${campaign.name}  |  일시: ${new Date(
-      report.generated_at
+      report.generated_at || report.created_at
     ).toLocaleDateString("ko-KR")}`,
     {
       x: 1.0,
@@ -88,7 +88,7 @@ export async function generateReportPPTX(report: Report): Promise<Buffer> {
   // Custom sections on Slide 2
   if (report.custom_sections && report.custom_sections.length > 0) {
     let currentY = 3.8;
-    report.custom_sections.forEach((sec) => {
+    report.custom_sections.forEach((sec: any) => {
       slide2.addText(`■ ${sec.title}`, {
         x: 0.8,
         y: currentY,
@@ -118,7 +118,7 @@ export async function generateReportPPTX(report: Report): Promise<Buffer> {
     color: "1E293B",
   });
 
-  const selectedList = applicants.filter((a) => a.status === "selected");
+  const selectedList = applicants.filter((a: any) => a.status === "selected");
   const tableRows: any[][] = [
     [
       { text: "이름", options: { bold: true, fill: "E2E8F0" } },
@@ -130,7 +130,7 @@ export async function generateReportPPTX(report: Report): Promise<Buffer> {
     ],
   ];
 
-  selectedList.forEach((inf) => {
+  selectedList.forEach((inf: any) => {
     tableRows.push([
       inf.name,
       inf.sns_link,
