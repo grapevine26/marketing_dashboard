@@ -6,34 +6,116 @@
 }
 
 :root {
-  --background: #121316;
-  --foreground: #ECECF1;
+  --bg-page: #121316;
+  --bg-sidebar: #16171B;
+  --bg-card: #191B20;
+  --bg-subcard: #21232B;
+  --border-color: #292B34;
+  --text-main: #ECECF1;
+  --text-sub: #A1A1AA;
+  --text-muted: #71717A;
 }
 
 html.dark,
 [data-theme="dark"] {
-  --background: #121316;
-  --foreground: #ECECF1;
+  --bg-page: #121316;
+  --bg-sidebar: #16171B;
+  --bg-card: #191B20;
+  --bg-subcard: #21232B;
+  --border-color: #292B34;
+  --text-main: #ECECF1;
+  --text-sub: #A1A1AA;
+  --text-muted: #71717A;
   color-scheme: dark;
 }
 
 html.light,
 [data-theme="light"] {
-  --background: #F8FAFC;
-  --foreground: #0F172A;
+  --bg-page: #F8FAFC;
+  --bg-sidebar: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-subcard: #F1F5F9;
+  --border-color: #E2E8F0;
+  --text-main: #0F172A;
+  --text-sub: #475569;
+  --text-muted: #94A3B8;
   color-scheme: light;
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: var(--bg-page);
+  color: var(--text-main);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", Helvetica, Arial, sans-serif;
   letter-spacing: -0.015em;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* =========================================================================
-   Light Mode Overrides (Clean Off-White #F8FAFC & Crisp White Cards)
+   1. DARK THEME RULES (Warm Charcoal Preset 2)
+   ========================================================================= */
+html.dark body,
+[data-theme="dark"] body {
+  background-color: #121316 !important;
+  color: #ECECF1 !important;
+}
+
+html.dark header,
+html.dark aside,
+[data-theme="dark"] header,
+[data-theme="dark"] aside {
+  background-color: #16171B !important;
+  border-color: #292B34 !important;
+}
+
+html.dark .bg-\[\#090A0C\],
+[data-theme="dark"] .bg-\[\#090A0C\] {
+  background-color: #121316 !important;
+}
+
+html.dark .bg-\[\#0D0E12\],
+[data-theme="dark"] .bg-\[\#0D0E12\] {
+  background-color: #16171B !important;
+}
+
+html.dark .bg-\[\#121316\],
+[data-theme="dark"] .bg-\[\#121316\] {
+  background-color: #121316 !important;
+}
+
+html.dark .bg-\[\#16171B\],
+[data-theme="dark"] .bg-\[\#16171B\] {
+  background-color: #16171B !important;
+}
+
+html.dark .bg-\[\#131418\],
+[data-theme="dark"] .bg-\[\#131418\] {
+  background-color: #191B20 !important;
+}
+
+html.dark .bg-\[\#191B20\],
+[data-theme="dark"] .bg-\[\#191B20\] {
+  background-color: #191B20 !important;
+}
+
+html.dark .bg-\[\#181A20\],
+[data-theme="dark"] .bg-\[\#181A20\] {
+  background-color: #21232B !important;
+}
+
+html.dark .bg-\[\#21232B\],
+[data-theme="dark"] .bg-\[\#21232B\] {
+  background-color: #21232B !important;
+}
+
+html.dark .border-\[\#22242A\],
+[data-theme="dark"] .border-\[\#22242A\],
+html.dark .border-\[\#292B34\],
+[data-theme="dark"] .border-\[\#292B34\] {
+  border-color: #292B34 !important;
+}
+
+/* =========================================================================
+   2. LIGHT THEME RULES (Modern Clean Off-White Preset 3)
    ========================================================================= */
 html.light body,
 [data-theme="light"] body {
@@ -49,27 +131,57 @@ html.light aside,
   border-color: #E2E8F0 !important;
 }
 
-/* Map dark card backgrounds to clean white cards in light mode */
-html.light div[class*="bg-[#131418]"],
-html.light div[class*="bg-[#181A20]"],
-html.light div[class*="bg-[#090A0C]"],
-[data-theme="light"] div[class*="bg-[#131418]"],
-[data-theme="light"] div[class*="bg-[#181A20]"],
-[data-theme="light"] div[class*="bg-[#090A0C]"] {
+/* Surfaces */
+html.light .bg-\[\#090A0C\],
+[data-theme="light"] .bg-\[\#090A0C\] {
+  background-color: #F8FAFC !important;
+}
+
+html.light .bg-\[\#0D0E12\],
+[data-theme="light"] .bg-\[\#0D0E12\] {
   background-color: #FFFFFF !important;
+}
+
+html.light .bg-\[\#121316\],
+[data-theme="light"] .bg-\[\#121316\] {
+  background-color: #F8FAFC !important;
+}
+
+html.light .bg-\[\#16171B\],
+[data-theme="light"] .bg-\[\#16171B\] {
+  background-color: #FFFFFF !important;
+}
+
+html.light .bg-\[\#131418\],
+[data-theme="light"] .bg-\[\#131418\] {
+  background-color: #FFFFFF !important;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05) !important;
+}
+
+html.light .bg-\[\#191B20\],
+[data-theme="light"] .bg-\[\#191B20\] {
+  background-color: #FFFFFF !important;
+}
+
+html.light .bg-\[\#181A20\],
+[data-theme="light"] .bg-\[\#181A20\] {
+  background-color: #F1F5F9 !important;
+}
+
+html.light .bg-\[\#21232B\],
+[data-theme="light"] .bg-\[\#21232B\] {
+  background-color: #F1F5F9 !important;
+}
+
+/* Light Borders */
+html.light .border-\[\#22242A\],
+[data-theme="light"] .border-\[\#22242A\],
+html.light .border-\[\#292B34\],
+[data-theme="light"] .border-\[\#292B34\] {
   border-color: #E2E8F0 !important;
 }
 
-/* Light Mode Secondary subcards/badges */
-html.light div[class*="bg-[#090A0C]"] input,
-html.light div[class*="bg-[#090A0C]"] select,
-[data-theme="light"] div[class*="bg-[#090A0C]"] input,
-[data-theme="light"] div[class*="bg-[#090A0C]"] select {
-  background-color: #F8FAFC !important;
-  border-color: #CBD5E1 !important;
-}
-
-/* Typography in light mode */
+/* Light Typography */
 html.light .text-zinc-100,
 [data-theme="light"] .text-zinc-100 {
   color: #0F172A !important;
@@ -95,36 +207,14 @@ html.light .text-zinc-500,
   color: #94A3B8 !important;
 }
 
-/* Tables in light mode */
-html.light table,
-[data-theme="light"] table {
-  background-color: #FFFFFF !important;
-}
-
-html.light table thead,
-[data-theme="light"] table thead {
-  background-color: #F1F5F9 !important;
-  border-color: #E2E8F0 !important;
-}
-
-html.light table tbody tr,
-[data-theme="light"] table tbody tr {
-  border-color: #E2E8F0 !important;
-}
-
-html.light table tbody tr:hover,
-[data-theme="light"] table tbody tr:hover {
-  background-color: #F8FAFC !important;
-}
-
-/* Inputs, Textareas, Selects */
+/* Light Inputs & Form Controls */
 html.light input:not([type="checkbox"]):not([type="radio"]),
 html.light textarea,
 html.light select,
 [data-theme="light"] input:not([type="checkbox"]):not([type="radio"]),
 [data-theme="light"] textarea,
 [data-theme="light"] select {
-  background-color: #F8FAFC !important;
+  background-color: #FFFFFF !important;
   color: #0F172A !important;
   border-color: #CBD5E1 !important;
 }
@@ -134,4 +224,59 @@ html.light textarea::placeholder,
 [data-theme="light"] input::placeholder,
 [data-theme="light"] textarea::placeholder {
   color: #94A3B8 !important;
+}
+
+/* Light Tables */
+html.light table,
+[data-theme="light"] table {
+  background-color: #FFFFFF !important;
+}
+
+html.light table thead,
+[data-theme="light"] table thead {
+  background-color: #F8FAFC !important;
+  border-color: #E2E8F0 !important;
+  color: #64748B !important;
+}
+
+html.light table tbody tr,
+[data-theme="light"] table tbody tr {
+  border-color: #E2E8F0 !important;
+  color: #334155 !important;
+}
+
+html.light table tbody tr:hover,
+[data-theme="light"] table tbody tr:hover {
+  background-color: #F8FAFC !important;
+}
+
+/* Solid Buttons Protection: keep white text */
+html.light .bg-blue-600,
+html.light .bg-indigo-600,
+html.light .bg-sky-600,
+html.light .bg-emerald-600,
+html.light .bg-amber-600,
+html.light .bg-rose-600,
+html.light .bg-purple-600,
+[data-theme="light"] .bg-blue-600,
+[data-theme="light"] .bg-indigo-600,
+[data-theme="light"] .bg-sky-600,
+[data-theme="light"] .bg-emerald-600,
+[data-theme="light"] .bg-amber-600,
+[data-theme="light"] .bg-rose-600,
+[data-theme="light"] .bg-purple-600 {
+  color: #FFFFFF !important;
+}
+
+html.light .bg-blue-600 *,
+html.light .bg-indigo-600 *,
+html.light .bg-sky-600 *,
+html.light .bg-emerald-600 *,
+html.light .bg-rose-600 *,
+[data-theme="light"] .bg-blue-600 *,
+[data-theme="light"] .bg-indigo-600 *,
+[data-theme="light"] .bg-sky-600 *,
+[data-theme="light"] .bg-emerald-600 *,
+[data-theme="light"] .bg-rose-600 * {
+  color: #FFFFFF !important;
 }

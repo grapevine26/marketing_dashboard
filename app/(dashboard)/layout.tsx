@@ -34,7 +34,7 @@ export default function DashboardLayout({
           name: "통합 오버뷰 & 캘린더",
           href: "/",
           icon: Calendar,
-          color: "text-blue-400",
+          color: "text-blue-500",
         },
       ],
     },
@@ -45,19 +45,19 @@ export default function DashboardLayout({
           name: "인플루언서 시딩",
           href: "/campaigns",
           icon: FolderKanban,
-          color: "text-blue-400",
+          color: "text-blue-500",
         },
         {
           name: "인플루언서 행사",
           href: "/events",
           icon: PartyPopper,
-          color: "text-indigo-400",
+          color: "text-indigo-500",
         },
         {
           name: "SNS 채널 운영",
           href: "/sns",
           icon: Camera,
-          color: "text-sky-400",
+          color: "text-sky-500",
         },
       ],
     },
@@ -74,13 +74,13 @@ export default function DashboardLayout({
           name: "SNS 사전설문 기본틀",
           href: "/settings/sns-intake",
           icon: Sliders,
-          color: "text-sky-400",
+          color: "text-sky-500",
         },
         {
           name: "공유 PPT 템플릿 보관함",
           href: "/settings/ppt-templates",
           icon: Presentation,
-          color: "text-amber-400",
+          color: "text-amber-500",
         },
       ],
     },
@@ -91,7 +91,7 @@ export default function DashboardLayout({
           name: "사용법 & 매뉴얼",
           href: "/guide",
           icon: BookOpen,
-          color: "text-emerald-400",
+          color: "text-emerald-500",
         },
       ],
     },
@@ -111,7 +111,7 @@ export default function DashboardLayout({
   const closeMenu = () => setMobileMenuOpen(false);
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#121316] text-zinc-100 font-sans antialiased transition-colors duration-200">
+    <div className="min-h-screen flex flex-col md:flex-row font-sans antialiased transition-colors duration-200">
       {/* Mobile Top Header */}
       <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-[#16171B]/95 backdrop-blur-md border-b border-[#22242A]">
         <Link href="/" className="flex items-center gap-2.5">
@@ -136,7 +136,7 @@ export default function DashboardLayout({
       {/* Mobile Slide-over Drawer Backdrop */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs md:hidden"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs md:hidden"
           onClick={closeMenu}
         />
       )}
