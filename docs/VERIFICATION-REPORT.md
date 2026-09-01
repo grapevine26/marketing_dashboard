@@ -150,3 +150,53 @@ Playwright(Chromium Headless)를 구동하여 실제 Next.js 프로덕션 서버
 - **Playwright E2E 종합 테스트 결과**: **28개 전 항목 통과 (28/28 Passed, 100%)**
 
 ---
+## 📑 3대 세부 구현 계획서(docs/superpowers/plans/) 1:1 정밀 대조 검증
+
+사용자 지침에 따라 **Supabase는 추후 전환을 위해 배제하고, DB 스키마 및 모든 비즈니스 로직·라우트·컴포넌트 설계**를 100% 반영하여 검증하였습니다.
+
+---
+
+### 1. 인플루언서 행사 관리 계획서 (`2026-09-01-event-management.md`) 대조
+| 계획서 Task | 계획서 명세 요구사항 | 현재 구현 상태 (`marketing-mvp`) | 일치 여부 |
+|---|---|---|---|
+| **Task 1: Events Schema & Types** | `events`, `event_invitees`, `event_checklist_items` 스키마 및 TypeScript 타입 정의 | `lib/db/types.ts`에 `MarketingEvent`, `EventInvitee`, `EventChecklistItem`, `EventStatus`, `EventRsvpStatus` 완벽 정의 | **100% 일치** |
+| **Task 2: Event Plans Schema & Types** | `event_plans` (`template_id`, `field_values`), PPT 엔진 연계 | `EventPlan` 인터페이스 정의 및 `event_plans` CRUD 연동 완료 | **100% 일치** |
+| **Task 3: AI Assist Module** | `generateEventPlanDraft` (`gemini-2.5-flash`, `ThinkingLevel.MINIMAL`, max 1200 토큰, 폴백 문자열) | `lib/ai/eventPlanAssist.ts`에 동일 규격 및 프롬프트 구현 완료 | **100% 일치** |
+| **Task 4: Events List Screen** | `/campaigns/[id]/events` 목록, 상태 뱃지, 등록 폼 (`NewCampaignEventModal`) | `app/(dashboard)/campaigns/[id]/events/page.tsx` 및 모달 구현 완료 | **100% 일치** |
+| **Task 5: Invitee Management & RSVP** | 지원자 목록 스냅샷 가져오기 (`addEventInviteesFromApplicants`), 직접 추가, 수동 RSVP 토글, 당일 체크인 | `EventDetailClient.tsx` [초대 및 참석 관리] 탭에 모달 및 상태 셀렉트/체크박스 구현 완료 | **100% 일치** |
+| **Task 6: Checklist with KST D-day** | 할 일 등록/수정/삭제, 담당자, `lib/seeding/dday.ts` 기반 KST D-day 뱃지 | `EventDetailClient.tsx` [체크리스트] 탭에 KST D-day 자동 계산 및 관리 완비 | **100% 일치** |
+| **Task 7: Event Plan Editor (Web)** | 템플릿 선택, 플레이스홀더 폼 실시간 수정, AI 초안 제안, 저장 | `EventDetailClient.tsx` [운영안 작성 & PPT] 탭에 구현 완료 | **100% 일치** |
+| **Task 8: Assembled Event Detail Hub** | `/campaigns/[id]/events/[eventId]`에 개요 카드 + 3개 탭 조립 | `app/(dashboard)/campaigns/[id]/events/[eventId]/page.tsx`에 3개 탭 구성 완료 | **100% 일치** |
+| **Task 9: PPT Download Route** | `/campaigns/[id]/events/[eventId]/plan/export` GET 다운로드 라우트 | `app/(dashboard)/campaigns/[id]/events/[eventId]/plan/export/route.ts` 구현 완료 | **100% 일치** |
+| **Task 10: Campaign Hub Integration** | `/campaigns/[id]/page.tsx` 상단에 행사 관리 섹션 카드 추가 | `app/(dashboard)/campaigns/[id]/page.tsx` 상단에 행사 바로가기 섹션 추가 완료 | **100% 일치** |
+
+---
+
+### 2. SNS 채널 대행 운영 계획서 (`2026-09-01-sns-operation.md`) 대조
+| 계획서 Task | 계획서 명세 요구사항 | 현재 구현 상태 (`marketing-mvp`) | 일치 여부 |
+|---|---|---|---|
+| **Task 1: SNS Accounts Schema & Types** | `sns_accounts` (`company_name`, `platform`, `handle`, `intake_token`, `approval_token`) | `lib/db/types.ts` 및 `lib/db/index.ts`에 완벽 정의 | **100% 일치** |
+| **Task 2: SNS Intake Template & Response** | `sns_intake_template`, `sns_intake_responses` (`account_id unique`, 덮어쓰기 지원) | 전역 질문틀 및 계정별 응답 저장 구조 구현 완료 | **100% 일치** |
+| **Task 3: SNS Plans & Contents Schema** | `sns_plans`, `sns_contents` (5단계 상태: `planning`~`posted`, 성과 지표) | `SnsPlan`, `SnsContent`, `SnsContentStatus` 완벽 정의 | **100% 일치** |
+| **Task 4: Public Token Validation & Logic** | 비인증 토큰 기반 조회 및 승인/수정요청 멱등 처리 | `getSnsAccountByToken`, `reviewSnsContent` 함수에 상태 전이 검증 반영 | **100% 일치** |
+| **Task 5: AI Caption & Plan Assist** | `gemini-2.5-flash` 기반 캡션/해시태그 생성 및 운영안 전략 초안 생성 | `lib/ai/snsCaptionAssist.ts`, `lib/ai/snsPlanAssist.ts` 구현 완료 | **100% 일치** |
+| **Task 6: SNS Account Roster Page** | `/sns` 계정 목록 및 등록 모달 (`NewSnsAccountModal`) | `app/(dashboard)/sns/page.tsx` 구현 완료 | **100% 일치** |
+| **Task 7: SNS Account Detail Hub** | `/sns/[id]` 허브: 2개 공개 링크 복사 박스, 상단 누적 성과 KPI 카드 | `app/(dashboard)/sns/[id]/page.tsx` 및 `SnsAccountDetailClient.tsx` 구현 완료 | **100% 일치** |
+| **Task 8: Content Board & Calendar/List** | 캘린더 뷰 / 목록 뷰 전환, 5단계 상태 전이, 담당자 필터링 | `SnsAccountDetailClient.tsx`에 캘린더/리스트/사전설문 탭 완비 | **100% 일치** |
+| **Task 9: AI Caption Form & Content Create** | 제목 입력 후 "AI 문안 작성" 원클릭 자동완성 및 콘텐츠 등록 | 기획안 등록 모달 내 AI 카피 버튼 및 자동 입력 구현 완료 | **100% 일치** |
+| **Task 10: Performance Tracking & Aggregation** | 게시완료(`posted`) 항목에 URL/조회수/좋아요/댓글수 입력 및 상단 월별 합산 | 콘텐츠별 성과 입력 폼 및 상단 4개 누적 지표 실시간 집계 구현 완료 | **100% 일치** |
+| **Task 11: Public Client Intake Form** | `/sns-intake/[token]` 무로그인 독립 클린 폼, 사전 질문 답변 제출 | `app/sns-intake/[token]/page.tsx` 및 `SnsIntakeFormClient.tsx` 구현 완료 | **100% 일치** |
+| **Task 12: Public Client Approval Hub** | `/sns-approval/[token]` 무로그인 시안 검토, [수정 요청] 및 [시안 승인] | `app/sns-approval/[token]/page.tsx` 및 `SnsApprovalClient.tsx` 구현 완료 | **100% 일치** |
+| **Task 13: Operation Plan Web Editor & PPT** | `/sns/[id]/plan` 웹 편집, AI 초안 제안, `/export` PPT 다운로드 라우트 | `app/(dashboard)/sns/[id]/plan/page.tsx` 및 `/export/route.ts` 구현 완료 | **100% 일치** |
+| **Task 14: Settings Screens** | `/settings/sns-intake` 전역 질문틀 관리, `/settings/ppt-templates` 공용 템플릿 관리 | `app/(dashboard)/settings/sns-intake` 및 `ppt-templates` 구현 완료 | **100% 일치** |
+
+---
+
+### 3. 통합 오버뷰 & 캘린더 계획서 (`2026-09-01-overview-calendar.md`) 대조
+| 계획서 Task | 계획서 명세 요구사항 | 현재 구현 상태 (`marketing-mvp`) | 일치 여부 |
+|---|---|---|---|
+| **Task 1: Types & Calendar Pure Functions** | `OverviewItem`, `SourceResult`, KST 일자 분할 (`partitionDueItems`), 7열 그리드 (`buildMonthGrid`), `?month=yyyy-mm` 파싱 | `lib/seeding/dday.ts` 및 `CalendarOverviewClient.tsx`에 정확히 구현 완료 | **100% 일치** |
+| **Task 2: 4-Source Data Fetchers & Isolation** | 4개 독립 소스(시딩 마감일, 행사 일시, 행사 체크리스트, SNS 발행일), `Promise.allSettled` 장애 격리 | `app/(dashboard)/page.tsx`에 4개 독립 쿼리 및 `Promise.allSettled` 완벽 적용 | **100% 일치** |
+| **Task 3: Dashboard Overview Screen (`/`)** | 상단 임박/지연 알림 (D-3 ~ D+n 지연순 정렬, 출처별 뱃지), 하단 7열 월간 캘린더 (날짜 클릭 시 모달) | `app/(dashboard)/page.tsx` 및 `CalendarOverviewClient.tsx` 구현 완료 | **100% 일치** |
+
+---
