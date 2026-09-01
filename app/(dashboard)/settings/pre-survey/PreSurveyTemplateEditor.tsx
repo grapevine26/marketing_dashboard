@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { PreSurveyTemplate, PreSurveyQuestion } from "@/lib/db/types";
 import { saveTemplateAction } from "./actions";
 import {
@@ -22,6 +23,7 @@ export default function PreSurveyTemplateEditor({
 }: {
   initialTemplate: PreSurveyTemplate;
 }) {
+  const router = useRouter();
   const [questions, setQuestions] = useState<PreSurveyQuestion[]>(
     initialTemplate.questions || []
   );
@@ -54,6 +56,7 @@ export default function PreSurveyTemplateEditor({
         id: initialTemplate.id,
         questions,
       });
+      router.refresh();
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } finally {

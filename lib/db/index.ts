@@ -432,10 +432,6 @@ async function getInitialData(): Promise<DatabaseSchema> {
   };
 }
 export async function readDb(): Promise<DatabaseSchema> {
-  if (globalThis._marketingDbCache) {
-    return globalThis._marketingDbCache;
-  }
-
   const filePath = getDbFilePath();
   ensureDataDir(filePath);
 
@@ -447,7 +443,11 @@ export async function readDb(): Promise<DatabaseSchema> {
       return parsed;
     }
   } catch (err) {
-    console.warn("Could not read DB file, fallback to initial data:", err);
+    console.warn("Could not read DB file, fallback to cache or initial:", err);
+  }
+
+  if (globalThis._marketingDbCache) {
+    return globalThis._marketingDbCache;
   }
 
   const initial = await getInitialData();

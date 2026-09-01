@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { SnsIntakeTemplate, PreSurveyQuestion } from "@/lib/db/types";
 import { updateSnsIntakeTemplateAction } from "../../sns/actions";
 import { Plus, Trash2, Save, Loader2 } from "lucide-react";
@@ -10,6 +11,7 @@ export default function SnsIntakeSettingsClient({
 }: {
   initialTemplate: SnsIntakeTemplate;
 }) {
+  const router = useRouter();
   const [questions, setQuestions] = useState<PreSurveyQuestion[]>(initialTemplate.questions);
   const [saving, setSaving] = useState(false);
   const [savedNotice, setSavedNotice] = useState(false);
@@ -36,6 +38,7 @@ export default function SnsIntakeSettingsClient({
     setSaving(true);
     try {
       await updateSnsIntakeTemplateAction(questions);
+      router.refresh();
       setSavedNotice(true);
       setTimeout(() => setSavedNotice(false), 2500);
     } finally {
