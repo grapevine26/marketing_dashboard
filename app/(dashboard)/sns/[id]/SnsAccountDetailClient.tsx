@@ -32,6 +32,8 @@ import {
   BarChart3,
   Loader2,
   Save,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 export default function SnsAccountDetailClient({
@@ -50,6 +52,37 @@ export default function SnsAccountDetailClient({
   const [activeTab, setActiveTab] = useState<"calendar" | "list" | "intake">("calendar");
   const [contents, setContents] = useState<SnsContent[]>(initialContents);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // Calendar month state
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  });
+
+  const [calYear, calMonth] = calendarMonth.split("-").map((v) => parseInt(v, 10));
+  const daysInCalMonth = new Date(calYear, calMonth, 0).getDate();
+  const firstDayOfCalMonth = new Date(calYear, calMonth - 1, 1).getDay();
+
+  const handleCalPrev = () => {
+    const d = new Date(calYear, calMonth - 2, 1);
+    setCalendarMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  };
+
+  const handleCalNext = () => {
+    const d = new Date(calYear, calMonth, 1);
+    setCalendarMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  };
+
+  const calendarDays = [];
+  for (let day = 1; day <= daysInCalMonth; day++) {
+    const dateStr = `${calYear}-${String(calMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dayItems = contents.filter((c) => c.scheduled_on === dateStr);
+    calendarDays.push({
+      dayNum: day,
+      dateStr,
+      items: dayItems,
+    });
+  }
 
   // New Content Form
   const [newModalOpen, setNewModalOpen] = useState(false);
@@ -292,7 +325,7 @@ export default function SnsAccountDetailClient({
           }`}
         >
           <Calendar className="w-3.5 h-3.5" />
-          <span>콘텐츠 캘린더</span>
+          <span>콘텐츠 캘린더 (월별 뷰)</span>
         </button>
         <button
           type="button"
@@ -304,7 +337,7 @@ export default function SnsAccountDetailClient({
           }`}
         >
           <List className="w-3.5 h-3.5" />
-          <span>콘텐츠 목록 ({contents.length})</span>
+          <span>콘텐츠 목록 및 성과 관리 ({contents.length})</span>
         </button>
         <button
           type="button"
@@ -316,12 +349,110 @@ export default function SnsAccountDetailClient({
           }`}
         >
           <FileText className="w-3.5 h-3.5" />
-          <span>사전설문 응답 결과</span>
+          <span>광고주 사전설문 답변</span>
         </button>
       </div>
 
-      {/* Content List View */}
-      {(activeTab === "list" || activeTab === "calendar") && (
+      {/* 1. Monthly Calendar View */}
+      {activeTab === "calendar" && (
+        <div className="p-5 sm:p-6 rounded-3xl bg-[#131418] border border-[#22242A] space-y-4 shadow-xl font-sans">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-sky-400" />
+              <h2 className="text-base font-bold text-zinc-100">
+                {calYear}년 {calMonth}월 SNS 콘텐츠 발행 스케줄
+              </h2>
+            </div>
+
+            <div className="flex items-center gap-1 bg-[#090A0C] p-1 rounded-xl border border-[#22242A]">
+              <button
+                type="button"
+                onClick={handleCalPrev}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#181A20] transition"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-xs font-bold text-zinc-200 px-2 font-mono">
+                {calYear}.{String(calMonth).padStart(2, "0")}
+              </span>
+              <button
+                type="button"
+                onClick={handleCalNext}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#181A20] transition"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* 7-Columns Calendar Grid */}
+          <div className="border border-[#22242A] rounded-2xl overflow-hidden bg-[#090A0C]">
+            <div className="grid grid-cols-7 text-center text-xs font-bold text-zinc-400 border-b border-[#22242A] bg-[#131418] py-2.5">
+              <div className="text-red-400">일</div>
+              <div>월</div>
+              <div>화</div>
+              <div>수</div>
+              <div>목</div>
+              <div>금</div>
+              <div className="text-blue-400">토</div>
+            </div>
+
+            <div className="grid grid-cols-7 divide-x divide-y divide-[#22242A]">
+              {Array.from({ length: firstDayOfCalMonth }).map((_, idx) => (
+                <div key={`blank-${idx}`} className="h-28 sm:h-32 bg-[#090A0C]/40" />
+              ))}
+
+              {calendarDays.map((cell) => (
+                <div
+                  key={cell.dateStr}
+                  onClick={() => {
+                    setNewScheduledOn(cell.dateStr);
+                    setNewModalOpen(true);
+                  }}
+                  className="h-28 sm:h-32 p-1.5 sm:p-2 flex flex-col justify-between hover:bg-[#181A20] cursor-pointer transition group"
+                  title="클릭하여 이 날짜에 새 콘텐츠 기획"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono font-bold text-zinc-300 group-hover:text-sky-400">
+                      {cell.dayNum}
+                    </span>
+                    {cell.items.length > 0 && (
+                      <span className="w-4 h-4 rounded-full bg-sky-500/20 text-sky-300 text-[10px] font-bold flex items-center justify-center font-mono">
+                        {cell.items.length}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-1 overflow-y-auto max-h-20">
+                    {cell.items.map((item) => (
+                      <div
+                        key={item.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveTab("list");
+                        }}
+                        className="p-1 rounded-md bg-[#131418] border border-[#22242A] text-[10px] space-y-0.5 truncate hover:border-sky-500/40"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                            item.status === "posted" ? "text-emerald-400" : item.status === "approved" ? "text-blue-400" : "text-sky-400"
+                          }`}>
+                            {item.status === "posted" ? "발행" : item.status === "approved" ? "승인" : "기획"}
+                          </span>
+                        </div>
+                        <div className="font-bold text-zinc-200 truncate">{item.title}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Content List View */}
+      {activeTab === "list" && (
         <div className="space-y-4">
           <div className="space-y-3">
             {contents.length === 0 ? (
