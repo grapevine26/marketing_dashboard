@@ -26,6 +26,7 @@ export async function createSnsAccountAction(data: {
 }) {
   const account = await createSnsAccount(data);
   revalidatePath("/sns");
+  revalidatePath("/");
   return { success: true, account };
 }
 

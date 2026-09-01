@@ -9,6 +9,7 @@ import { Plus, X, Loader2 } from "lucide-react";
 export default function NewSnsAccountModal() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const router = useRouter();
 
   const [formData, setFormData] = useState({
@@ -21,17 +22,26 @@ export default function NewSnsAccountModal() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.company_name.trim() || !formData.handle.trim()) {
+      setErrorMsg("브랜드명과 계정 핸들을 입력해주세요.");
+      return;
+    }
+
     setLoading(true);
+    setErrorMsg(null);
     try {
       const res = await createSnsAccountAction({
-        company_name: formData.company_name,
+        company_name: formData.company_name.trim(),
         platform: formData.platform,
-        handle: formData.handle.replace(/^@/, ""),
+        handle: formData.handle.trim().replace(/^@/, ""),
         starts_on: formData.starts_on || null,
         ends_on: formData.ends_on || null,
       });
       setOpen(false);
       router.push(`/sns/${res.account.id}`);
+    } catch (err: any) {
+      console.error("SNS Account Creation Error:", err);
+      setErrorMsg(err.message || "계정 등록 중 오류가 발생했습니다. 다시 시도해주세요.");
     } finally {
       setLoading(false);
     }
@@ -41,7 +51,10 @@ export default function NewSnsAccountModal() {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setErrorMsg(null);
+          setOpen(true);
+        }}
         className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs sm:text-sm font-semibold shadow-md transition active:scale-95"
       >
         <Plus className="w-4 h-4" />
@@ -60,6 +73,12 @@ export default function NewSnsAccountModal() {
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {errorMsg && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">
+                {errorMsg}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1">

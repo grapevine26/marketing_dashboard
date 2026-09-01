@@ -1023,6 +1023,25 @@ export async function createSnsAccount(data: {
     created_at: new Date().toISOString(),
   };
   db.sns_accounts.unshift(newAccount);
+
+  // Auto-initialize default SNS plan
+  const defaultSnsTemplate = db.ppt_templates.find((t) => t.kind === "sns");
+  db.sns_plans.push({
+    id: crypto.randomUUID(),
+    account_id: newAccount.id,
+    template_id: defaultSnsTemplate?.id || null,
+    field_values: {
+      브랜드명: newAccount.company_name,
+      채널명: `${newAccount.platform.toUpperCase()} (@${newAccount.handle})`,
+      계약기간: `${newAccount.starts_on || "시작일 미정"} ~ ${newAccount.ends_on || "종료일 미정"}`,
+      운영목표: `${newAccount.company_name} 공식 계정 활성화 및 타깃 오디언스 대상 브랜드 인지도 증대`,
+      타겟오디언스: "브랜드 핵심 타깃 2030 세대 및 카테고리 고관여자",
+      콘텐츠방향성: "릴스/숏폼 중심의 감각적인 비주얼 큐레이션 및 소통형 피드",
+      월별계획: "1개월차: 계정 브랜딩 및 톤앤매너 확립\n2개월차: 제품 스토리텔링 콘텐츠 확장\n3개월차: 참여 유도 프로모션 및 성과 극대화",
+    },
+    updated_at: new Date().toISOString(),
+  });
+
   await writeDb(db);
   return newAccount;
 }
