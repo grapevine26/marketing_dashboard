@@ -15,7 +15,9 @@ import {
   Presentation,
   Sliders,
   BookOpen,
+  Palette,
 } from "lucide-react";
+import ThemeToggleButton from "@/components/ThemeToggleButton";
 
 export default function DashboardLayout({
   children,
@@ -110,24 +112,26 @@ export default function DashboardLayout({
   const closeMenu = () => setMobileMenuOpen(false);
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#090A0C] text-zinc-100 font-sans antialiased">
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#121316] text-zinc-100 font-sans antialiased transition-colors duration-200">
       {/* Mobile Top Header */}
-      <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-[#0D0E12]/95 backdrop-blur-md border-b border-[#22242A]">
+      <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-[#16171B]/95 backdrop-blur-md border-b border-[#22242A]">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white text-xs shadow-md shadow-blue-500/20">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center font-bold text-white text-xs shadow-md shadow-purple-500/20">
             M
           </div>
           <span className="font-bold text-zinc-100 text-sm tracking-tight">마케팅 올인원</span>
         </Link>
 
-        <button
-          type="button"
-          aria-label="메뉴 열기"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 rounded-xl bg-[#131418] border border-[#22242A] text-zinc-300 hover:text-white active:scale-95 transition"
-        >
-          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="메뉴 열기"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 rounded-xl bg-[#191B20] border border-[#22242A] text-zinc-300 hover:text-white active:scale-95 transition"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </header>
 
       {/* Mobile Slide-over Drawer Backdrop */}
@@ -140,14 +144,14 @@ export default function DashboardLayout({
 
       {/* Sidebar Drawer */}
       <aside
-        className={`fixed md:sticky top-0 bottom-0 left-0 z-50 w-72 md:w-64 border-r border-[#22242A] bg-[#0D0E12] flex flex-col p-4 space-y-6 shrink-0 transition-transform duration-300 ease-in-out md:translate-x-0 ${
+        className={`fixed md:sticky top-0 bottom-0 left-0 z-50 w-72 md:w-64 border-r border-[#22242A] bg-[#16171B] flex flex-col p-4 space-y-5 shrink-0 transition-transform duration-300 ease-in-out md:translate-x-0 ${
           mobileMenuOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"
         } h-screen overflow-y-auto`}
       >
         {/* Sidebar Brand Header */}
         <div className="px-2 flex items-center justify-between">
           <Link href="/" onClick={closeMenu} className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-md shadow-blue-500/20">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-md shadow-purple-500/20">
               M
             </div>
             <div>
@@ -159,7 +163,7 @@ export default function DashboardLayout({
           <button
             type="button"
             onClick={closeMenu}
-            className="md:hidden p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#181A20]"
+            className="md:hidden p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#21232B]"
           >
             <X className="w-5 h-5" />
           </button>
@@ -182,15 +186,15 @@ export default function DashboardLayout({
                     onClick={closeMenu}
                     className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
                       active
-                        ? "bg-blue-600/15 border border-blue-500/30 text-blue-400 shadow-sm"
-                        : "text-zinc-300 hover:text-white hover:bg-[#181A20]"
+                        ? "bg-purple-600/15 border border-purple-500/30 text-purple-400 shadow-sm"
+                        : "text-zinc-300 hover:text-white hover:bg-[#21232B]"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <Icon className={`w-4 h-4 ${active ? "text-blue-400" : item.color}`} />
+                      <Icon className={`w-4 h-4 ${active ? "text-purple-400" : item.color}`} />
                       <span>{item.name}</span>
                     </div>
-                    {active && <ChevronRight className="w-3.5 h-3.5 text-blue-400" />}
+                    {active && <ChevronRight className="w-3.5 h-3.5 text-purple-400" />}
                   </Link>
                 );
               })}
@@ -198,15 +202,19 @@ export default function DashboardLayout({
           ))}
         </nav>
 
-        {/* Usage Guide Button at Bottom */}
-        <div className="pt-3 border-t border-[#22242A]">
+        {/* Theme Toggle & Usage Guide Buttons at Bottom */}
+        <div className="pt-3 border-t border-[#22242A] space-y-2">
+          {/* Theme Switcher Toggle */}
+          <ThemeToggleButton />
+
+          {/* User Guide Button */}
           <Link
             href="/guide"
             onClick={closeMenu}
-            className={`w-full p-3.5 rounded-2xl border transition flex items-center justify-between group ${
+            className={`w-full p-3 rounded-2xl border transition flex items-center justify-between group ${
               pathname === "/guide"
                 ? "bg-emerald-600/15 border-emerald-500/30 text-emerald-400"
-                : "bg-[#131418] hover:bg-[#181A20] border-[#22242A] hover:border-emerald-500/30 text-zinc-200"
+                : "bg-[#191B20] hover:bg-[#21232B] border-[#22242A] hover:border-emerald-500/30 text-zinc-200"
             }`}
           >
             <div className="flex items-center gap-2.5">

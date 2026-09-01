@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 export const metadata: Metadata = {
   title: "마케팅 올인원 | 통합 인플루언서 & 마케팅 플랫폼",
@@ -11,7 +12,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#090A0C",
+  themeColor: "#121316",
 };
 
 export default function RootLayout({
@@ -20,9 +21,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ko" className="dark">
-      <body className="min-h-screen bg-[#090A0C] text-zinc-100 antialiased flex flex-col selection:bg-blue-500 selection:text-white">
-        {children}
+    <html lang="ko" className="dark" data-theme="dark" suppressHydrationWarning>
+      <body className="min-h-screen bg-[#121316] text-zinc-100 antialiased flex flex-col selection:bg-purple-600 selection:text-white font-sans">
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );
