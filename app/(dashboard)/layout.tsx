@@ -9,12 +9,13 @@ import {
   Calendar,
   PartyPopper,
   Camera,
-  Sparkles,
   Menu,
   X,
   ChevronRight,
   Presentation,
   Sliders,
+  BookOpen,
+  HelpCircle,
 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -27,10 +28,10 @@ export default function DashboardLayout({
 
   const navItems = [
     {
-      group: "통합 관제",
+      group: "통합 일정",
       items: [
         {
-          name: "오버뷰 / 통합 캘린더",
+          name: "통합 오버뷰 & 캘린더",
           href: "/",
           icon: Calendar,
           color: "text-blue-400",
@@ -38,7 +39,7 @@ export default function DashboardLayout({
       ],
     },
     {
-      group: "마케팅 실행 모듈",
+      group: "마케팅 프로젝트",
       items: [
         {
           name: "인플루언서 시딩",
@@ -61,10 +62,10 @@ export default function DashboardLayout({
       ],
     },
     {
-      group: "에이전시 설정",
+      group: "환경설정 & 템플릿",
       items: [
         {
-          name: "시딩 사전조사 템플릿",
+          name: "사전조사 기본 템플릿",
           href: "/settings/pre-survey",
           icon: Settings,
           color: "text-zinc-400",
@@ -76,10 +77,21 @@ export default function DashboardLayout({
           color: "text-sky-400",
         },
         {
-          name: "공용 PPT 템플릿 관리",
+          name: "공유 PPT 템플릿 보관함",
           href: "/settings/ppt-templates",
           icon: Presentation,
           color: "text-amber-400",
+        },
+      ],
+    },
+    {
+      group: "가이드",
+      items: [
+        {
+          name: "사용법 & 매뉴얼",
+          href: "/guide",
+          icon: BookOpen,
+          color: "text-emerald-400",
         },
       ],
     },
@@ -181,17 +193,32 @@ export default function DashboardLayout({
           ))}
         </nav>
 
-        {/* Gemini AI Status Box */}
+        {/* Usage Guide Button at Bottom */}
         <div className="pt-3 border-t border-[#22242A]">
-          <div className="p-3.5 rounded-2xl bg-[#131418] border border-[#22242A] text-[11px] space-y-1.5">
-            <div className="flex items-center gap-1.5 font-bold text-blue-400">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Gemini AI 활성화</span>
+          <Link
+            href="/guide"
+            onClick={closeMenu}
+            className={`w-full p-3.5 rounded-2xl border transition flex items-center justify-between group ${
+              pathname === "/guide"
+                ? "bg-emerald-600/15 border-emerald-500/30 text-emerald-400"
+                : "bg-[#131418] hover:bg-[#181A20] border-[#22242A] hover:border-emerald-500/30 text-zinc-200"
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+                <BookOpen className="w-4 h-4" />
+              </div>
+              <div className="text-left">
+                <span className="text-xs font-bold block text-zinc-100 group-hover:text-emerald-400 transition">
+                  사용법 & 가이드
+                </span>
+                <span className="text-[10px] text-zinc-400 block">
+                  처음 이용자를 위한 상세 안내
+                </span>
+              </div>
             </div>
-            <p className="text-zinc-400 leading-relaxed text-[10px]">
-              사전조사 • 행사 기획 • SNS 캡션 • 운영안 제안서를 지원합니다.
-            </p>
-          </div>
+            <ChevronRight className="w-3.5 h-3.5 text-zinc-500 group-hover:text-emerald-400 group-hover:translate-x-0.5 transition" />
+          </Link>
         </div>
       </aside>
 
