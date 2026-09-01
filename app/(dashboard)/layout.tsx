@@ -15,7 +15,6 @@ import {
   Presentation,
   Sliders,
   BookOpen,
-  HelpCircle,
 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -48,7 +47,7 @@ export default function DashboardLayout({
           color: "text-blue-400",
         },
         {
-          name: "인플루언서 행사 (RSVP)",
+          name: "인플루언서 행사",
           href: "/events",
           icon: PartyPopper,
           color: "text-indigo-400",

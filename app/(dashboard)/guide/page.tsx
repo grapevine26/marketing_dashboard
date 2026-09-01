@@ -68,7 +68,7 @@ export default function GuidePage() {
             href="#events"
             className="px-4 py-2 rounded-xl bg-[#181A20] hover:bg-[#22242A] border border-[#22242A] text-zinc-200 text-xs font-semibold transition"
           >
-            2. 인플루언서 행사 & RSVP
+            2. 인플루언서 행사
           </a>
           <a
             href="#sns"
@@ -228,7 +228,7 @@ export default function GuidePage() {
             <PartyPopper className="w-4 h-4" />
             <span>서브프로젝트 B</span>
           </div>
-          <h2 className="text-xl font-bold text-zinc-100">2. 인플루언서 행사 & RSVP 완벽 가이드</h2>
+          <h2 className="text-xl font-bold text-zinc-100">2. 인플루언서 행사 완벽 가이드</h2>
           <p className="text-xs text-zinc-400">
             브랜드 VIP 런칭 파티, 팝업스토어 초청, 현장 참석 체크인, PPT 행사 운영안 및 체크리스트를 관리합니다.
           </p>
