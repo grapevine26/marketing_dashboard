@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Campaign,
   MarketingEvent,
@@ -61,6 +62,7 @@ export default function EventDetailClient({
   templates: PptTemplate[];
   applicants: Applicant[];
 }) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"invitees" | "plan" | "checklist">("invitees");
   const [invitees, setInvitees] = useState<EventInvitee[]>(initialInvitees);
   const [checklists, setChecklists] = useState<EventChecklistItem[]>(initialChecklists);
@@ -205,8 +207,9 @@ export default function EventDetailClient({
         templateId: selectedTemplate.id,
         fieldValues,
       });
+      router.refresh();
       setPlanSavedNotice(true);
-      setTimeout(() => setPlanSavedNotice(false), 2500);
+      setTimeout(() => setPlanSavedNotice(false), 3000);
     } finally {
       setSavingPlan(false);
     }
@@ -545,7 +548,7 @@ export default function EventDetailClient({
               <p className="text-xs text-zinc-400">사전조사 및 행사 정보를 바탕으로 AI가 초안을 완성하고, 템플릿에 맞춰 .pptx를 출력합니다.</p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 disabled={loadingAi}
@@ -564,12 +567,25 @@ export default function EventDetailClient({
                 {savingPlan ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                 <span>운영안 저장</span>
               </button>
+              <a
+                href={`/campaigns/${campaign.id}/events/${event.id}/plan/export`}
+                className="px-4 py-2 rounded-xl bg-emerald-600/15 hover:bg-emerald-600/25 border border-emerald-500/30 text-emerald-300 text-xs font-semibold inline-flex items-center gap-1.5 transition active:scale-95"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                <span>운영안 PPT 다운로드</span>
+              </a>
             </div>
           </div>
 
           {planSavedNotice && (
-            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
-              운영안이 성공적으로 저장되었습니다! 상단의 [운영안 PPT 다운로드]로 언제든 다운로드할 수 있습니다.
+            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold flex items-center justify-between">
+              <span>운영안이 성공적으로 저장되었습니다! 최신 내용이 반영된 PPT를 즉시 다운로드할 수 있습니다.</span>
+              <a
+                href={`/campaigns/${campaign.id}/events/${event.id}/plan/export`}
+                className="underline hover:text-emerald-300 ml-2"
+              >
+                다운로드하기 →
+              </a>
             </div>
           )}
 

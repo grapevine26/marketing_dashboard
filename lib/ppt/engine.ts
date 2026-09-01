@@ -120,141 +120,155 @@ export async function generateDefaultPptBuffer(kind: "event" | "sns"): Promise<B
     const slide1 = pptx.addSlide();
     slide1.background = { color: "090A0C" };
     slide1.addText("EVENT OPERATION PLAN", {
-      x: 1.0,
-      y: 1.5,
-      w: 8.0,
-      h: 0.5,
-      fontSize: 14,
-      color: "3B82F6",
+      x: 0.8,
+      y: 1.8,
+      w: 11.5,
+      h: 0.4,
+      fontSize: 13,
+      color: "38BDF8",
       bold: true,
     });
     slide1.addText("{{브랜드명}} - {{행사명}}", {
-      x: 1.0,
-      y: 2.2,
-      w: 8.0,
-      h: 1.2,
-      fontSize: 32,
+      x: 0.8,
+      y: 2.3,
+      w: 11.7,
+      h: 1.5,
+      fontSize: 28,
       color: "FFFFFF",
       bold: true,
+      valign: "middle",
     });
-    slide1.addText("행사 일시: {{행사일시}}  |  장소: {{행사장소}}", {
-      x: 1.0,
-      y: 4.0,
-      w: 8.0,
+    slide1.addText("행사 일시: {{행사일시}}   |   장소: {{행사장소}}", {
+      x: 0.8,
+      y: 4.2,
+      w: 11.5,
       h: 0.6,
-      fontSize: 16,
+      fontSize: 14,
       color: "94A3B8",
     });
 
-    // Slide 2: Overview & Program
+    // Slide 2: Overview & Strategy
     const slide2 = pptx.addSlide();
     slide2.background = { color: "0D0E12" };
     slide2.addText("01. 행사 개요 및 기획 의도", {
       x: 0.8,
       y: 0.8,
-      w: 8.0,
-      h: 0.5,
-      fontSize: 20,
-      color: "3B82F6",
-      bold: true,
-    });
-    slide2.addText("{{행사개요}}", {
-      x: 0.8,
-      y: 1.6,
-      w: 8.4,
-      h: 1.8,
-      fontSize: 14,
-      color: "E2E8F0",
-      lineSpacing: 24,
-    });
-    slide2.addText("02. 주요 프로그램 & VIP 세션", {
-      x: 0.8,
-      y: 3.6,
-      w: 8.0,
-      h: 0.5,
-      fontSize: 20,
-      color: "6366F1",
-      bold: true,
-    });
-    slide2.addText("{{프로그램}}", {
-      x: 0.8,
-      y: 4.3,
-      w: 8.4,
-      h: 2.0,
-      fontSize: 14,
-      color: "E2E8F0",
-      lineSpacing: 24,
-    });
-  } else {
-    // SNS Template
-    // Slide 1: Cover
-    const slide1 = pptx.addSlide();
-    slide1.background = { color: "090A0C" };
-    slide1.addText("SNS OPERATION STRATEGY", {
-      x: 1.0,
-      y: 1.5,
-      w: 8.0,
-      h: 0.5,
-      fontSize: 14,
-      color: "0EA5E9",
-      bold: true,
-    });
-    slide1.addText("{{브랜드명}} 공식 SNS 운영 제안서", {
-      x: 1.0,
-      y: 2.2,
-      w: 8.0,
-      h: 1.2,
-      fontSize: 32,
-      color: "FFFFFF",
-      bold: true,
-    });
-    slide1.addText("운영 채널: {{채널명}}  |  계약 기간: {{계약기간}}", {
-      x: 1.0,
-      y: 4.0,
-      w: 8.0,
-      h: 0.6,
-      fontSize: 16,
-      color: "94A3B8",
-    });
-
-    // Slide 2: Target & Strategy
-    const slide2 = pptx.addSlide();
-    slide2.background = { color: "0D0E12" };
-    slide2.addText("01. 운영 목표 & 핵심 타겟", {
-      x: 0.8,
-      y: 0.8,
-      w: 8.0,
-      h: 0.5,
-      fontSize: 20,
-      color: "0EA5E9",
-      bold: true,
-    });
-    slide2.addText("운영 목표:\n{{운영목표}}\n\n핵심 타겟:\n{{타겟오디언스}}", {
-      x: 0.8,
-      y: 1.5,
-      w: 8.4,
-      h: 2.0,
-      fontSize: 13,
-      color: "E2E8F0",
-      lineSpacing: 22,
-    });
-    slide2.addText("02. 콘텐츠 방향성 & 월간 발행 계획", {
-      x: 0.8,
-      y: 3.8,
-      w: 8.0,
+      w: 11.5,
       h: 0.5,
       fontSize: 20,
       color: "38BDF8",
       bold: true,
     });
-    slide2.addText("콘텐츠 방향성:\n{{콘텐츠방향성}}\n\n월간 발행 계획:\n{{월별계획}}", {
+    slide2.addText("{{행사개요}}", {
       x: 0.8,
-      y: 4.5,
-      w: 8.4,
-      h: 2.0,
+      y: 1.6,
+      w: 11.7,
+      h: 5.0,
+      fontSize: 14,
+      color: "F1F5F9",
+      lineSpacing: 26,
+      valign: "top",
+    });
+
+    // Slide 3: Program & Timetable
+    const slide3 = pptx.addSlide();
+    slide3.background = { color: "0D0E12" };
+    slide3.addText("02. 주요 프로그램 & VIP 세션 타임테이블", {
+      x: 0.8,
+      y: 0.8,
+      w: 11.5,
+      h: 0.5,
+      fontSize: 20,
+      color: "818CF8",
+      bold: true,
+    });
+    slide3.addText("{{프로그램}}", {
+      x: 0.8,
+      y: 1.6,
+      w: 11.7,
+      h: 5.2,
       fontSize: 13,
-      color: "E2E8F0",
-      lineSpacing: 22,
+      color: "F1F5F9",
+      lineSpacing: 24,
+      valign: "top",
+    });
+  } else {
+    // SNS Template (3 Slides)
+    // Slide 1: Cover
+    const slide1 = pptx.addSlide();
+    slide1.background = { color: "090A0C" };
+    slide1.addText("SNS OPERATION STRATEGY", {
+      x: 0.8,
+      y: 1.8,
+      w: 11.5,
+      h: 0.4,
+      fontSize: 13,
+      color: "0EA5E9",
+      bold: true,
+    });
+    slide1.addText("{{브랜드명}} 공식 SNS 채널 운영 제안서", {
+      x: 0.8,
+      y: 2.3,
+      w: 11.7,
+      h: 1.5,
+      fontSize: 28,
+      color: "FFFFFF",
+      bold: true,
+      valign: "middle",
+    });
+    slide1.addText("운영 채널: {{채널명}}   |   계약 기간: {{계약기간}}", {
+      x: 0.8,
+      y: 4.2,
+      w: 11.5,
+      h: 0.6,
+      fontSize: 14,
+      color: "94A3B8",
+    });
+
+    // Slide 2: Target & Goals
+    const slide2 = pptx.addSlide();
+    slide2.background = { color: "0D0E12" };
+    slide2.addText("01. 운영 목표 & 핵심 타겟", {
+      x: 0.8,
+      y: 0.8,
+      w: 11.5,
+      h: 0.5,
+      fontSize: 20,
+      color: "0EA5E9",
+      bold: true,
+    });
+    slide2.addText("■ 운영 목표\n{{운영목표}}\n\n■ 핵심 타겟 오디언스\n{{타겟오디언스}}", {
+      x: 0.8,
+      y: 1.6,
+      w: 11.7,
+      h: 5.0,
+      fontSize: 13,
+      color: "F1F5F9",
+      lineSpacing: 24,
+      valign: "top",
+    });
+
+    // Slide 3: Content Direction & Roadmap
+    const slide3 = pptx.addSlide();
+    slide3.background = { color: "0D0E12" };
+    slide3.addText("02. 콘텐츠 방향성 & 월간 발행 계획", {
+      x: 0.8,
+      y: 0.8,
+      w: 11.5,
+      h: 0.5,
+      fontSize: 20,
+      color: "38BDF8",
+      bold: true,
+    });
+    slide3.addText("■ 콘텐츠 기획 및 비주얼 방향성\n{{콘텐츠방향성}}\n\n■ 월별 주요 프로모션 및 발행 계획\n{{월별계획}}", {
+      x: 0.8,
+      y: 1.6,
+      w: 11.7,
+      h: 5.0,
+      fontSize: 13,
+      color: "F1F5F9",
+      lineSpacing: 24,
+      valign: "top",
     });
   }
 

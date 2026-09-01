@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { SnsAccount, SnsPlan, SnsIntakeResponse, PptTemplate } from "@/lib/db/types";
 import { saveSnsPlanAction, generateSnsAiPlanAction } from "../../actions";
 import { Sparkles, Download, Save, Loader2, FileText } from "lucide-react";
@@ -16,6 +17,7 @@ export default function SnsPlanEditorClient({
   intakeResponse: SnsIntakeResponse | null;
   templates: PptTemplate[];
 }) {
+  const router = useRouter();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
     initialPlan?.template_id || templates[0]?.id || null
   );
@@ -59,8 +61,9 @@ export default function SnsPlanEditorClient({
         templateId: selectedTemplateId,
         fieldValues,
       });
+      router.refresh();
       setSavedNotice(true);
-      setTimeout(() => setSavedNotice(false), 2500);
+      setTimeout(() => setSavedNotice(false), 3000);
     } finally {
       setSaving(false);
     }
