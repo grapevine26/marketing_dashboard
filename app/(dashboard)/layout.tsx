@@ -15,7 +15,6 @@ import {
   Presentation,
   Sliders,
   BookOpen,
-  Palette,
 } from "lucide-react";
 import ThemeToggleButton from "@/components/ThemeToggleButton";
 
@@ -202,36 +201,9 @@ export default function DashboardLayout({
           ))}
         </nav>
 
-        {/* Theme Toggle & Usage Guide Buttons at Bottom */}
-        <div className="pt-3 border-t border-[#22242A] space-y-2">
-          {/* Theme Switcher Toggle */}
+        {/* Theme Switcher Toggle at Bottom */}
+        <div className="pt-3 border-t border-[#22242A]">
           <ThemeToggleButton />
-
-          {/* User Guide Button */}
-          <Link
-            href="/guide"
-            onClick={closeMenu}
-            className={`w-full p-3 rounded-2xl border transition flex items-center justify-between group ${
-              pathname === "/guide"
-                ? "bg-emerald-600/15 border-emerald-500/30 text-emerald-400"
-                : "bg-[#191B20] hover:bg-[#21232B] border-[#22242A] hover:border-emerald-500/30 text-zinc-200"
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
-                <BookOpen className="w-4 h-4" />
-              </div>
-              <div className="text-left">
-                <span className="text-xs font-bold block text-zinc-100 group-hover:text-emerald-400 transition">
-                  사용법 & 가이드
-                </span>
-                <span className="text-[10px] text-zinc-400 block">
-                  처음 이용자를 위한 상세 안내
-                </span>
-              </div>
-            </div>
-            <ChevronRight className="w-3.5 h-3.5 text-zinc-500 group-hover:text-emerald-400 group-hover:translate-x-0.5 transition" />
-          </Link>
         </div>
       </aside>
 
