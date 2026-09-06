@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getReportById, getCampaignById } from "@/lib/db";
+import { getReportById, getCampaignById, getPptTemplates, BUILTIN_REPORT_TEMPLATE_ID } from "@/lib/db";
 import { ReportSnapshotMetrics } from "@/lib/db/types";
 import CustomSectionEditor from "./CustomSectionEditor";
-import { Download, ArrowLeft, ExternalLink, AlertTriangle } from "lucide-react";
+import ReportDownloads from "./ReportDownloads";
+import { ArrowLeft, ExternalLink, AlertTriangle } from "lucide-react";
 
 export const revalidate = 0;
 
@@ -23,9 +24,14 @@ export default async function ReportDetailPage({
   params: Promise<{ id: string; reportId: string }>;
 }) {
   const { id, reportId } = await params;
-  const [report, campaign] = await Promise.all([getReportById(reportId), getCampaignById(id)]);
+  const [report, campaign, reportTemplates] = await Promise.all([
+    getReportById(reportId),
+    getCampaignById(id),
+    getPptTemplates("report"),
+  ]);
 
   if (!report || !campaign || report.campaign_id !== campaign.id) notFound();
+  const templateOptions = reportTemplates.map((t) => ({ id: t.id, name: t.name, builtin: Boolean(t.builtin), placeholders: t.placeholders }));
 
   const snapshot = report.snapshot_data;
   const metrics = snapshot?.metrics || EMPTY_METRICS;
@@ -46,16 +52,7 @@ export default async function ReportDetailPage({
         </div>
 
         {snapshot ? (
-          <div className="flex items-center gap-2">
-            <a href={`/api/reports/${report.id}/pdf`} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold shadow-md transition">
-              <Download className="w-4 h-4" />
-              <span>PDF 보고서 다운로드</span>
-            </a>
-            <a href={`/api/reports/${report.id}/pptx`} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold shadow-md transition">
-              <Download className="w-4 h-4" />
-              <span>PPTX 슬라이드 다운로드</span>
-            </a>
-          </div>
+          <ReportDownloads reportId={report.id} templates={templateOptions} defaultTemplateId={BUILTIN_REPORT_TEMPLATE_ID} />
         ) : (
           <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-2">
             <AlertTriangle className="w-4 h-4" />

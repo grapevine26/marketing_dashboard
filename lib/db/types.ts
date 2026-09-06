@@ -173,8 +173,14 @@ export interface CampaignReport {
 }
 export type Report = CampaignReport;
 
-// Shared PPT Template Types (B & C Shared)
-export type PptTemplateKind = "event" | "sns";
+// Shared PPT Template Types (A 보고서 · B 행사 · C SNS 공용)
+export type PptTemplateKind = "event" | "sns" | "report";
+
+export const PPT_TEMPLATE_KIND_LABELS: Record<PptTemplateKind, string> = {
+  event: "인플루언서 행사 운영안",
+  sns: "SNS 채널 운영 제안서",
+  report: "시딩 결과보고서",
+};
 
 export interface PptTemplate {
   id: string;

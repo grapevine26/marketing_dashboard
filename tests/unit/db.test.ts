@@ -41,7 +41,8 @@ describe("JSON DB", () => {
     const db = await readDb();
     expect(db.campaigns.length).toBeGreaterThan(0);
     const builtin = db.ppt_templates.filter((t) => t.builtin);
-    expect(builtin).toHaveLength(2);
+    expect(builtin).toHaveLength(3);
+    expect(builtin.map((t) => t.kind).sort()).toEqual(["event", "report", "sns"]);
     expect(builtin.every((t) => !t.file_data)).toBe(true);
   });
 

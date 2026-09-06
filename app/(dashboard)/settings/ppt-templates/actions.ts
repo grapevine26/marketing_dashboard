@@ -13,7 +13,7 @@ export async function uploadPptTemplateAction(
   const name = formData.get("name");
   const kind = formData.get("kind");
 
-  if (!(file instanceof File) || typeof name !== "string" || (kind !== "event" && kind !== "sns")) {
+  if (!(file instanceof File) || typeof name !== "string" || (kind !== "event" && kind !== "sns" && kind !== "report")) {
     return fail("필수 항목이 누락되었습니다.");
   }
   if (!file.name.toLowerCase().endsWith(".pptx")) {

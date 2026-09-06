@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { PptTemplate } from "@/lib/db/types";
+import { PptTemplate, PptTemplateKind, PPT_TEMPLATE_KIND_LABELS } from "@/lib/db/types";
 import { uploadPptTemplateAction, deletePptTemplateAction } from "./actions";
 import { Upload, Trash2, Loader2, Lock } from "lucide-react";
 
 export default function PptTemplatesClient({ initialTemplates }: { initialTemplates: PptTemplate[] }) {
   const [templates, setTemplates] = useState<PptTemplate[]>(initialTemplates);
   const [name, setName] = useState("");
-  const [kind, setKind] = useState<"event" | "sns">("event");
+  const [kind, setKind] = useState<PptTemplateKind>("event");
   const [file, setFile] = useState<File | null>(null);
   const [fileKey, setFileKey] = useState(0);
   const [uploading, setUploading] = useState(false);
@@ -59,6 +59,7 @@ export default function PptTemplatesClient({ initialTemplates }: { initialTempla
         </h2>
         <p className="text-xs text-zinc-400">
           슬라이드 텍스트에 <code className="text-amber-400 bg-[#090A0C] px-1.5 py-0.5 rounded font-mono">{"{{브랜드명}}"}</code> 같은 치환 표시를 넣어 만든 .pptx를 올리면 자동으로 감지됩니다. 디자인은 그대로 보존됩니다.
+          결과보고서 템플릿에서는 <code className="text-amber-400 bg-[#090A0C] px-1.5 py-0.5 rounded font-mono">{"{{표:인플루언서}}"}</code>, <code className="text-amber-400 bg-[#090A0C] px-1.5 py-0.5 rounded font-mono">{"{{차트:성과}}"}</code>를 넣은 도형 자리에 표와 차트가 들어갑니다.
         </p>
 
         {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">{error}</div>}
@@ -75,11 +76,12 @@ export default function PptTemplatesClient({ initialTemplates }: { initialTempla
           />
           <select
             value={kind}
-            onChange={(e) => setKind(e.target.value as "event" | "sns")}
+            onChange={(e) => setKind(e.target.value as PptTemplateKind)}
             className="px-3.5 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-amber-500 font-semibold"
           >
-            <option value="event">행사 운영안 템플릿</option>
-            <option value="sns">SNS 운영 제안서 템플릿</option>
+            {(Object.keys(PPT_TEMPLATE_KIND_LABELS) as PptTemplateKind[]).map((k) => (
+              <option key={k} value={k}>{PPT_TEMPLATE_KIND_LABELS[k]} 템플릿</option>
+            ))}
           </select>
           <input
             key={fileKey}
@@ -112,7 +114,7 @@ export default function PptTemplatesClient({ initialTemplates }: { initialTempla
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-semibold">
-                      {t.kind === "event" ? "인플루언서 행사" : "SNS 채널 운영"}
+                      {PPT_TEMPLATE_KIND_LABELS[t.kind]}
                     </span>
                     {t.builtin && (
                       <span className="px-2 py-0.5 rounded-full bg-[#181A20] text-zinc-400 border border-[#22242A] text-[10px] font-semibold inline-flex items-center gap-1">

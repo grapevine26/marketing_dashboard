@@ -88,8 +88,19 @@ declare global {
 
 const BUILTIN_EVENT_TEMPLATE_ID = "t1a2b3c4-0001-4000-8000-000000000001";
 const BUILTIN_SNS_TEMPLATE_ID = "t1a2b3c4-0002-4000-8000-000000000002";
+export const BUILTIN_REPORT_TEMPLATE_ID = "t1a2b3c4-0003-4000-8000-000000000003";
 export const BUILTIN_EVENT_PLACEHOLDERS = ["브랜드명", "행사명", "행사일시", "행사장소", "행사개요", "프로그램"];
 export const BUILTIN_SNS_PLACEHOLDERS = ["브랜드명", "채널명", "계약기간", "운영목표", "타겟오디언스", "콘텐츠방향성", "월별계획"];
+export const BUILTIN_REPORT_PLACEHOLDERS = [
+  "보고서제목", "캠페인명", "브랜드명", "캠페인유형", "생성일시",
+  "총지원자", "최종선정", "예비선정", "업로드완료", "총조회수", "총인게이지먼트", "인게이지먼트율",
+  "총평", "차트:성과", "표:인플루언서",
+];
+const BUILTIN_TEMPLATES: Record<string, { kind: PptTemplate["kind"]; name: string; placeholders: string[] }> = {
+  [BUILTIN_EVENT_TEMPLATE_ID]: { kind: "event", name: "기본 인플루언서 행사 운영안 템플릿", placeholders: BUILTIN_EVENT_PLACEHOLDERS },
+  [BUILTIN_SNS_TEMPLATE_ID]: { kind: "sns", name: "기본 SNS 공식 채널 운영 제안서 템플릿", placeholders: BUILTIN_SNS_PLACEHOLDERS },
+  [BUILTIN_REPORT_TEMPLATE_ID]: { kind: "report", name: "기본 시딩 결과보고서 템플릿", placeholders: BUILTIN_REPORT_PLACEHOLDERS },
+};
 
 function ensureDataDir(filePath: string) {
   try {
@@ -244,24 +255,14 @@ function getInitialData(): DatabaseSchema {
       },
     ],
     reports: [],
-    ppt_templates: [
-      {
-        id: BUILTIN_EVENT_TEMPLATE_ID,
-        kind: "event",
-        name: "기본 인플루언서 행사 운영안 템플릿",
-        builtin: true,
-        placeholders: BUILTIN_EVENT_PLACEHOLDERS,
-        uploaded_at: nowIso(),
-      },
-      {
-        id: BUILTIN_SNS_TEMPLATE_ID,
-        kind: "sns",
-        name: "기본 SNS 공식 채널 운영 제안서 템플릿",
-        builtin: true,
-        placeholders: BUILTIN_SNS_PLACEHOLDERS,
-        uploaded_at: nowIso(),
-      },
-    ],
+    ppt_templates: Object.entries(BUILTIN_TEMPLATES).map(([id, t]) => ({
+      id,
+      kind: t.kind,
+      name: t.name,
+      builtin: true,
+      placeholders: t.placeholders,
+      uploaded_at: nowIso(),
+    })),
     events: [
       {
         id: sampleEventId,
@@ -461,10 +462,18 @@ function migrateDb(db: DatabaseSchema) {
 
   // 내장 템플릿은 base64를 저장하지 않고 코드에서 매번 생성한다(코드 변경이 즉시 반영되도록).
   for (const t of db.ppt_templates) {
-    if (t.id === BUILTIN_EVENT_TEMPLATE_ID || t.id === BUILTIN_SNS_TEMPLATE_ID) {
+    const builtin = BUILTIN_TEMPLATES[t.id];
+    if (builtin) {
       t.builtin = true;
+      t.kind = builtin.kind;
       delete t.file_data;
-      t.placeholders = t.kind === "event" ? BUILTIN_EVENT_PLACEHOLDERS : BUILTIN_SNS_PLACEHOLDERS;
+      t.placeholders = builtin.placeholders;
+    }
+  }
+  // 나중에 추가된 내장 템플릿(예: 보고서)은 기존 JSON에 없으므로 채워 넣는다.
+  for (const [id, t] of Object.entries(BUILTIN_TEMPLATES)) {
+    if (!db.ppt_templates.some((x) => x.id === id)) {
+      db.ppt_templates.push({ id, kind: t.kind, name: t.name, builtin: true, placeholders: t.placeholders, uploaded_at: nowIso() });
     }
   }
 
@@ -1052,7 +1061,7 @@ export async function createReport(campaignId: string, title?: string): Promise<
 
 // ---------- 2. Shared PPT Templates (Subprojects B & C) ----------
 
-export async function getPptTemplates(kind?: "event" | "sns"): Promise<PptTemplate[]> {
+export async function getPptTemplates(kind?: PptTemplate["kind"]): Promise<PptTemplate[]> {
   const db = await readDb();
   return kind ? db.ppt_templates.filter((t) => t.kind === kind) : db.ppt_templates;
 }
@@ -1074,12 +1083,12 @@ export async function getPptTemplateBuffer(template: PptTemplate): Promise<Buffe
 }
 
 export async function savePptTemplate(data: {
-  kind: "event" | "sns";
+  kind: PptTemplate["kind"];
   name: string;
   file_buffer: Buffer;
   placeholders: string[];
 }): Promise<PptTemplate> {
-  const kind = oneOf(data.kind, ["event", "sns"] as const, "템플릿 종류");
+  const kind = oneOf(data.kind, ["event", "sns", "report"] as const, "템플릿 종류");
   const name = requireText(data.name, "템플릿 이름", 200);
   if (!data.file_buffer || data.file_buffer.length < 4 || data.file_buffer.toString("latin1", 0, 2) !== "PK") {
     throw new ValidationError("올바른 .pptx 파일이 아닙니다.");
