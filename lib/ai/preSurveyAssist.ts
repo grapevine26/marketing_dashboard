@@ -1,4 +1,5 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { GEMINI_MODEL } from "./config";
 
 export interface PreSurveyAssistRequest {
   question: string;
@@ -13,25 +14,24 @@ export interface PreSurveyAssistRequest {
 export interface PreSurveyAssistResponse {
   suggestions: string[];
   recommendedDraft: string;
+  /** true면 AI 호출이 실패해 기본 문구로 대체된 것 */
+  fallback: boolean;
 }
+
+const FALLBACK_DRAFT = "AI 제안 실패 — 직접 입력해주세요.";
 
 export async function assistPreSurvey(
   request: PreSurveyAssistRequest
 ): Promise<PreSurveyAssistResponse> {
   const apiKey = process.env.GEMINI_API_KEY;
 
-  if (!apiKey) {
-    return {
-      suggestions: [
-        "핵심 소구점과 특허 성분 강조",
-        "2030 타겟 맞춤형 톤앤매너 설정",
-        "필수 해시태그 및 비포&애프터 컷 가이드",
-      ],
-      recommendedDraft: request.userDraft
-        ? `${request.userDraft} (보완: 타겟 고객을 위한 핵심 효능과 일상 속 루틴을 자연스럽게 보여주세요.)`
-        : "주요 타겟 고객층에게 어필할 수 있는 제품의 핵심 특장점을 2~3가지 명확히 기재해 주세요.",
-    };
-  }
+  const fallback = (): PreSurveyAssistResponse => ({
+    suggestions: ["핵심 소구점과 차별화 포인트", "타겟 고객층과 톤앤매너", "필수 키워드/해시태그와 주의사항"],
+    recommendedDraft: request.userDraft || FALLBACK_DRAFT,
+    fallback: true,
+  });
+
+  if (!apiKey) return fallback();
 
   try {
     const ai = new GoogleGenAI({ apiKey });
@@ -52,28 +52,26 @@ export async function assistPreSurvey(
 }`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.6-flash",
+      model: GEMINI_MODEL,
       contents: prompt,
       config: {
         responseMimeType: "application/json",
+        maxOutputTokens: 800,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
       },
     });
 
-    const text = response.text || "{}";
-    const parsed = JSON.parse(text);
-
+    const parsed = JSON.parse(response.text || "{}");
+    if (typeof parsed.recommendedDraft !== "string" || !parsed.recommendedDraft.trim()) {
+      return fallback();
+    }
     return {
-      suggestions: Array.isArray(parsed.suggestions)
-        ? parsed.suggestions
-        : ["핵심 효능 강조", "사용감 중심 리뷰", "필수 해시태그 안내"],
-      recommendedDraft:
-        parsed.recommendedDraft || "질문에 맞는 명확한 가이드를 작성해주세요.",
+      suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.map(String).slice(0, 5) : [],
+      recommendedDraft: parsed.recommendedDraft,
+      fallback: false,
     };
   } catch (error) {
     console.error("Gemini preSurvey assist error:", error);
-    return {
-      suggestions: ["제품 특징 명확화", "타겟 연령대 정의", "필수 가이드 수록"],
-      recommendedDraft: request.userDraft || "상세한 제품 특성과 인플루언서 가이드를 입력해주세요.",
-    };
+    return fallback();
   }
 }

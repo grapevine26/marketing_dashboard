@@ -15,63 +15,68 @@ export default function PreSurveyAgencyView({
   template: PreSurveyTemplate;
   initialResponse: PreSurveyResponse | null;
 }) {
-  const [answers, setAnswers] = useState<Record<string, string>>(
-    initialResponse?.answers || {}
-  );
+  const [answers, setAnswers] = useState<Record<string, string>>(initialResponse?.answers || {});
   const [loadingAiMap, setLoadingAiMap] = useState<Record<string, boolean>>({});
+  const [suggestions, setSuggestions] = useState<Record<string, string[]>>({});
+  const [usedAi, setUsedAi] = useState(initialResponse?.used_ai_assist ?? false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  const handleAiAssist = async (questionId: string, questionText: string) => {
+  const handleAiAssist = async (questionId: string) => {
     setLoadingAiMap((prev) => ({ ...prev, [questionId]: true }));
-    try {
-      const res = await getAiAssistAction({
-        question: questionText,
-        userDraft: answers[questionId] || "",
-        campaignName: campaign.name,
-        companyName: campaign.company_name,
-        campaignType: campaign.campaign_type,
-      });
-
-      if (res.recommendedDraft) {
-        setAnswers((prev) => ({ ...prev, [questionId]: res.recommendedDraft }));
-      }
-    } finally {
-      setLoadingAiMap((prev) => ({ ...prev, [questionId]: false }));
+    setNotice(null);
+    setError(null);
+    const res = await getAiAssistAction({ campaignId: campaign.id, questionId, userDraft: answers[questionId] || "" });
+    setLoadingAiMap((prev) => ({ ...prev, [questionId]: false }));
+    if (!res.ok) {
+      setError(res.error);
+      return;
     }
+    if (res.data.fallback) {
+      setNotice("AI 제안 실패 — 직접 입력해주세요.");
+      return;
+    }
+    setUsedAi(true);
+    setAnswers((prev) => ({ ...prev, [questionId]: res.data.recommendedDraft }));
+    setSuggestions((prev) => ({ ...prev, [questionId]: res.data.suggestions }));
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    try {
-      await saveAgencyPreSurveyAction({
-        campaignId: campaign.id,
-        answers,
-        usedAiAssist: true,
-      });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } finally {
-      setSaving(false);
+    setError(null);
+    const res = await saveAgencyPreSurveyAction({ campaignId: campaign.id, answers, usedAiAssist: usedAi });
+    setSaving(false);
+    if (!res.ok) {
+      setError(res.error);
+      return;
     }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
   };
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto font-sans">
       <div className="space-y-1">
-        <Link
-          href={`/campaigns/${campaign.id}`}
-          className="text-xs text-zinc-400 hover:text-white inline-flex items-center gap-1 transition"
-        >
+        <Link href={`/campaigns/${campaign.id}`} className="text-xs text-zinc-400 hover:text-white inline-flex items-center gap-1 transition">
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>캠페인 허브로 돌아가기</span>
         </Link>
         <h1 className="text-xl font-bold text-zinc-100">1. 사전조사 작성 및 AI 답변 추천</h1>
         <p className="text-xs text-zinc-400">
           광고주가 직접 작성하거나, 에이전시가 광고주 대신 사전조사 내용을 작성/수정할 수 있습니다.
+          {initialResponse && (
+            <span className="ml-1 text-zinc-500">
+              (최근 제출: {new Date(initialResponse.submitted_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })})
+            </span>
+          )}
         </p>
       </div>
+
+      {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">{error}</div>}
+      {notice && <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold">{notice}</div>}
 
       <form onSubmit={handleSave} className="p-8 rounded-3xl bg-[#131418] border border-[#22242A] space-y-6 shadow-xl">
         <div className="space-y-5 divide-y divide-[#22242A]">
@@ -84,13 +89,21 @@ export default function PreSurveyAgencyView({
                 <button
                   type="button"
                   disabled={loadingAiMap[q.id]}
-                  onClick={() => handleAiAssist(q.id, q.question)}
-                  className="px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 text-[11px] font-semibold transition inline-flex items-center gap-1"
+                  onClick={() => handleAiAssist(q.id)}
+                  className="px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 text-[11px] font-semibold transition inline-flex items-center gap-1 disabled:opacity-50"
                 >
                   {loadingAiMap[q.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                   <span>Gemini AI 추천</span>
                 </button>
               </div>
+
+              {suggestions[q.id]?.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {suggestions[q.id].map((s) => (
+                    <span key={s} className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20 text-[10px]">💡 {s}</span>
+                  ))}
+                </div>
+              ) : null}
 
               <textarea
                 rows={3}

@@ -8,6 +8,7 @@ import {
   getPptTemplates,
   getApplicantsByCampaignId,
 } from "@/lib/db";
+import { toKstDateString } from "@/lib/seeding/dday";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import EventDetailClient from "./EventDetailClient";
@@ -20,12 +21,9 @@ export default async function CampaignEventDetailPage({
   params: Promise<{ id: string; eventId: string }>;
 }) {
   const { id, eventId } = await params;
-  const [campaign, event] = await Promise.all([
-    getCampaignById(id),
-    getEventById(eventId),
-  ]);
+  const [campaign, event] = await Promise.all([getCampaignById(id), getEventById(eventId)]);
 
-  if (!campaign || !event) notFound();
+  if (!campaign || !event || event.campaign_id !== campaign.id) notFound();
 
   const [invitees, checklists, plan, templates, applicants] = await Promise.all([
     getEventInvitees(event.id),
@@ -52,8 +50,9 @@ export default async function CampaignEventDetailPage({
         initialInvitees={invitees}
         initialChecklists={checklists}
         initialPlan={plan}
-        templates={templates}
+        templates={templates.map((t) => ({ id: t.id, name: t.name, placeholders: t.placeholders, builtin: Boolean(t.builtin) }))}
         applicants={applicants}
+        todayKst={toKstDateString()}
       />
     </div>
   );

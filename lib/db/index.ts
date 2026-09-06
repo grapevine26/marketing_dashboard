@@ -1,16 +1,23 @@
 import fs from "fs";
 import path from "path";
+import os from "os";
 import {
   Campaign,
+  CampaignStatus,
   PreSurveyTemplate,
   PreSurveyResponse,
   CampaignFormConfig,
   Applicant,
+  ApplicantStatus,
   SeedingRecord,
+  ProgressStage,
   CampaignReport,
+  ReportSnapshot,
   PptTemplate,
   MarketingEvent,
+  EventStatus,
   EventInvitee,
+  EventRsvpStatus,
   EventChecklistItem,
   EventPlan,
   SnsAccount,
@@ -18,25 +25,34 @@ import {
   SnsIntakeResponse,
   SnsPlan,
   SnsContent,
+  SnsContentStatus,
+  SNS_CONTENT_STATUSES,
 } from "./types";
-import { generateDefaultPptBuffer, extractPlaceholders } from "../ppt/engine";
+import { generateDefaultPptBuffer } from "../ppt/engine";
 
-import os from "os";
+/**
+ * 로컬 JSON 파일 DB (MVP 전용).
+ *
+ * - 저장 위치: `.data/db.json` (프로젝트 폴더). `DB_FILE` 환경변수로 바꿀 수 있다(테스트용).
+ * - Vercel 같은 읽기 전용 파일시스템에서는 `os.tmpdir()`에 쓰지만, 이 경우 인스턴스가 바뀔 때마다
+ *   초기 데이터로 리셋된다. 실제 운영은 영속 DB(SQLite/Postgres)로 옮겨야 한다.
+ * - 모든 쓰기는 `mutateDb()`로 직렬화되어 read-modify-write 경합으로 인한 유실을 막는다.
+ * - 파일은 mtime 기준으로 캐시되어 요청마다 다시 파싱하지 않는다.
+ */
 
-// Vercel serverless environment is read-only except /tmp
+export class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ValidationError";
+  }
+}
+
 function getDbFilePath(): string {
-  if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+  if (process.env.DB_FILE) return path.resolve(process.env.DB_FILE);
+  if (process.env.VERCEL) {
     return path.join(os.tmpdir(), "marketing_db.json");
   }
   return path.join(process.cwd(), ".data", "db.json");
-}
-
-const DB_PATH = getDbFilePath();
-
-// In-memory cache for ultra-fast and resilient serverless execution
-declare global {
-  // eslint-disable-next-line no-var
-  var _marketingDbCache: DatabaseSchema | undefined;
 }
 
 interface DatabaseSchema {
@@ -59,38 +75,45 @@ interface DatabaseSchema {
   sns_contents: SnsContent[];
 }
 
+interface CacheEntry {
+  filePath: string;
+  data: DatabaseSchema;
+  mtimeMs: number;
+}
+
+declare global {
+  var _marketingDbCache: CacheEntry | undefined;
+  var _marketingDbLock: Promise<void> | undefined;
+}
+
+const BUILTIN_EVENT_TEMPLATE_ID = "t1a2b3c4-0001-4000-8000-000000000001";
+const BUILTIN_SNS_TEMPLATE_ID = "t1a2b3c4-0002-4000-8000-000000000002";
+export const BUILTIN_EVENT_PLACEHOLDERS = ["브랜드명", "행사명", "행사일시", "행사장소", "행사개요", "프로그램"];
+export const BUILTIN_SNS_PLACEHOLDERS = ["브랜드명", "채널명", "계약기간", "운영목표", "타겟오디언스", "콘텐츠방향성", "월별계획"];
+
 function ensureDataDir(filePath: string) {
   try {
     const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) {
+      fs.mkdirSync(/*turbopackIgnore: true*/ dir, { recursive: true });
     }
   } catch (err) {
     console.warn("Could not create data directory, using in-memory mode:", err);
   }
 }
-async function getInitialData(): Promise<DatabaseSchema> {
-  let eventPptBuf: Buffer = Buffer.from("");
-  let eventPhs = ["브랜드명", "행사명", "행사일시", "행사장소", "행사개요", "프로그램"];
-  let snsPptBuf: Buffer = Buffer.from("");
-  let snsPhs = ["브랜드명", "채널명", "계약기간", "운영목표", "타겟오디언스", "콘텐츠방향성", "월별계획"];
 
-  try {
-    const rawEvent = await generateDefaultPptBuffer("event");
-    eventPptBuf = Buffer.from(rawEvent);
-    eventPhs = await extractPlaceholders(eventPptBuf);
-    const rawSns = await generateDefaultPptBuffer("sns");
-    snsPptBuf = Buffer.from(rawSns);
-    snsPhs = await extractPlaceholders(snsPptBuf);
-  } catch (err) {
-    console.warn("Could not generate initial PPT buffers in serverless env:", err);
-  }
+function nowIso() {
+  return new Date().toISOString();
+}
 
+function dateOnly(offsetDays: number) {
+  return new Date(Date.now() + 86400000 * offsetDays).toISOString().split("T")[0];
+}
+
+function getInitialData(): DatabaseSchema {
   const sampleCampaignId = "c1a2b3c4-0001-4000-8000-000000000001";
   const sampleEventId = "e1a2b3c4-0001-4000-8000-000000000001";
   const sampleSnsAccountId = "s1a2b3c4-0001-4000-8000-000000000001";
-  const eventTemplateId = "t1a2b3c4-0001-4000-8000-000000000001";
-  const snsTemplateId = "t1a2b3c4-0002-4000-8000-000000000002";
 
   return {
     campaigns: [
@@ -104,7 +127,7 @@ async function getInitialData(): Promise<DatabaseSchema> {
         apply_form_token: "apply_tok_demo_12345",
         applicants_share_token: "app_share_tok_12345",
         seeding_sheet_share_token: "seed_share_tok_12345",
-        created_at: new Date().toISOString(),
+        created_at: nowIso(),
       },
     ],
     pre_survey_template: {
@@ -127,7 +150,7 @@ async function getInitialData(): Promise<DatabaseSchema> {
           q4: "의학적 효능 표방 문구(치료, 완치 등)는 엄격히 금지합니다.",
         },
         used_ai_assist: true,
-        submitted_at: new Date().toISOString(),
+        submitted_at: nowIso(),
       },
     ],
     form_configs: [
@@ -136,11 +159,11 @@ async function getInitialData(): Promise<DatabaseSchema> {
         campaign_id: sampleCampaignId,
         intro_text: "글로우랩 2026 하이드라 앰플 런칭 기념 인플루언서 체험단 모집! 솔직하고 감각적인 리뷰를 남겨주실 크리에이터 여러분을 모십니다.",
         custom_questions: [
-          { id: "cq_1", label: "주요 피부 타입 (건성/지성/복합성/민감성)", type: "text", required: true },
+          { id: "cq_1", label: "주요 피부 타입", type: "select", required: true, options: ["건성", "지성", "복합성", "민감성"] },
           { id: "cq_2", label: "월 평균 뷰티 콘텐츠 업로드 빈도", type: "text", required: false },
         ],
         is_published: true,
-        created_at: new Date().toISOString(),
+        created_at: nowIso(),
       },
     ],
     applicants: [
@@ -152,10 +175,12 @@ async function getInitialData(): Promise<DatabaseSchema> {
         nationality: "대한민국",
         contact: "010-3849-2819",
         shipping_address: "서울특별시 강남구 테헤란로 123 401호",
+        custom_answers: { cq_1: "복합성", cq_2: "주 3회" },
         privacy_agreed: true,
         secondary_use_agreed: true,
         status: "selected",
         status_changed_by: "agency",
+        status_changed_at: nowIso(),
         applied_at: new Date(Date.now() - 3600000 * 24).toISOString(),
       },
       {
@@ -166,10 +191,12 @@ async function getInitialData(): Promise<DatabaseSchema> {
         nationality: "대한민국",
         contact: "010-8274-1928",
         shipping_address: "부산광역시 해운대구 센텀중앙로 45 102동",
+        custom_answers: { cq_1: "건성" },
         privacy_agreed: true,
         secondary_use_agreed: true,
         status: "selected",
         status_changed_by: "agency",
+        status_changed_at: nowIso(),
         applied_at: new Date(Date.now() - 3600000 * 18).toISOString(),
       },
       {
@@ -180,11 +207,12 @@ async function getInitialData(): Promise<DatabaseSchema> {
         nationality: "대한민국",
         contact: "010-9988-7766",
         shipping_address: "경기도 성남시 분당구 판교역로 100",
+        custom_answers: { cq_1: "지성" },
         privacy_agreed: true,
         secondary_use_agreed: false,
         status: "applied",
         status_changed_by: "agency",
-        applied_at: new Date().toISOString(),
+        applied_at: nowIso(),
       },
     ],
     seeding_records: [
@@ -193,57 +221,45 @@ async function getInitialData(): Promise<DatabaseSchema> {
         campaign_id: sampleCampaignId,
         applicant_id: "app_001",
         progress_stage: "가이드전달완료",
-        upload_deadline: new Date(Date.now() + 86400000 * 2).toISOString().split("T")[0],
+        upload_deadline: dateOnly(2),
         upload_link: null,
         views: 0,
         engagement: 0,
         notes: "배송 송장 전달 완료",
-        created_at: new Date().toISOString(),
+        created_at: nowIso(),
+        updated_at: nowIso(),
       },
       {
         id: "seed_002",
         campaign_id: sampleCampaignId,
         applicant_id: "app_002",
         progress_stage: "선정완료",
-        upload_deadline: new Date(Date.now() + 86400000 * 5).toISOString().split("T")[0],
+        upload_deadline: dateOnly(5),
         upload_link: null,
         views: 0,
         engagement: 0,
         notes: null,
-        created_at: new Date().toISOString(),
+        created_at: nowIso(),
+        updated_at: nowIso(),
       },
     ],
-    reports: [
-      {
-        id: "rep_001",
-        campaign_id: sampleCampaignId,
-        title: "글로우랩 2026 하이드라 앰플 런칭 성과 결과보고서",
-        custom_sections: [
-          {
-            id: "sec_1",
-            title: "종합 성과 요약",
-            content: "목표 인원 대비 120% 초과 지원 달성, 상위 뷰티 크리에이터 20인 최종 선정 및 가이드 배포 완료.",
-          },
-        ],
-        created_at: new Date().toISOString(),
-      },
-    ],
+    reports: [],
     ppt_templates: [
       {
-        id: eventTemplateId,
+        id: BUILTIN_EVENT_TEMPLATE_ID,
         kind: "event",
         name: "기본 인플루언서 행사 운영안 템플릿",
-        file_data: eventPptBuf.toString("base64"),
-        placeholders: eventPhs,
-        uploaded_at: new Date().toISOString(),
+        builtin: true,
+        placeholders: BUILTIN_EVENT_PLACEHOLDERS,
+        uploaded_at: nowIso(),
       },
       {
-        id: snsTemplateId,
+        id: BUILTIN_SNS_TEMPLATE_ID,
         kind: "sns",
         name: "기본 SNS 공식 채널 운영 제안서 템플릿",
-        file_data: snsPptBuf.toString("base64"),
-        placeholders: snsPhs,
-        uploaded_at: new Date().toISOString(),
+        builtin: true,
+        placeholders: BUILTIN_SNS_PLACEHOLDERS,
+        uploaded_at: nowIso(),
       },
     ],
     events: [
@@ -255,7 +271,7 @@ async function getInitialData(): Promise<DatabaseSchema> {
         venue: "서울 성동구 성수이로 88 보테가 성수 2F",
         memo: "신제품 앰플 테이스팅 바 및 포토존 운영",
         status: "preparing",
-        created_at: new Date().toISOString(),
+        created_at: nowIso(),
       },
     ],
     event_invitees: [
@@ -269,7 +285,7 @@ async function getInitialData(): Promise<DatabaseSchema> {
         rsvp_status: "attending",
         attended: false,
         memo: "동반 1인 참석 예정",
-        created_at: new Date().toISOString(),
+        created_at: nowIso(),
       },
       {
         id: "inv_002",
@@ -281,7 +297,7 @@ async function getInitialData(): Promise<DatabaseSchema> {
         rsvp_status: "pending",
         attended: false,
         memo: "DM 확인 후 연락 대기",
-        created_at: new Date().toISOString(),
+        created_at: nowIso(),
       },
     ],
     event_checklist_items: [
@@ -289,28 +305,28 @@ async function getInitialData(): Promise<DatabaseSchema> {
         id: "chk_001",
         event_id: sampleEventId,
         label: "VIP 웰컴 기프트 키트 30세트 패키징",
-        due_date: new Date(Date.now() + 86400000 * 1).toISOString().split("T")[0],
+        due_date: dateOnly(1),
         assignee: "박기획 매니저",
         done: false,
         sort_order: 1,
-        created_at: new Date().toISOString(),
+        created_at: nowIso(),
       },
       {
         id: "chk_002",
         event_id: sampleEventId,
         label: "성수 대관 장소 음향 및 조명 사전 리허설",
-        due_date: new Date(Date.now() + 86400000 * 2).toISOString().split("T")[0],
+        due_date: dateOnly(2),
         assignee: "이연출 디렉터",
         done: false,
         sort_order: 2,
-        created_at: new Date().toISOString(),
+        created_at: nowIso(),
       },
     ],
     event_plans: [
       {
         id: "ep_001",
         event_id: sampleEventId,
-        template_id: eventTemplateId,
+        template_id: BUILTIN_EVENT_TEMPLATE_ID,
         field_values: {
           브랜드명: "글로우랩 코스메틱",
           행사명: "2026 하이드라 앰플 런칭 VIP 뷰티 나잇",
@@ -319,7 +335,7 @@ async function getInitialData(): Promise<DatabaseSchema> {
           행사개요: "글로우랩의 신제품 100시간 수분 앰플 출시를 기념하여 최상위 뷰티 인플루언서 30인을 초청하는 프라이빗 런칭 파티",
           프로그램: "18:00 리셉션 & 웰컴 드링크\n18:30 브랜드 스토리 프레젠테이션 & 제품 시연\n19:15 인플루언서 네트워킹 & 럭키드로우",
         },
-        updated_at: new Date().toISOString(),
+        updated_at: nowIso(),
       },
     ],
     sns_accounts: [
@@ -333,7 +349,7 @@ async function getInitialData(): Promise<DatabaseSchema> {
         status: "active",
         intake_token: "sns_intake_tok_12345",
         approval_token: "sns_appr_tok_12345",
-        created_at: new Date().toISOString(),
+        created_at: nowIso(),
       },
     ],
     sns_intake_template: {
@@ -353,14 +369,14 @@ async function getInitialData(): Promise<DatabaseSchema> {
           sq2: "하이드라 앰플 런칭 기념 1+1 기획세트 프로모션",
           sq3: "심플한 타이포그래피와 자연광 텍스처 중심 연출",
         },
-        submitted_at: new Date().toISOString(),
+        submitted_at: nowIso(),
       },
     ],
     sns_plans: [
       {
         id: "sp_001",
         account_id: sampleSnsAccountId,
-        template_id: snsTemplateId,
+        template_id: BUILTIN_SNS_TEMPLATE_ID,
         field_values: {
           브랜드명: "글로우랩",
           채널명: "인스타그램 공식 채널 (@glowlab_official)",
@@ -370,7 +386,7 @@ async function getInitialData(): Promise<DatabaseSchema> {
           콘텐츠방향성: "릴스 중심의 고효율 제형 비포애프터 & 감성적인 피드 큐레이션",
           월별계획: "9월: 런칭 바이럴 및 팔로워 유입 이벤트\n10월: 실사용 후기 중심 릴스 집중 발행\n11월: 홀리데이 에디션 선공개",
         },
-        updated_at: new Date().toISOString(),
+        updated_at: nowIso(),
       },
     ],
     sns_contents: [
@@ -378,7 +394,7 @@ async function getInitialData(): Promise<DatabaseSchema> {
         id: "sct_001",
         account_id: sampleSnsAccountId,
         title: "3초 속건조 탈출! 하이드라 세럼 제형 릴스",
-        scheduled_on: new Date(Date.now() + 86400000 * 2).toISOString().split("T")[0],
+        scheduled_on: dateOnly(2),
         assignee: "김콘텐츠 매니저",
         status: "pending_approval",
         caption: "바르는 순간 물방울이 톡!💧 100시간 보습 지속력의 비밀을 지금 확인해보세요.",
@@ -389,14 +405,14 @@ async function getInitialData(): Promise<DatabaseSchema> {
         view_count: null,
         like_count: null,
         comment_count: null,
-        status_changed_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
+        status_changed_at: nowIso(),
+        created_at: nowIso(),
       },
       {
         id: "sct_002",
         account_id: sampleSnsAccountId,
         title: "올리브영 단독 기획세트 언박싱 스토리 & 피드",
-        scheduled_on: new Date(Date.now() + 86400000 * 4).toISOString().split("T")[0],
+        scheduled_on: dateOnly(4),
         assignee: "김콘텐츠 매니저",
         status: "planning",
         caption: "오직 올리브영에서만 만날 수 있는 1+1 리미티드 패키지 선착순 공개!",
@@ -407,14 +423,14 @@ async function getInitialData(): Promise<DatabaseSchema> {
         view_count: null,
         like_count: null,
         comment_count: null,
-        status_changed_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
+        status_changed_at: nowIso(),
+        created_at: nowIso(),
       },
       {
         id: "sct_003",
         account_id: sampleSnsAccountId,
         title: "민감 피부를 위한 비건 보습 루틴 카드뉴스",
-        scheduled_on: new Date(Date.now() - 86400000 * 2).toISOString().split("T")[0],
+        scheduled_on: dateOnly(-2),
         assignee: "이디자인 매니저",
         status: "posted",
         caption: "환절기 피부 장벽 무너졌을 때 꼭 지켜야 할 3단계 보습 팁!",
@@ -431,50 +447,171 @@ async function getInitialData(): Promise<DatabaseSchema> {
     ],
   };
 }
-export async function readDb(): Promise<DatabaseSchema> {
+
+/** 예전 버전 JSON을 현재 스키마에 맞춘다. 파일을 읽을 때마다 멱등하게 실행된다. */
+function migrateDb(db: DatabaseSchema) {
+  const emptyArrays: (keyof DatabaseSchema)[] = [
+    "campaigns", "pre_survey_responses", "form_configs", "applicants", "seeding_records", "reports",
+    "ppt_templates", "events", "event_invitees", "event_checklist_items", "event_plans",
+    "sns_accounts", "sns_intake_responses", "sns_plans", "sns_contents",
+  ];
+  for (const key of emptyArrays) {
+    if (!Array.isArray(db[key])) (db as unknown as Record<string, unknown>)[key] = [];
+  }
+
+  // 내장 템플릿은 base64를 저장하지 않고 코드에서 매번 생성한다(코드 변경이 즉시 반영되도록).
+  for (const t of db.ppt_templates) {
+    if (t.id === BUILTIN_EVENT_TEMPLATE_ID || t.id === BUILTIN_SNS_TEMPLATE_ID) {
+      t.builtin = true;
+      delete t.file_data;
+      t.placeholders = t.kind === "event" ? BUILTIN_EVENT_PLACEHOLDERS : BUILTIN_SNS_PLACEHOLDERS;
+    }
+  }
+
+  for (const a of db.applicants) {
+    if ((a.status as string) === "dropped") a.status = "rejected";
+  }
+}
+
+async function persist(data: DatabaseSchema): Promise<void> {
   const filePath = getDbFilePath();
   ensureDataDir(filePath);
+  let mtimeMs = Date.now();
+  try {
+    const tmp = `${filePath}.${process.pid}.tmp`;
+    fs.writeFileSync(/*turbopackIgnore: true*/ tmp, JSON.stringify(data, null, 2), "utf-8");
+    fs.renameSync(/*turbopackIgnore: true*/ tmp, filePath);
+    mtimeMs = fs.statSync(/*turbopackIgnore: true*/ filePath).mtimeMs;
+  } catch (err) {
+    console.warn("Could not persist DB to disk (running in-memory):", err);
+  }
+  globalThis._marketingDbCache = { filePath, data, mtimeMs };
+}
+
+export async function readDb(): Promise<DatabaseSchema> {
+  const filePath = getDbFilePath();
+  const cached = globalThis._marketingDbCache;
 
   try {
-    if (fs.existsSync(filePath)) {
-      const raw = fs.readFileSync(filePath, "utf-8");
-      const parsed = JSON.parse(raw) as DatabaseSchema;
-      globalThis._marketingDbCache = parsed;
+    if (fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
+      const mtimeMs = fs.statSync(/*turbopackIgnore: true*/ filePath).mtimeMs;
+      if (cached && cached.filePath === filePath && cached.mtimeMs === mtimeMs) {
+        return cached.data;
+      }
+      const parsed = JSON.parse(fs.readFileSync(/*turbopackIgnore: true*/ filePath, "utf-8")) as DatabaseSchema;
+      migrateDb(parsed);
+      globalThis._marketingDbCache = { filePath, data: parsed, mtimeMs };
       return parsed;
     }
   } catch (err) {
     console.warn("Could not read DB file, fallback to cache or initial:", err);
   }
 
-  if (globalThis._marketingDbCache) {
-    return globalThis._marketingDbCache;
+  if (cached && cached.filePath === filePath) {
+    return cached.data;
   }
 
-  const initial = await getInitialData();
-  globalThis._marketingDbCache = initial;
-
-  try {
-    fs.writeFileSync(filePath, JSON.stringify(initial, null, 2), "utf-8");
-  } catch (err) {
-    console.warn("Could not write initial DB file (running in-memory):", err);
-  }
-
+  const initial = getInitialData();
+  await persist(initial);
   return initial;
 }
 
-export async function writeDb(data: DatabaseSchema): Promise<void> {
-  globalThis._marketingDbCache = data;
-  const filePath = getDbFilePath();
-  ensureDataDir(filePath);
-
+/** 쓰기 트랜잭션. 직렬화되어 동시에 하나만 실행된다. */
+export async function mutateDb<T>(fn: (db: DatabaseSchema) => T | Promise<T>): Promise<T> {
+  const prev = globalThis._marketingDbLock ?? Promise.resolve();
+  let release!: () => void;
+  const mine = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  globalThis._marketingDbLock = prev.then(() => mine);
+  await prev;
   try {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
-  } catch (err) {
-    console.warn("Could not persist DB to disk (running in-memory):", err);
+    const db = await readDb();
+    const result = await fn(db);
+    await persist(db);
+    return result;
+  } finally {
+    release();
   }
 }
 
-// 1. Campaigns & Seeding APIs (Subproject A)
+/** @deprecated mutateDb를 사용할 것. 하위 호환용. */
+export async function writeDb(data: DatabaseSchema): Promise<void> {
+  await persist(data);
+}
+
+// ---------- 공통 검증 유틸 ----------
+
+function requireText(value: unknown, label: string, max = 500): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new ValidationError(`${label}을(를) 입력해주세요.`);
+  }
+  if (value.trim().length > max) {
+    throw new ValidationError(`${label}은(는) ${max}자 이내로 입력해주세요.`);
+  }
+  return value.trim();
+}
+
+function optionalText(value: unknown, max = 2000): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string") return null;
+  const t = value.trim();
+  if (!t) return null;
+  return t.slice(0, max);
+}
+
+function nonNegativeInt(value: unknown, label: string): number {
+  const n = typeof value === "string" ? Number(value) : value;
+  if (typeof n !== "number" || !Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
+    throw new ValidationError(`${label}은(는) 0 이상의 정수여야 합니다.`);
+  }
+  return n;
+}
+
+function optionalDate(value: unknown, label: string): string | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value))) {
+    throw new ValidationError(`${label} 형식이 올바르지 않습니다. (YYYY-MM-DD)`);
+  }
+  return value;
+}
+
+function optionalIsoDateTime(value: unknown, label: string): string | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "string" || Number.isNaN(Date.parse(value))) {
+    throw new ValidationError(`${label} 형식이 올바르지 않습니다.`);
+  }
+  return new Date(value).toISOString();
+}
+
+function optionalUrl(value: unknown, label: string): string | null {
+  const t = optionalText(value, 2000);
+  if (!t) return null;
+  try {
+    const u = new URL(t);
+    if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error();
+    return u.toString();
+  } catch {
+    throw new ValidationError(`${label}은(는) http(s)로 시작하는 URL이어야 합니다.`);
+  }
+}
+
+function oneOf<T extends string>(value: unknown, allowed: readonly T[], label: string): T {
+  if (typeof value !== "string" || !allowed.includes(value as T)) {
+    throw new ValidationError(`${label} 값이 올바르지 않습니다.`);
+  }
+  return value as T;
+}
+
+const CAMPAIGN_STATUSES: CampaignStatus[] = ["draft", "recruiting", "selecting", "seeding", "reporting", "completed"];
+const APPLICANT_STATUSES: ApplicantStatus[] = ["applied", "selected", "reserved", "rejected"];
+const PROGRESS_STAGES: ProgressStage[] = ["선정완료", "발송완료", "가이드전달완료", "수령완료", "방문완료", "확정완료", "업로드완료"];
+const EVENT_STATUSES: EventStatus[] = ["preparing", "done", "canceled"];
+const RSVP_STATUSES: EventRsvpStatus[] = ["pending", "attending", "not_attending"];
+const SNS_PLATFORMS: SnsAccount["platform"][] = ["instagram", "youtube", "tiktok", "other"];
+
+// ---------- 1. Campaigns & Seeding (Subproject A) ----------
+
 export async function getCampaigns(): Promise<Campaign[]> {
   const db = await readDb();
   return db.campaigns;
@@ -489,6 +626,7 @@ export async function getCampaignByToken(
   type: "pre_survey" | "apply_form" | "applicants_share" | "seeding_sheet_share",
   token: string
 ): Promise<Campaign | null> {
+  if (!token) return null;
   const db = await readDb();
   const tokenKey = `${type}_token` as keyof Campaign;
   return db.campaigns.find((c) => c[tokenKey] === token) || null;
@@ -499,36 +637,51 @@ export async function createCampaign(data: {
   company_name: string;
   campaign_type: "shipping" | "visit";
 }): Promise<Campaign> {
-  const db = await readDb();
-  const newCamp: Campaign = {
-    id: crypto.randomUUID(),
-    name: data.name,
-    company_name: data.company_name,
-    campaign_type: data.campaign_type,
-    status: "recruiting",
-    pre_survey_token: `ps_${crypto.randomUUID().slice(0, 12)}`,
-    apply_form_token: `apply_${crypto.randomUUID().slice(0, 12)}`,
-    applicants_share_token: `app_share_${crypto.randomUUID().slice(0, 12)}`,
-    seeding_sheet_share_token: `seed_share_${crypto.randomUUID().slice(0, 12)}`,
-    created_at: new Date().toISOString(),
-  };
+  const name = requireText(data.name, "캠페인명", 200);
+  const company = requireText(data.company_name, "브랜드명", 200);
+  const type = oneOf(data.campaign_type, ["shipping", "visit"] as const, "캠페인 유형");
 
-  db.campaigns.unshift(newCamp);
+  return mutateDb((db) => {
+    const newCamp: Campaign = {
+      id: crypto.randomUUID(),
+      name,
+      company_name: company,
+      campaign_type: type,
+      status: "recruiting",
+      pre_survey_token: `ps_${crypto.randomUUID().slice(0, 12)}`,
+      apply_form_token: `apply_${crypto.randomUUID().slice(0, 12)}`,
+      applicants_share_token: `app_share_${crypto.randomUUID().slice(0, 12)}`,
+      seeding_sheet_share_token: `seed_share_${crypto.randomUUID().slice(0, 12)}`,
+      created_at: nowIso(),
+    };
+    db.campaigns.unshift(newCamp);
 
-  // Auto-initialize default form config
-  db.form_configs.push({
-    id: crypto.randomUUID(),
-    campaign_id: newCamp.id,
-    intro_text: `${data.company_name}의 ${data.name} ${
-      data.campaign_type === "shipping" ? "제품배송형" : "현장방문형"
-    } 인플루언서 체험단을 모집합니다 ✨\n솔직하고 감각적인 리뷰 콘텐츠를 함께 만들어갈 크리에이터 분들의 많은 지원 바랍니다.`,
-    custom_questions: [],
-    is_published: true,
-    created_at: new Date().toISOString(),
+    db.form_configs.push({
+      id: crypto.randomUUID(),
+      campaign_id: newCamp.id,
+      intro_text: `${company}의 ${name} ${
+        type === "shipping" ? "제품배송형" : "현장방문형"
+      } 인플루언서 체험단을 모집합니다 ✨\n솔직하고 감각적인 리뷰 콘텐츠를 함께 만들어갈 크리에이터 분들의 많은 지원 바랍니다.`,
+      custom_questions: [],
+      is_published: true,
+      created_at: nowIso(),
+    });
+    return newCamp;
   });
+}
 
-  await writeDb(db);
-  return newCamp;
+export async function updateCampaign(
+  id: string,
+  patch: { name?: string; company_name?: string; status?: CampaignStatus }
+): Promise<Campaign | null> {
+  return mutateDb((db) => {
+    const camp = db.campaigns.find((c) => c.id === id);
+    if (!camp) return null;
+    if (patch.name !== undefined) camp.name = requireText(patch.name, "캠페인명", 200);
+    if (patch.company_name !== undefined) camp.company_name = requireText(patch.company_name, "브랜드명", 200);
+    if (patch.status !== undefined) camp.status = oneOf(patch.status, CAMPAIGN_STATUSES, "캠페인 상태");
+    return camp;
+  });
 }
 
 export async function getPreSurveyTemplate(): Promise<PreSurveyTemplate> {
@@ -539,10 +692,20 @@ export async function getPreSurveyTemplate(): Promise<PreSurveyTemplate> {
 export async function updatePreSurveyTemplate(
   questions: PreSurveyTemplate["questions"]
 ): Promise<PreSurveyTemplate> {
-  const db = await readDb();
-  db.pre_survey_template.questions = questions;
-  await writeDb(db);
-  return db.pre_survey_template;
+  if (!Array.isArray(questions) || questions.length === 0) {
+    throw new ValidationError("최소 1개 이상의 질문이 필요합니다.");
+  }
+  const cleaned = questions.map((q) => ({
+    id: requireText(q.id, "질문 ID", 100),
+    question: requireText(q.question, "질문 내용", 500),
+    placeholder: optionalText(q.placeholder, 500) ?? undefined,
+    type: q.type,
+    required: Boolean(q.required),
+  }));
+  return mutateDb((db) => {
+    db.pre_survey_template.questions = cleaned;
+    return db.pre_survey_template;
+  });
 }
 
 export async function getPreSurveyResponse(campaignId: string): Promise<PreSurveyResponse | null> {
@@ -555,23 +718,30 @@ export async function savePreSurveyResponse(data: {
   answers: Record<string, string>;
   used_ai_assist: boolean;
 }): Promise<PreSurveyResponse> {
-  const db = await readDb();
-  const existingIdx = db.pre_survey_responses.findIndex((r) => r.campaign_id === data.campaign_id);
-  const record: PreSurveyResponse = {
-    id: existingIdx >= 0 ? db.pre_survey_responses[existingIdx].id : crypto.randomUUID(),
-    campaign_id: data.campaign_id,
-    answers: data.answers,
-    used_ai_assist: data.used_ai_assist,
-    submitted_at: new Date().toISOString(),
-  };
+  return mutateDb((db) => {
+    const template = db.pre_survey_template;
+    const answers: Record<string, string> = {};
+    for (const q of template.questions) {
+      const v = data.answers?.[q.id];
+      const text = typeof v === "string" ? v.trim() : "";
+      if (q.required && !text) {
+        throw new ValidationError(`필수 질문에 답변해주세요: ${q.question}`);
+      }
+      if (text) answers[q.id] = text.slice(0, 5000);
+    }
 
-  if (existingIdx >= 0) {
-    db.pre_survey_responses[existingIdx] = record;
-  } else {
-    db.pre_survey_responses.push(record);
-  }
-  await writeDb(db);
-  return record;
+    const existingIdx = db.pre_survey_responses.findIndex((r) => r.campaign_id === data.campaign_id);
+    const record: PreSurveyResponse = {
+      id: existingIdx >= 0 ? db.pre_survey_responses[existingIdx].id : crypto.randomUUID(),
+      campaign_id: data.campaign_id,
+      answers,
+      used_ai_assist: Boolean(data.used_ai_assist),
+      submitted_at: nowIso(),
+    };
+    if (existingIdx >= 0) db.pre_survey_responses[existingIdx] = record;
+    else db.pre_survey_responses.push(record);
+    return record;
+  });
 }
 
 export async function getFormConfig(campaignId: string): Promise<CampaignFormConfig | null> {
@@ -585,24 +755,37 @@ export async function saveFormConfig(data: {
   custom_questions: CampaignFormConfig["custom_questions"];
   is_published: boolean;
 }): Promise<CampaignFormConfig> {
-  const db = await readDb();
-  const existingIdx = db.form_configs.findIndex((f) => f.campaign_id === data.campaign_id);
-  const record: CampaignFormConfig = {
-    id: existingIdx >= 0 ? db.form_configs[existingIdx].id : crypto.randomUUID(),
-    campaign_id: data.campaign_id,
-    intro_text: data.intro_text,
-    custom_questions: data.custom_questions,
-    is_published: data.is_published,
-    created_at: new Date().toISOString(),
-  };
+  const questions = (data.custom_questions || []).map((q) => {
+    const type = oneOf(q.type, ["text", "number", "select", "checkbox"] as const, "문항 유형");
+    const options = type === "select"
+      ? (q.options || []).map((o) => String(o).trim()).filter(Boolean)
+      : undefined;
+    if (type === "select" && (!options || options.length === 0)) {
+      throw new ValidationError(`선택형 문항 "${q.label}"에 선택지를 1개 이상 입력해주세요.`);
+    }
+    return {
+      id: requireText(q.id, "문항 ID", 100),
+      label: requireText(q.label, "문항 내용", 300),
+      type,
+      required: Boolean(q.required),
+      ...(options ? { options } : {}),
+    };
+  });
 
-  if (existingIdx >= 0) {
-    db.form_configs[existingIdx] = record;
-  } else {
-    db.form_configs.push(record);
-  }
-  await writeDb(db);
-  return record;
+  return mutateDb((db) => {
+    const existingIdx = db.form_configs.findIndex((f) => f.campaign_id === data.campaign_id);
+    const record: CampaignFormConfig = {
+      id: existingIdx >= 0 ? db.form_configs[existingIdx].id : crypto.randomUUID(),
+      campaign_id: data.campaign_id,
+      intro_text: typeof data.intro_text === "string" ? data.intro_text.slice(0, 5000) : "",
+      custom_questions: questions,
+      is_published: Boolean(data.is_published),
+      created_at: existingIdx >= 0 ? db.form_configs[existingIdx].created_at : nowIso(),
+    };
+    if (existingIdx >= 0) db.form_configs[existingIdx] = record;
+    else db.form_configs.push(record);
+    return record;
+  });
 }
 
 export async function getApplicantsByCampaignId(campaignId: string): Promise<Applicant[]> {
@@ -610,61 +793,139 @@ export async function getApplicantsByCampaignId(campaignId: string): Promise<App
   return db.applicants.filter((a) => a.campaign_id === campaignId);
 }
 
-export async function createApplicant(
-  data: Omit<Applicant, "id" | "applied_at" | "status" | "status_changed_by">
-): Promise<Applicant> {
+export async function getApplicantById(id: string): Promise<Applicant | null> {
   const db = await readDb();
-  const newApp: Applicant = {
-    ...data,
-    id: crypto.randomUUID(),
-    status: "applied",
-    status_changed_by: "agency",
-    applied_at: new Date().toISOString(),
-  };
-  db.applicants.push(newApp);
-  await writeDb(db);
-  return newApp;
+  return db.applicants.find((a) => a.id === id) || null;
 }
 
+export async function createApplicant(data: {
+  campaign_id: string;
+  name: string;
+  sns_link: string;
+  nationality: string;
+  contact: string;
+  shipping_address?: string | null;
+  visit_schedule?: string | null;
+  visit_party_size?: number | null;
+  custom_answers?: Record<string, unknown>;
+  privacy_agreed: boolean;
+  secondary_use_agreed: boolean;
+}): Promise<Applicant> {
+  return mutateDb((db) => {
+    const campaign = db.campaigns.find((c) => c.id === data.campaign_id);
+    if (!campaign) throw new ValidationError("캠페인을 찾을 수 없습니다.");
+    const formConfig = db.form_configs.find((f) => f.campaign_id === campaign.id);
+    if (formConfig && !formConfig.is_published) {
+      throw new ValidationError("현재 모집이 마감되었습니다.");
+    }
+    if (!data.privacy_agreed) {
+      throw new ValidationError("개인정보 수집 및 이용에 동의해주세요.");
+    }
+
+    const name = requireText(data.name, "성함", 100);
+    const snsLink = optionalUrl(data.sns_link, "SNS 계정 URL");
+    if (!snsLink) throw new ValidationError("SNS 계정 URL을 입력해주세요.");
+    const nationality = requireText(data.nationality, "국적", 100);
+    const contact = requireText(data.contact, "연락처", 50);
+
+    let shippingAddress: string | undefined;
+    let visitSchedule: string | undefined;
+    let visitPartySize: number | undefined;
+    if (campaign.campaign_type === "shipping") {
+      shippingAddress = requireText(data.shipping_address, "배송지 주소", 300);
+    } else {
+      visitSchedule = requireText(data.visit_schedule, "방문 희망 일정", 300);
+      const size = data.visit_party_size ?? 1;
+      visitPartySize = Math.min(Math.max(nonNegativeInt(size, "방문 인원수"), 1), 20);
+    }
+
+    const customAnswers: Record<string, string | number | boolean> = {};
+    for (const q of formConfig?.custom_questions || []) {
+      const raw = data.custom_answers?.[q.id];
+      if (q.type === "checkbox") {
+        customAnswers[q.id] = raw === true || raw === "true";
+        if (q.required && !customAnswers[q.id]) {
+          throw new ValidationError(`필수 항목을 체크해주세요: ${q.label}`);
+        }
+        continue;
+      }
+      const text = raw === undefined || raw === null ? "" : String(raw).trim();
+      if (q.required && !text) throw new ValidationError(`필수 항목을 입력해주세요: ${q.label}`);
+      if (!text) continue;
+      if (q.type === "number") {
+        const n = Number(text);
+        if (!Number.isFinite(n)) throw new ValidationError(`숫자를 입력해주세요: ${q.label}`);
+        customAnswers[q.id] = n;
+      } else if (q.type === "select") {
+        if (!(q.options || []).includes(text)) throw new ValidationError(`선택지 중에서 골라주세요: ${q.label}`);
+        customAnswers[q.id] = text;
+      } else {
+        customAnswers[q.id] = text.slice(0, 1000);
+      }
+    }
+
+    const newApp: Applicant = {
+      id: crypto.randomUUID(),
+      campaign_id: campaign.id,
+      name,
+      sns_link: snsLink,
+      nationality,
+      contact,
+      shipping_address: shippingAddress,
+      visit_schedule: visitSchedule,
+      visit_party_size: visitPartySize,
+      custom_answers: customAnswers,
+      privacy_agreed: true,
+      secondary_use_agreed: Boolean(data.secondary_use_agreed),
+      status: "applied",
+      status_changed_by: "agency",
+      applied_at: nowIso(),
+    };
+    db.applicants.push(newApp);
+    return newApp;
+  });
+}
+
+/**
+ * 지원자 선정 상태 변경. 멱등: 같은 상태면 아무것도 바꾸지 않는다.
+ * `selected`가 되는 순간 seeding_records를 1건 생성하고, 이후 상태가 바뀌어도 기록은 삭제하지 않는다
+ * (관리시트/보고서는 `selected`인 지원자만 보여준다).
+ */
 export async function updateApplicantStatus(
   applicantId: string,
-  status: Applicant["status"],
-  changedBy: "agency" | "company",
-  campaignId: string
-): Promise<Applicant | null> {
-  const db = await readDb();
-  const app = db.applicants.find((a) => a.id === applicantId);
-  if (!app) return null;
+  status: ApplicantStatus,
+  changedBy: "agency" | "company"
+): Promise<{ applicant: Applicant; changed: boolean } | null> {
+  const nextStatus = oneOf(status, APPLICANT_STATUSES, "선정 상태");
+  return mutateDb((db) => {
+    const app = db.applicants.find((a) => a.id === applicantId);
+    if (!app) return null;
+    if (app.status === nextStatus) return { applicant: app, changed: false };
 
-  app.status = status;
-  app.status_changed_by = changedBy;
+    app.status = nextStatus;
+    app.status_changed_by = changedBy;
+    app.status_changed_at = nowIso();
 
-  if (status === "selected") {
-    const existingSeeding = db.seeding_records.find((s) => s.applicant_id === applicantId);
-    if (!existingSeeding) {
-      db.seeding_records.push({
-        id: crypto.randomUUID(),
-        campaign_id: campaignId,
-        applicant_id: applicantId,
-        progress_stage: "선정완료",
-        upload_deadline: null,
-        upload_link: null,
-        views: 0,
-        engagement: 0,
-        notes: null,
-        created_at: new Date().toISOString(),
-      });
+    if (nextStatus === "selected") {
+      const existing = db.seeding_records.find((s) => s.applicant_id === applicantId);
+      if (!existing) {
+        db.seeding_records.push({
+          id: crypto.randomUUID(),
+          campaign_id: app.campaign_id,
+          applicant_id: applicantId,
+          progress_stage: "선정완료",
+          upload_deadline: null,
+          upload_link: null,
+          views: 0,
+          engagement: 0,
+          notes: null,
+          created_at: nowIso(),
+          updated_at: nowIso(),
+        });
+      }
     }
-  } else {
-    // If unselected/cancelled (status: applied, reserved, rejected), remove from active seeding sheet
-    const seedingIdx = db.seeding_records.findIndex((s) => s.applicant_id === applicantId);
-    if (seedingIdx >= 0) {
-      db.seeding_records.splice(seedingIdx, 1);
-    }
-  }
-
-  await writeDb(db);
-  return app;
+    return { applicant: app, changed: true };
+  });
 }
 
 export async function getSeedingRecordsByCampaignId(campaignId: string): Promise<SeedingRecord[]> {
@@ -679,15 +940,27 @@ export async function getAllSeedingRecords(): Promise<SeedingRecord[]> {
 
 export async function updateSeedingRecord(
   seedingId: string,
-  patch: Partial<SeedingRecord>
+  patch: {
+    progress_stage?: ProgressStage;
+    upload_deadline?: string | null;
+    upload_link?: string | null;
+    views?: number;
+    engagement?: number;
+    notes?: string | null;
+  }
 ): Promise<SeedingRecord | null> {
-  const db = await readDb();
-  const record = db.seeding_records.find((s) => s.id === seedingId);
-  if (!record) return null;
-
-  Object.assign(record, patch);
-  await writeDb(db);
-  return record;
+  return mutateDb((db) => {
+    const record = db.seeding_records.find((s) => s.id === seedingId);
+    if (!record) return null;
+    if (patch.progress_stage !== undefined) record.progress_stage = oneOf(patch.progress_stage, PROGRESS_STAGES, "진행 단계");
+    if (patch.upload_deadline !== undefined) record.upload_deadline = optionalDate(patch.upload_deadline, "업로드 기한");
+    if (patch.upload_link !== undefined) record.upload_link = optionalUrl(patch.upload_link, "업로드 링크");
+    if (patch.views !== undefined) record.views = nonNegativeInt(patch.views, "조회수");
+    if (patch.engagement !== undefined) record.engagement = nonNegativeInt(patch.engagement, "인게이지먼트");
+    if (patch.notes !== undefined) record.notes = optionalText(patch.notes, 2000);
+    record.updated_at = nowIso();
+    return record;
+  });
 }
 
 export async function getReportsByCampaignId(campaignId: string): Promise<CampaignReport[]> {
@@ -704,26 +977,100 @@ export async function saveReportSections(
   reportId: string,
   customSections: CampaignReport["custom_sections"]
 ): Promise<CampaignReport | null> {
-  const db = await readDb();
-  const report = db.reports.find((r) => r.id === reportId);
-  if (!report) return null;
-
-  report.custom_sections = customSections;
-  await writeDb(db);
-  return report;
+  const sections = (customSections || []).map((s) => ({
+    id: requireText(s.id, "섹션 ID", 100),
+    title: typeof s.title === "string" ? s.title.slice(0, 300) : "",
+    content: typeof s.content === "string" ? s.content.slice(0, 10000) : "",
+  }));
+  return mutateDb((db) => {
+    const report = db.reports.find((r) => r.id === reportId);
+    if (!report) return null;
+    report.custom_sections = sections;
+    return report;
+  });
 }
-// 2. Shared PPT Templates (Subprojects B & C)
+
+/** 보고서 생성 시점의 캠페인/지원자/관리시트 스냅샷과 지표를 만든다 (순수 함수, 테스트 가능). */
+export function buildReportSnapshot(
+  campaign: Campaign,
+  applicants: Applicant[],
+  seedingRecords: SeedingRecord[]
+): ReportSnapshot {
+  const seedingByApplicant = new Map(seedingRecords.map((s) => [s.applicant_id, s]));
+  const snapshotApplicants = applicants.map((a) => ({
+    ...a,
+    seeding: seedingByApplicant.get(a.id) ?? null,
+  }));
+  const selected = snapshotApplicants.filter((a) => a.status === "selected");
+  const selectedSeeding = selected.map((a) => a.seeding).filter((s): s is SeedingRecord => Boolean(s));
+  const totalViews = selectedSeeding.reduce((acc, s) => acc + (s.views || 0), 0);
+  const totalEngagement = selectedSeeding.reduce((acc, s) => acc + (s.engagement || 0), 0);
+  return {
+    campaign: { ...campaign },
+    applicants: snapshotApplicants,
+    metrics: {
+      totalApplicants: applicants.length,
+      selectedCount: selected.length,
+      reservedCount: applicants.filter((a) => a.status === "reserved").length,
+      completedUploads: selectedSeeding.filter(
+        (s) => s.progress_stage === "업로드완료" || Boolean(s.upload_link)
+      ).length,
+      totalViews,
+      totalEngagement,
+      avgEngagementRate: totalViews > 0 ? Math.round((totalEngagement / totalViews) * 10000) / 100 : 0,
+    },
+  };
+}
+
+export async function createReport(campaignId: string, title?: string): Promise<CampaignReport> {
+  return mutateDb((db) => {
+    const campaign = db.campaigns.find((c) => c.id === campaignId);
+    if (!campaign) throw new ValidationError("캠페인을 찾을 수 없습니다.");
+    const applicants = db.applicants.filter((a) => a.campaign_id === campaignId);
+    const seeding = db.seeding_records.filter((s) => s.campaign_id === campaignId);
+    const snapshot = buildReportSnapshot(campaign, applicants, seeding);
+    const generatedAt = nowIso();
+    const newRep: CampaignReport = {
+      id: crypto.randomUUID(),
+      campaign_id: campaignId,
+      title: optionalText(title, 200) || `${campaign.name} 결과보고서`,
+      snapshot_data: snapshot,
+      custom_sections: [
+        {
+          id: "sec_default",
+          title: "종합 성과 총평",
+          content: `총 ${snapshot.metrics.totalApplicants}명 지원, ${snapshot.metrics.selectedCount}명 최종 선정, ${snapshot.metrics.completedUploads}건 업로드 완료.`,
+        },
+      ],
+      generated_at: generatedAt,
+      created_at: generatedAt,
+    };
+    db.reports.push(newRep);
+    return newRep;
+  });
+}
+
+// ---------- 2. Shared PPT Templates (Subprojects B & C) ----------
+
 export async function getPptTemplates(kind?: "event" | "sns"): Promise<PptTemplate[]> {
   const db = await readDb();
-  if (kind) {
-    return db.ppt_templates.filter((t) => t.kind === kind);
-  }
-  return db.ppt_templates;
+  return kind ? db.ppt_templates.filter((t) => t.kind === kind) : db.ppt_templates;
 }
 
 export async function getPptTemplateById(id: string): Promise<PptTemplate | null> {
   const db = await readDb();
   return db.ppt_templates.find((t) => t.id === id) || null;
+}
+
+/** 템플릿의 실제 pptx 바이너리. 내장 템플릿은 코드에서 생성, 업로드 템플릿은 base64에서 복원. 없으면 null. */
+export async function getPptTemplateBuffer(template: PptTemplate): Promise<Buffer | null> {
+  if (template.builtin) {
+    return generateDefaultPptBuffer(template.kind);
+  }
+  if (template.file_data) {
+    return Buffer.from(template.file_data, "base64");
+  }
+  return null;
 }
 
 export async function savePptTemplate(data: {
@@ -732,30 +1079,42 @@ export async function savePptTemplate(data: {
   file_buffer: Buffer;
   placeholders: string[];
 }): Promise<PptTemplate> {
-  const db = await readDb();
-  const newTemplate: PptTemplate = {
-    id: crypto.randomUUID(),
-    kind: data.kind,
-    name: data.name,
-    file_data: data.file_buffer.toString("base64"),
-    placeholders: data.placeholders,
-    uploaded_at: new Date().toISOString(),
-  };
-  db.ppt_templates.push(newTemplate);
-  await writeDb(db);
-  return newTemplate;
+  const kind = oneOf(data.kind, ["event", "sns"] as const, "템플릿 종류");
+  const name = requireText(data.name, "템플릿 이름", 200);
+  if (!data.file_buffer || data.file_buffer.length < 4 || data.file_buffer.toString("latin1", 0, 2) !== "PK") {
+    throw new ValidationError("올바른 .pptx 파일이 아닙니다.");
+  }
+  if (data.file_buffer.length > 15 * 1024 * 1024) {
+    throw new ValidationError("템플릿 파일은 15MB 이하만 업로드할 수 있습니다.");
+  }
+  return mutateDb((db) => {
+    const newTemplate: PptTemplate = {
+      id: crypto.randomUUID(),
+      kind,
+      name,
+      file_data: data.file_buffer.toString("base64"),
+      placeholders: data.placeholders,
+      uploaded_at: nowIso(),
+    };
+    db.ppt_templates.push(newTemplate);
+    return newTemplate;
+  });
 }
 
 export async function deletePptTemplate(id: string): Promise<boolean> {
-  const db = await readDb();
-  const idx = db.ppt_templates.findIndex((t) => t.id === id);
-  if (idx < 0) return false;
-  db.ppt_templates.splice(idx, 1);
-  await writeDb(db);
-  return true;
+  return mutateDb((db) => {
+    const idx = db.ppt_templates.findIndex((t) => t.id === id);
+    if (idx < 0) return false;
+    if (db.ppt_templates[idx].builtin) {
+      throw new ValidationError("기본 내장 템플릿은 삭제할 수 없습니다.");
+    }
+    db.ppt_templates.splice(idx, 1);
+    return true;
+  });
 }
 
-// 3. Events (Subproject B - Belongs to Campaign)
+// ---------- 3. Events (Subproject B) ----------
+
 export async function getEventsByCampaignId(campaignId: string): Promise<MarketingEvent[]> {
   const db = await readDb();
   return db.events.filter((e) => e.campaign_id === campaignId);
@@ -778,44 +1137,53 @@ export async function createEvent(data: {
   venue: string | null;
   memo: string | null;
 }): Promise<MarketingEvent> {
-  const db = await readDb();
-  const newEvent: MarketingEvent = {
-    id: crypto.randomUUID(),
-    campaign_id: data.campaign_id,
-    name: data.name,
-    event_at: data.event_at,
-    venue: data.venue,
-    memo: data.memo,
-    status: "preparing",
-    created_at: new Date().toISOString(),
-  };
-  db.events.push(newEvent);
-  await writeDb(db);
-  return newEvent;
+  const name = requireText(data.name, "행사명", 200);
+  const eventAt = optionalIsoDateTime(data.event_at, "행사 일시");
+  return mutateDb((db) => {
+    if (!db.campaigns.some((c) => c.id === data.campaign_id)) {
+      throw new ValidationError("연계할 캠페인을 찾을 수 없습니다.");
+    }
+    const newEvent: MarketingEvent = {
+      id: crypto.randomUUID(),
+      campaign_id: data.campaign_id,
+      name,
+      event_at: eventAt,
+      venue: optionalText(data.venue, 300),
+      memo: optionalText(data.memo, 3000),
+      status: "preparing",
+      created_at: nowIso(),
+    };
+    db.events.push(newEvent);
+    return newEvent;
+  });
 }
 
 export async function updateEvent(
   eventId: string,
-  patch: Partial<MarketingEvent>
+  patch: { name?: string; event_at?: string | null; venue?: string | null; memo?: string | null; status?: EventStatus }
 ): Promise<MarketingEvent | null> {
-  const db = await readDb();
-  const ev = db.events.find((e) => e.id === eventId);
-  if (!ev) return null;
-  Object.assign(ev, patch);
-  await writeDb(db);
-  return ev;
+  return mutateDb((db) => {
+    const ev = db.events.find((e) => e.id === eventId);
+    if (!ev) return null;
+    if (patch.name !== undefined) ev.name = requireText(patch.name, "행사명", 200);
+    if (patch.event_at !== undefined) ev.event_at = optionalIsoDateTime(patch.event_at, "행사 일시");
+    if (patch.venue !== undefined) ev.venue = optionalText(patch.venue, 300);
+    if (patch.memo !== undefined) ev.memo = optionalText(patch.memo, 3000);
+    if (patch.status !== undefined) ev.status = oneOf(patch.status, EVENT_STATUSES, "행사 상태");
+    return ev;
+  });
 }
 
 export async function deleteEvent(eventId: string): Promise<boolean> {
-  const db = await readDb();
-  const idx = db.events.findIndex((e) => e.id === eventId);
-  if (idx < 0) return false;
-  db.events.splice(idx, 1);
-  db.event_invitees = db.event_invitees.filter((i) => i.event_id !== eventId);
-  db.event_checklist_items = db.event_checklist_items.filter((c) => c.event_id !== eventId);
-  db.event_plans = db.event_plans.filter((p) => p.event_id !== eventId);
-  await writeDb(db);
-  return true;
+  return mutateDb((db) => {
+    const idx = db.events.findIndex((e) => e.id === eventId);
+    if (idx < 0) return false;
+    db.events.splice(idx, 1);
+    db.event_invitees = db.event_invitees.filter((i) => i.event_id !== eventId);
+    db.event_checklist_items = db.event_checklist_items.filter((c) => c.event_id !== eventId);
+    db.event_plans = db.event_plans.filter((p) => p.event_id !== eventId);
+    return true;
+  });
 }
 
 export async function getEventInvitees(eventId: string): Promise<EventInvitee[]> {
@@ -827,15 +1195,18 @@ export async function addEventInviteesFromApplicants(
   eventId: string,
   applicantIds: string[]
 ): Promise<EventInvitee[]> {
-  const db = await readDb();
-  const applicants = db.applicants.filter((a) => applicantIds.includes(a.id));
-  const newInvitees: EventInvitee[] = [];
-
-  for (const app of applicants) {
-    const existing = db.event_invitees.find(
-      (i) => i.event_id === eventId && i.applicant_id === app.id
+  return mutateDb((db) => {
+    const ev = db.events.find((e) => e.id === eventId);
+    if (!ev) throw new ValidationError("행사를 찾을 수 없습니다.");
+    const applicants = db.applicants.filter(
+      (a) => applicantIds.includes(a.id) && a.campaign_id === ev.campaign_id
     );
-    if (!existing) {
+    const newInvitees: EventInvitee[] = [];
+    for (const app of applicants) {
+      const existing = db.event_invitees.find(
+        (i) => i.event_id === eventId && i.applicant_id === app.id
+      );
+      if (existing) continue;
       const inv: EventInvitee = {
         id: crypto.randomUUID(),
         event_id: eventId,
@@ -846,15 +1217,13 @@ export async function addEventInviteesFromApplicants(
         rsvp_status: "pending",
         attended: false,
         memo: null,
-        created_at: new Date().toISOString(),
+        created_at: nowIso(),
       };
       db.event_invitees.push(inv);
       newInvitees.push(inv);
     }
-  }
-
-  await writeDb(db);
-  return newInvitees;
+    return newInvitees;
+  });
 }
 
 export async function addDirectEventInvitee(data: {
@@ -864,43 +1233,50 @@ export async function addDirectEventInvitee(data: {
   contact: string | null;
   memo: string | null;
 }): Promise<EventInvitee> {
-  const db = await readDb();
-  const inv: EventInvitee = {
-    id: crypto.randomUUID(),
-    event_id: data.event_id,
-    applicant_id: null,
-    name: data.name,
-    sns_url: data.sns_url,
-    contact: data.contact,
-    rsvp_status: "pending",
-    attended: false,
-    memo: data.memo,
-    created_at: new Date().toISOString(),
-  };
-  db.event_invitees.push(inv);
-  await writeDb(db);
-  return inv;
+  const name = requireText(data.name, "이름", 100);
+  const snsUrl = optionalUrl(data.sns_url, "SNS URL");
+  return mutateDb((db) => {
+    if (!db.events.some((e) => e.id === data.event_id)) {
+      throw new ValidationError("행사를 찾을 수 없습니다.");
+    }
+    const inv: EventInvitee = {
+      id: crypto.randomUUID(),
+      event_id: data.event_id,
+      applicant_id: null,
+      name,
+      sns_url: snsUrl,
+      contact: optionalText(data.contact, 50),
+      rsvp_status: "pending",
+      attended: false,
+      memo: optionalText(data.memo, 1000),
+      created_at: nowIso(),
+    };
+    db.event_invitees.push(inv);
+    return inv;
+  });
 }
 
 export async function updateEventInvitee(
   inviteeId: string,
-  patch: Partial<EventInvitee>
+  patch: { rsvp_status?: EventRsvpStatus; attended?: boolean; memo?: string | null }
 ): Promise<EventInvitee | null> {
-  const db = await readDb();
-  const inv = db.event_invitees.find((i) => i.id === inviteeId);
-  if (!inv) return null;
-  Object.assign(inv, patch);
-  await writeDb(db);
-  return inv;
+  return mutateDb((db) => {
+    const inv = db.event_invitees.find((i) => i.id === inviteeId);
+    if (!inv) return null;
+    if (patch.rsvp_status !== undefined) inv.rsvp_status = oneOf(patch.rsvp_status, RSVP_STATUSES, "RSVP 상태");
+    if (patch.attended !== undefined) inv.attended = Boolean(patch.attended);
+    if (patch.memo !== undefined) inv.memo = optionalText(patch.memo, 1000);
+    return inv;
+  });
 }
 
 export async function deleteEventInvitee(inviteeId: string): Promise<boolean> {
-  const db = await readDb();
-  const idx = db.event_invitees.findIndex((i) => i.id === inviteeId);
-  if (idx < 0) return false;
-  db.event_invitees.splice(idx, 1);
-  await writeDb(db);
-  return true;
+  return mutateDb((db) => {
+    const idx = db.event_invitees.findIndex((i) => i.id === inviteeId);
+    if (idx < 0) return false;
+    db.event_invitees.splice(idx, 1);
+    return true;
+  });
 }
 
 export async function getEventChecklistItems(eventId: string): Promise<EventChecklistItem[]> {
@@ -921,42 +1297,50 @@ export async function addEventChecklistItem(data: {
   due_date: string | null;
   assignee: string | null;
 }): Promise<EventChecklistItem> {
-  const db = await readDb();
-  const items = db.event_checklist_items.filter((c) => c.event_id === data.event_id);
-  const newItem: EventChecklistItem = {
-    id: crypto.randomUUID(),
-    event_id: data.event_id,
-    label: data.label,
-    due_date: data.due_date,
-    assignee: data.assignee,
-    done: false,
-    sort_order: items.length + 1,
-    created_at: new Date().toISOString(),
-  };
-  db.event_checklist_items.push(newItem);
-  await writeDb(db);
-  return newItem;
+  const label = requireText(data.label, "할 일 내용", 300);
+  const dueDate = optionalDate(data.due_date, "마감일");
+  return mutateDb((db) => {
+    if (!db.events.some((e) => e.id === data.event_id)) {
+      throw new ValidationError("행사를 찾을 수 없습니다.");
+    }
+    const items = db.event_checklist_items.filter((c) => c.event_id === data.event_id);
+    const newItem: EventChecklistItem = {
+      id: crypto.randomUUID(),
+      event_id: data.event_id,
+      label,
+      due_date: dueDate,
+      assignee: optionalText(data.assignee, 100),
+      done: false,
+      sort_order: items.reduce((m, c) => Math.max(m, c.sort_order), 0) + 1,
+      created_at: nowIso(),
+    };
+    db.event_checklist_items.push(newItem);
+    return newItem;
+  });
 }
 
 export async function updateEventChecklistItem(
   itemId: string,
-  patch: Partial<EventChecklistItem>
+  patch: { label?: string; due_date?: string | null; assignee?: string | null; done?: boolean }
 ): Promise<EventChecklistItem | null> {
-  const db = await readDb();
-  const item = db.event_checklist_items.find((c) => c.id === itemId);
-  if (!item) return null;
-  Object.assign(item, patch);
-  await writeDb(db);
-  return item;
+  return mutateDb((db) => {
+    const item = db.event_checklist_items.find((c) => c.id === itemId);
+    if (!item) return null;
+    if (patch.label !== undefined) item.label = requireText(patch.label, "할 일 내용", 300);
+    if (patch.due_date !== undefined) item.due_date = optionalDate(patch.due_date, "마감일");
+    if (patch.assignee !== undefined) item.assignee = optionalText(patch.assignee, 100);
+    if (patch.done !== undefined) item.done = Boolean(patch.done);
+    return item;
+  });
 }
 
 export async function deleteEventChecklistItem(itemId: string): Promise<boolean> {
-  const db = await readDb();
-  const idx = db.event_checklist_items.findIndex((c) => c.id === itemId);
-  if (idx < 0) return false;
-  db.event_checklist_items.splice(idx, 1);
-  await writeDb(db);
-  return true;
+  return mutateDb((db) => {
+    const idx = db.event_checklist_items.findIndex((c) => c.id === itemId);
+    if (idx < 0) return false;
+    db.event_checklist_items.splice(idx, 1);
+    return true;
+  });
 }
 
 export async function getEventPlan(eventId: string): Promise<EventPlan | null> {
@@ -964,31 +1348,41 @@ export async function getEventPlan(eventId: string): Promise<EventPlan | null> {
   return db.event_plans.find((p) => p.event_id === eventId) || null;
 }
 
+function cleanFieldValues(values: Record<string, string> | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(values || {})) {
+    if (typeof k !== "string" || !k.trim()) continue;
+    out[k.trim()] = typeof v === "string" ? v.slice(0, 5000) : String(v ?? "");
+  }
+  return out;
+}
+
 export async function saveEventPlan(data: {
   event_id: string;
   template_id: string;
   field_values: Record<string, string>;
 }): Promise<EventPlan> {
-  const db = await readDb();
-  const existingIdx = db.event_plans.findIndex((p) => p.event_id === data.event_id);
-  const record: EventPlan = {
-    id: existingIdx >= 0 ? db.event_plans[existingIdx].id : crypto.randomUUID(),
-    event_id: data.event_id,
-    template_id: data.template_id,
-    field_values: data.field_values,
-    updated_at: new Date().toISOString(),
-  };
-
-  if (existingIdx >= 0) {
-    db.event_plans[existingIdx] = record;
-  } else {
-    db.event_plans.push(record);
-  }
-  await writeDb(db);
-  return record;
+  const values = cleanFieldValues(data.field_values);
+  return mutateDb((db) => {
+    if (!db.events.some((e) => e.id === data.event_id)) throw new ValidationError("행사를 찾을 수 없습니다.");
+    const template = db.ppt_templates.find((t) => t.id === data.template_id && t.kind === "event");
+    if (!template) throw new ValidationError("행사용 PPT 템플릿을 선택해주세요.");
+    const existingIdx = db.event_plans.findIndex((p) => p.event_id === data.event_id);
+    const record: EventPlan = {
+      id: existingIdx >= 0 ? db.event_plans[existingIdx].id : crypto.randomUUID(),
+      event_id: data.event_id,
+      template_id: template.id,
+      field_values: values,
+      updated_at: nowIso(),
+    };
+    if (existingIdx >= 0) db.event_plans[existingIdx] = record;
+    else db.event_plans.push(record);
+    return record;
+  });
 }
 
-// 4. SNS Accounts & Operations (Subproject C)
+// ---------- 4. SNS Accounts & Operations (Subproject C) ----------
+
 export async function getSnsAccounts(): Promise<SnsAccount[]> {
   const db = await readDb();
   return db.sns_accounts;
@@ -1003,6 +1397,7 @@ export async function getSnsAccountByToken(
   type: "intake" | "approval",
   token: string
 ): Promise<SnsAccount | null> {
+  if (!token) return null;
   const db = await readDb();
   const tokenKey = `${type}_token` as keyof SnsAccount;
   return db.sns_accounts.find((a) => a[tokenKey] === token) || null;
@@ -1015,41 +1410,75 @@ export async function createSnsAccount(data: {
   starts_on: string | null;
   ends_on: string | null;
 }): Promise<SnsAccount> {
-  const db = await readDb();
-  const newAccount: SnsAccount = {
-    id: crypto.randomUUID(),
-    company_name: data.company_name,
-    platform: data.platform,
-    handle: data.handle,
-    starts_on: data.starts_on,
-    ends_on: data.ends_on,
-    status: "active",
-    intake_token: `sns_intake_${crypto.randomUUID().slice(0, 12)}`,
-    approval_token: `sns_appr_${crypto.randomUUID().slice(0, 12)}`,
-    created_at: new Date().toISOString(),
-  };
-  db.sns_accounts.unshift(newAccount);
+  const company = requireText(data.company_name, "브랜드명", 200);
+  const platform = oneOf(data.platform, SNS_PLATFORMS, "플랫폼");
+  const handle = requireText(data.handle, "계정 핸들", 100).replace(/^@/, "");
+  const startsOn = optionalDate(data.starts_on, "계약 시작일");
+  const endsOn = optionalDate(data.ends_on, "계약 종료일");
+  if (startsOn && endsOn && startsOn > endsOn) {
+    throw new ValidationError("계약 종료일은 시작일 이후여야 합니다.");
+  }
 
-  // Auto-initialize default SNS plan
-  const defaultSnsTemplate = db.ppt_templates.find((t) => t.kind === "sns");
-  db.sns_plans.push({
-    id: crypto.randomUUID(),
-    account_id: newAccount.id,
-    template_id: defaultSnsTemplate?.id || null,
-    field_values: {
-      브랜드명: newAccount.company_name,
-      채널명: `${newAccount.platform.toUpperCase()} (@${newAccount.handle})`,
-      계약기간: `${newAccount.starts_on || "시작일 미정"} ~ ${newAccount.ends_on || "종료일 미정"}`,
-      운영목표: `${newAccount.company_name} 공식 계정 활성화 및 타깃 오디언스 대상 브랜드 인지도 증대`,
-      타겟오디언스: "브랜드 핵심 타깃 2030 세대 및 카테고리 고관여자",
-      콘텐츠방향성: "릴스/숏폼 중심의 감각적인 비주얼 큐레이션 및 소통형 피드",
-      월별계획: "1개월차: 계정 브랜딩 및 톤앤매너 확립\n2개월차: 제품 스토리텔링 콘텐츠 확장\n3개월차: 참여 유도 프로모션 및 성과 극대화",
-    },
-    updated_at: new Date().toISOString(),
+  return mutateDb((db) => {
+    const newAccount: SnsAccount = {
+      id: crypto.randomUUID(),
+      company_name: company,
+      platform,
+      handle,
+      starts_on: startsOn,
+      ends_on: endsOn,
+      status: "active",
+      intake_token: `sns_intake_${crypto.randomUUID().slice(0, 12)}`,
+      approval_token: `sns_appr_${crypto.randomUUID().slice(0, 12)}`,
+      created_at: nowIso(),
+    };
+    db.sns_accounts.unshift(newAccount);
+
+    const defaultSnsTemplate = db.ppt_templates.find((t) => t.kind === "sns");
+    db.sns_plans.push({
+      id: crypto.randomUUID(),
+      account_id: newAccount.id,
+      template_id: defaultSnsTemplate?.id || null,
+      field_values: {
+        브랜드명: company,
+        채널명: `${platform.toUpperCase()} (@${handle})`,
+        계약기간: `${startsOn || "시작일 미정"} ~ ${endsOn || "종료일 미정"}`,
+        운영목표: `${company} 공식 계정 활성화 및 타깃 오디언스 대상 브랜드 인지도 증대`,
+        타겟오디언스: "브랜드 핵심 타깃 2030 세대 및 카테고리 고관여자",
+        콘텐츠방향성: "릴스/숏폼 중심의 감각적인 비주얼 큐레이션 및 소통형 피드",
+        월별계획: "1개월차: 계정 브랜딩 및 톤앤매너 확립\n2개월차: 제품 스토리텔링 콘텐츠 확장\n3개월차: 참여 유도 프로모션 및 성과 극대화",
+      },
+      updated_at: nowIso(),
+    });
+    return newAccount;
   });
+}
 
-  await writeDb(db);
-  return newAccount;
+export async function updateSnsAccount(
+  id: string,
+  patch: {
+    company_name?: string;
+    platform?: SnsAccount["platform"];
+    handle?: string;
+    starts_on?: string | null;
+    ends_on?: string | null;
+    status?: SnsAccount["status"];
+  }
+): Promise<SnsAccount | null> {
+  return mutateDb((db) => {
+    const acc = db.sns_accounts.find((a) => a.id === id);
+    if (!acc) return null;
+    if (patch.company_name !== undefined) acc.company_name = requireText(patch.company_name, "브랜드명", 200);
+    if (patch.platform !== undefined) acc.platform = oneOf(patch.platform, SNS_PLATFORMS, "플랫폼");
+    if (patch.handle !== undefined) acc.handle = requireText(patch.handle, "계정 핸들", 100).replace(/^@/, "");
+    if (patch.starts_on !== undefined) acc.starts_on = optionalDate(patch.starts_on, "계약 시작일");
+    if (patch.ends_on !== undefined) acc.ends_on = optionalDate(patch.ends_on, "계약 종료일");
+    if (patch.status !== undefined) acc.status = oneOf(patch.status, ["active", "ended"] as const, "계정 상태");
+    if (acc.starts_on && acc.ends_on && acc.starts_on > acc.ends_on) {
+      throw new ValidationError("계약 종료일은 시작일 이후여야 합니다.");
+    }
+    return acc;
+  });
 }
 
 export async function getSnsIntakeTemplate(): Promise<SnsIntakeTemplate> {
@@ -1060,10 +1489,20 @@ export async function getSnsIntakeTemplate(): Promise<SnsIntakeTemplate> {
 export async function updateSnsIntakeTemplate(
   questions: SnsIntakeTemplate["questions"]
 ): Promise<SnsIntakeTemplate> {
-  const db = await readDb();
-  db.sns_intake_template.questions = questions;
-  await writeDb(db);
-  return db.sns_intake_template;
+  if (!Array.isArray(questions) || questions.length === 0) {
+    throw new ValidationError("최소 1개 이상의 질문이 필요합니다.");
+  }
+  const cleaned = questions.map((q) => ({
+    id: requireText(q.id, "질문 ID", 100),
+    question: requireText(q.question, "질문 내용", 500),
+    placeholder: optionalText(q.placeholder, 500) ?? undefined,
+    type: q.type,
+    required: Boolean(q.required),
+  }));
+  return mutateDb((db) => {
+    db.sns_intake_template.questions = cleaned;
+    return db.sns_intake_template;
+  });
 }
 
 export async function getSnsIntakeResponse(accountId: string): Promise<SnsIntakeResponse | null> {
@@ -1075,22 +1514,28 @@ export async function saveSnsIntakeResponse(data: {
   account_id: string;
   answers: Record<string, string>;
 }): Promise<SnsIntakeResponse> {
-  const db = await readDb();
-  const existingIdx = db.sns_intake_responses.findIndex((r) => r.account_id === data.account_id);
-  const record: SnsIntakeResponse = {
-    id: existingIdx >= 0 ? db.sns_intake_responses[existingIdx].id : crypto.randomUUID(),
-    account_id: data.account_id,
-    answers: data.answers,
-    submitted_at: new Date().toISOString(),
-  };
-
-  if (existingIdx >= 0) {
-    db.sns_intake_responses[existingIdx] = record;
-  } else {
-    db.sns_intake_responses.push(record);
-  }
-  await writeDb(db);
-  return record;
+  return mutateDb((db) => {
+    if (!db.sns_accounts.some((a) => a.id === data.account_id)) {
+      throw new ValidationError("계정을 찾을 수 없습니다.");
+    }
+    const answers: Record<string, string> = {};
+    for (const q of db.sns_intake_template.questions) {
+      const v = data.answers?.[q.id];
+      const text = typeof v === "string" ? v.trim() : "";
+      if (q.required && !text) throw new ValidationError(`필수 질문에 답변해주세요: ${q.question}`);
+      if (text) answers[q.id] = text.slice(0, 5000);
+    }
+    const existingIdx = db.sns_intake_responses.findIndex((r) => r.account_id === data.account_id);
+    const record: SnsIntakeResponse = {
+      id: existingIdx >= 0 ? db.sns_intake_responses[existingIdx].id : crypto.randomUUID(),
+      account_id: data.account_id,
+      answers,
+      submitted_at: nowIso(),
+    };
+    if (existingIdx >= 0) db.sns_intake_responses[existingIdx] = record;
+    else db.sns_intake_responses.push(record);
+    return record;
+  });
 }
 
 export async function getSnsPlan(accountId: string): Promise<SnsPlan | null> {
@@ -1103,23 +1548,27 @@ export async function saveSnsPlan(data: {
   template_id: string | null;
   field_values: Record<string, string>;
 }): Promise<SnsPlan> {
-  const db = await readDb();
-  const existingIdx = db.sns_plans.findIndex((p) => p.account_id === data.account_id);
-  const record: SnsPlan = {
-    id: existingIdx >= 0 ? db.sns_plans[existingIdx].id : crypto.randomUUID(),
-    account_id: data.account_id,
-    template_id: data.template_id,
-    field_values: data.field_values,
-    updated_at: new Date().toISOString(),
-  };
-
-  if (existingIdx >= 0) {
-    db.sns_plans[existingIdx] = record;
-  } else {
-    db.sns_plans.push(record);
-  }
-  await writeDb(db);
-  return record;
+  const values = cleanFieldValues(data.field_values);
+  return mutateDb((db) => {
+    if (!db.sns_accounts.some((a) => a.id === data.account_id)) throw new ValidationError("계정을 찾을 수 없습니다.");
+    let templateId: string | null = null;
+    if (data.template_id) {
+      const template = db.ppt_templates.find((t) => t.id === data.template_id && t.kind === "sns");
+      if (!template) throw new ValidationError("SNS용 PPT 템플릿을 찾을 수 없습니다.");
+      templateId = template.id;
+    }
+    const existingIdx = db.sns_plans.findIndex((p) => p.account_id === data.account_id);
+    const record: SnsPlan = {
+      id: existingIdx >= 0 ? db.sns_plans[existingIdx].id : crypto.randomUUID(),
+      account_id: data.account_id,
+      template_id: templateId,
+      field_values: values,
+      updated_at: nowIso(),
+    };
+    if (existingIdx >= 0) db.sns_plans[existingIdx] = record;
+    else db.sns_plans.push(record);
+    return record;
+  });
 }
 
 export async function getSnsContentsByAccountId(accountId: string): Promise<SnsContent[]> {
@@ -1148,65 +1597,123 @@ export async function createSnsContent(data: {
   hashtags: string | null;
   media_note: string | null;
 }): Promise<SnsContent> {
-  const db = await readDb();
-  const newContent: SnsContent = {
-    id: crypto.randomUUID(),
-    account_id: data.account_id,
-    title: data.title,
-    scheduled_on: data.scheduled_on,
-    assignee: data.assignee,
-    status: "planning",
-    caption: data.caption,
-    hashtags: data.hashtags,
-    media_note: data.media_note,
-    client_comment: null,
-    post_url: null,
-    view_count: null,
-    like_count: null,
-    comment_count: null,
-    status_changed_at: new Date().toISOString(),
-    created_at: new Date().toISOString(),
-  };
-  db.sns_contents.unshift(newContent);
-  await writeDb(db);
-  return newContent;
+  const title = requireText(data.title, "콘텐츠 제목", 300);
+  const scheduledOn = optionalDate(data.scheduled_on, "발행 예정일");
+  return mutateDb((db) => {
+    if (!db.sns_accounts.some((a) => a.id === data.account_id)) throw new ValidationError("계정을 찾을 수 없습니다.");
+    const newContent: SnsContent = {
+      id: crypto.randomUUID(),
+      account_id: data.account_id,
+      title,
+      scheduled_on: scheduledOn,
+      assignee: optionalText(data.assignee, 100),
+      status: "planning",
+      caption: optionalText(data.caption, 5000),
+      hashtags: optionalText(data.hashtags, 1000),
+      media_note: optionalText(data.media_note, 3000),
+      client_comment: null,
+      post_url: null,
+      view_count: null,
+      like_count: null,
+      comment_count: null,
+      status_changed_at: nowIso(),
+      created_at: nowIso(),
+    };
+    db.sns_contents.unshift(newContent);
+    return newContent;
+  });
 }
 
-export async function updateSnsContent(
-  id: string,
-  patch: Partial<SnsContent>
-): Promise<SnsContent | null> {
-  const db = await readDb();
-  const content = db.sns_contents.find((c) => c.id === id);
-  if (!content) return null;
-
-  if (patch.status && patch.status !== content.status) {
-    content.status_changed_at = new Date().toISOString();
-  }
-  Object.assign(content, patch);
-  await writeDb(db);
-  return content;
+export interface SnsContentPatch {
+  title?: string;
+  scheduled_on?: string | null;
+  assignee?: string | null;
+  status?: SnsContentStatus;
+  caption?: string | null;
+  hashtags?: string | null;
+  media_note?: string | null;
+  post_url?: string | null;
+  view_count?: number | null;
+  like_count?: number | null;
+  comment_count?: number | null;
 }
 
+export async function updateSnsContent(id: string, patch: SnsContentPatch): Promise<SnsContent | null> {
+  return mutateDb((db) => {
+    const content = db.sns_contents.find((c) => c.id === id);
+    if (!content) return null;
+
+    if (patch.title !== undefined) content.title = requireText(patch.title, "콘텐츠 제목", 300);
+    if (patch.scheduled_on !== undefined) content.scheduled_on = optionalDate(patch.scheduled_on, "발행 예정일");
+    if (patch.assignee !== undefined) content.assignee = optionalText(patch.assignee, 100);
+    if (patch.caption !== undefined) content.caption = optionalText(patch.caption, 5000);
+    if (patch.hashtags !== undefined) content.hashtags = optionalText(patch.hashtags, 1000);
+    if (patch.media_note !== undefined) content.media_note = optionalText(patch.media_note, 3000);
+    if (patch.post_url !== undefined) content.post_url = optionalUrl(patch.post_url, "게시 링크");
+
+    const perfKeys = ["view_count", "like_count", "comment_count"] as const;
+    const labels = { view_count: "조회수", like_count: "좋아요", comment_count: "댓글수" };
+    for (const key of perfKeys) {
+      if (patch[key] === undefined) continue;
+      if (patch[key] === null) {
+        content[key] = null;
+      } else {
+        if (content.status !== "posted" && patch.status !== "posted") {
+          throw new ValidationError("성과 수치는 게시완료 상태에서만 입력할 수 있습니다.");
+        }
+        content[key] = nonNegativeInt(patch[key], labels[key]);
+      }
+    }
+
+    if (patch.status !== undefined) {
+      const next = oneOf(patch.status, SNS_CONTENT_STATUSES, "콘텐츠 상태");
+      if (next !== content.status) {
+        content.status = next;
+        content.status_changed_at = nowIso();
+      }
+    }
+    return content;
+  });
+}
+
+export async function deleteSnsContent(id: string): Promise<boolean> {
+  return mutateDb((db) => {
+    const idx = db.sns_contents.findIndex((c) => c.id === id);
+    if (idx < 0) return false;
+    db.sns_contents.splice(idx, 1);
+    return true;
+  });
+}
+
+/**
+ * 광고주 승인/수정요청. 반드시 토큰으로 확인된 accountId를 넘겨야 하며,
+ * 콘텐츠가 그 계정 소속이고 현재 `pending_approval` 상태일 때만 처리한다(멱등).
+ */
 export async function reviewSnsContent(data: {
+  accountId: string;
   contentId: string;
   decision: "approve" | "request_changes";
   comment?: string;
-}): Promise<SnsContent | null> {
-  const db = await readDb();
-  const content = db.sns_contents.find((c) => c.id === data.contentId);
-  if (!content) return null;
-
-  if (data.decision === "approve") {
-    content.status = "approved";
-    content.client_comment = null;
-  } else {
-    content.status = "producing";
-    content.client_comment = data.comment || "수정 요청이 접수되었습니다.";
-  }
-  content.status_changed_at = new Date().toISOString();
-  await writeDb(db);
-  return content;
+}): Promise<{ content: SnsContent; changed: boolean }> {
+  const decision = oneOf(data.decision, ["approve", "request_changes"] as const, "결정");
+  return mutateDb((db) => {
+    const content = db.sns_contents.find((c) => c.id === data.contentId);
+    if (!content || content.account_id !== data.accountId) {
+      throw new ValidationError("콘텐츠를 찾을 수 없습니다.");
+    }
+    if (content.status !== "pending_approval") {
+      return { content, changed: false };
+    }
+    if (decision === "approve") {
+      content.status = "approved";
+      content.client_comment = null;
+    } else {
+      content.status = "producing";
+      content.client_comment = optionalText(data.comment, 2000) || "수정 요청이 접수되었습니다.";
+    }
+    content.status_changed_at = nowIso();
+    return { content, changed: true };
+  });
 }
 
 // Compatibility aliases for Subproject A
@@ -1214,23 +1721,3 @@ export { savePreSurveyResponse as upsertPreSurveyResponse };
 export { getFormConfig as getCampaignFormConfig };
 export { saveFormConfig as upsertCampaignFormConfig };
 export { saveReportSections as updateReportCustomSections };
-
-export async function createReport(campaignId: string, title?: string): Promise<CampaignReport> {
-  const db = await readDb();
-  const newRep: CampaignReport = {
-    id: crypto.randomUUID(),
-    campaign_id: campaignId,
-    title: title || "캠페인 성과 결과보고서",
-    custom_sections: [
-      {
-        id: "sec_default",
-        title: "종합 성과 총평",
-        content: "시딩 캠페인이 성공적으로 집행되었습니다.",
-      },
-    ],
-    created_at: new Date().toISOString(),
-  };
-  db.reports.push(newRep);
-  await writeDb(db);
-  return newRep;
-}

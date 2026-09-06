@@ -1,9 +1,8 @@
 import { notFound } from "next/navigation";
-import {
-  getCampaignById,
-  getApplicantsByCampaignId,
-  getSeedingRecordsByCampaignId,
-} from "@/lib/db";
+import { getCampaignById, getApplicantsByCampaignId, getSeedingRecordsByCampaignId } from "@/lib/db";
+import { toPublicCampaign } from "@/lib/db/types";
+import { mergeSeedingRows } from "@/lib/seeding/rows";
+import { toKstDateString } from "@/lib/seeding/dday";
 import SeedingSheetTable from "./SeedingSheetTable";
 
 export const revalidate = 0;
@@ -22,24 +21,6 @@ export default async function CampaignSeedingSheetPage({
     getSeedingRecordsByCampaignId(id),
   ]);
 
-  const selectedApplicants = applicants.filter((a) => a.status === "selected");
-  const mergedRecords = selectedApplicants.map((app) => {
-    const seeding = seedingRecords.find((s) => s.applicant_id === app.id) || {
-      id: `temp_${app.id}`,
-      campaign_id: id,
-      applicant_id: app.id,
-      progress_stage: "선정완료" as const,
-      upload_deadline: null,
-      upload_link: null,
-      views: 0,
-      engagement: 0,
-      notes: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    return { applicant: app, seeding };
-  });
-
   return (
     <div className="space-y-6">
       <div>
@@ -50,9 +31,11 @@ export default async function CampaignSeedingSheetPage({
       </div>
 
       <SeedingSheetTable
-        campaign={campaign}
-        initialRecords={mergedRecords}
+        campaign={toPublicCampaign(campaign)}
+        initialRecords={mergeSeedingRows(campaign.id, applicants, seedingRecords)}
+        todayKst={toKstDateString()}
         isReadOnly={false}
+        csvHref={`/api/seeding-sheet/export?campaignId=${campaign.id}`}
       />
     </div>
   );

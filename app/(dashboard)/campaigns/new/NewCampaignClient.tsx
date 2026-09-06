@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createCampaignAction } from "./actions";
-import { Truck, MapPin, Loader2, Sparkles } from "lucide-react";
+import { Truck, MapPin, Loader2 } from "lucide-react";
 
 export default function NewCampaignClient() {
   const router = useRouter();
@@ -23,21 +23,18 @@ export default function NewCampaignClient() {
     setLoading(true);
     setErrorMsg(null);
 
-    try {
-      const res = await createCampaignAction({
-        name: name.trim(),
-        company_name: companyName.trim(),
-        campaign_type: campaignType,
-      });
+    const res = await createCampaignAction({
+      name: name.trim(),
+      company_name: companyName.trim(),
+      campaign_type: campaignType,
+    });
 
-      if (res.success && res.campaign) {
-        router.push(`/campaigns/${res.campaign.id}`);
-      }
-    } catch (err: any) {
-      console.error("Campaign Creation Error:", err);
-      setErrorMsg(err.message || "캠페인 생성 중 오류가 발생했습니다. 다시 시도해주세요.");
-      setLoading(false);
+    if (res.ok) {
+      router.push(`/campaigns/${res.data.id}`);
+      return;
     }
+    setErrorMsg(res.error);
+    setLoading(false);
   };
 
   return (
@@ -76,7 +73,6 @@ export default function NewCampaignClient() {
         <label className="text-xs font-semibold text-zinc-300">캠페인 유형 *</label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label
-            onClick={() => setCampaignType("shipping")}
             className={`p-4 rounded-2xl border cursor-pointer flex items-center gap-3 transition ${
               campaignType === "shipping"
                 ? "bg-blue-600/10 border-blue-500/50 text-blue-400 shadow-md"
@@ -101,7 +97,6 @@ export default function NewCampaignClient() {
           </label>
 
           <label
-            onClick={() => setCampaignType("visit")}
             className={`p-4 rounded-2xl border cursor-pointer flex items-center gap-3 transition ${
               campaignType === "visit"
                 ? "bg-indigo-600/10 border-indigo-500/50 text-indigo-400 shadow-md"

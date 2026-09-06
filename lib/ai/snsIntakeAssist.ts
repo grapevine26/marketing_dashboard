@@ -1,4 +1,5 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { GEMINI_MODEL, AI_FALLBACK_TEXT } from "./config";
 
 export interface SnsIntakeAssistRequest {
   question: string;
@@ -13,25 +14,20 @@ export interface SnsIntakeAssistRequest {
 export interface SnsIntakeAssistResponse {
   suggestions: string[];
   recommendedDraft: string;
+  fallback: boolean;
 }
 
 export async function assistSnsIntake(
   request: SnsIntakeAssistRequest
 ): Promise<SnsIntakeAssistResponse> {
   const apiKey = process.env.GEMINI_API_KEY;
+  const fallback = (): SnsIntakeAssistResponse => ({
+    suggestions: ["타겟 고객층과 톤앤매너", "중점 홍보 상품/프로모션 일정", "로고·컬러 등 디자인 가이드"],
+    recommendedDraft: request.userDraft || AI_FALLBACK_TEXT,
+    fallback: true,
+  });
 
-  if (!apiKey) {
-    return {
-      suggestions: [
-        "2030 타겟 맞춤형 친근한 톤앤매너",
-        "비포&애프터 및 리얼 텍스처 중심 비주얼",
-        "주 3회 릴스/숏폼 중심 트렌드 연계",
-      ],
-      recommendedDraft: request.userDraft
-        ? `${request.userDraft} (추가 권장: 타겟의 페인포인트를 해결하는 실용적인 팁과 브랜드만의 차별화된 감성을 균형있게 전달해주세요.)`
-        : "타겟 고객층(2030 여성)에게 자연스러운 공감대를 형성하며, 제품의 핵심 효능과 트렌디한 라이프스타일을 결합한 비주얼 중심의 콘텐츠를 지향합니다.",
-    };
-  }
+  if (!apiKey) return fallback();
 
   try {
     const ai = new GoogleGenAI({ apiKey });
@@ -54,28 +50,26 @@ export async function assistSnsIntake(
 }`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: GEMINI_MODEL,
       contents: prompt,
       config: {
         responseMimeType: "application/json",
+        maxOutputTokens: 800,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
       },
     });
 
-    const text = response.text || "{}";
-    const parsed = JSON.parse(text);
-
+    const parsed = JSON.parse(response.text || "{}");
+    if (typeof parsed.recommendedDraft !== "string" || !parsed.recommendedDraft.trim()) {
+      return fallback();
+    }
     return {
-      suggestions: Array.isArray(parsed.suggestions)
-        ? parsed.suggestions
-        : ["트렌디한 비주얼 강조", "타겟 공감형 스토리텔링", "명확한 콜투액션(CTA)"],
-      recommendedDraft:
-        parsed.recommendedDraft || "브랜드 정체성을 살린 감각적인 비주얼과 고객 소통을 강화하는 방향으로 운영하고자 합니다.",
+      suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.map(String).slice(0, 5) : [],
+      recommendedDraft: parsed.recommendedDraft,
+      fallback: false,
     };
   } catch (error) {
     console.error("Gemini snsIntake assist error:", error);
-    return {
-      suggestions: ["핵심 제품 소구점 명확화", "친근하고 직관적인 카피", "릴스/숏폼 최적화"],
-      recommendedDraft: request.userDraft || "브랜드 타겟 고객에게 신뢰와 흥미를 유발할 수 있는 콘텐츠 방향성을 추구합니다.",
-    };
+    return fallback();
   }
 }

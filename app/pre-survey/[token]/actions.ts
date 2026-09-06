@@ -1,39 +1,54 @@
 "use server";
 
-import { getCampaignByToken, upsertPreSurveyResponse } from "@/lib/db";
-import { assistPreSurvey } from "@/lib/ai/preSurveyAssist";
+import { getCampaignByToken, getPreSurveyTemplate, upsertPreSurveyResponse } from "@/lib/db";
+import { assistPreSurvey, PreSurveyAssistResponse } from "@/lib/ai/preSurveyAssist";
+import { ActionResult, runAction, fail } from "@/lib/actions/result";
+import { revalidatePath } from "next/cache";
 
 export async function submitPublicPreSurveyAction(params: {
   token: string;
   answers: Record<string, string>;
   usedAiAssist: boolean;
-}) {
+}): Promise<ActionResult<{ submitted_at: string }>> {
   const campaign = await getCampaignByToken("pre_survey", params.token);
-  if (!campaign) throw new Error("Invalid token");
+  if (!campaign) return fail("유효하지 않은 사전조사 링크입니다.");
 
-  const res = await upsertPreSurveyResponse({
-    campaign_id: campaign.id,
-    answers: params.answers,
-    used_ai_assist: params.usedAiAssist,
+  const res = await runAction(async () => {
+    const r = await upsertPreSurveyResponse({
+      campaign_id: campaign.id,
+      answers: params.answers,
+      used_ai_assist: params.usedAiAssist,
+    });
+    return { submitted_at: r.submitted_at };
   });
-
-  return { success: true, response: res };
+  if (res.ok) {
+    revalidatePath(`/campaigns/${campaign.id}`);
+    revalidatePath(`/campaigns/${campaign.id}/pre-survey`);
+  }
+  return res;
 }
 
+/** 토큰으로 캠페인을 확인하고 질문 id로 질문 문구를 찾아 AI에 넘긴다. */
 export async function getPublicAiAssistAction(params: {
-  question: string;
+  token: string;
+  questionId: string;
   userDraft?: string;
-  campaignName: string;
-  companyName: string;
-  campaignType: string;
-}) {
-  return await assistPreSurvey({
-    question: params.question,
-    userDraft: params.userDraft,
-    context: {
-      campaignName: params.campaignName,
-      companyName: params.companyName,
-      campaignType: params.campaignType,
-    },
-  });
+}): Promise<ActionResult<PreSurveyAssistResponse>> {
+  const campaign = await getCampaignByToken("pre_survey", params.token);
+  if (!campaign) return fail("유효하지 않은 사전조사 링크입니다.");
+  const template = await getPreSurveyTemplate();
+  const question = template.questions.find((q) => q.id === params.questionId);
+  if (!question) return fail("질문을 찾을 수 없습니다.");
+
+  return runAction(() =>
+    assistPreSurvey({
+      question: question.question,
+      userDraft: params.userDraft,
+      context: {
+        campaignName: campaign.name,
+        companyName: campaign.company_name,
+        campaignType: campaign.campaign_type,
+      },
+    })
+  );
 }

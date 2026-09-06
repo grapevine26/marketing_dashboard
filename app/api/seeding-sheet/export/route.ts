@@ -1,54 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getCampaignById,
+  getCampaignByToken,
   getApplicantsByCampaignId,
   getSeedingRecordsByCampaignId,
 } from "@/lib/db";
 import { seedingSheetToCSV } from "@/lib/seeding/sheetCsv";
+import { mergeSeedingRows } from "@/lib/seeding/rows";
+import { toKstDateString } from "@/lib/seeding/dday";
 
+/**
+ * 관리시트 CSV. `?campaignId=`(대시보드) 또는 `?token=`(seeding_sheet_share 공유 토큰).
+ */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const campaignId = searchParams.get("campaignId");
+  const token = searchParams.get("token");
 
-  if (!campaignId) {
-    return new NextResponse("Missing campaignId", { status: 400 });
-  }
-
-  const [campaign, applicants, seedingRecords] = await Promise.all([
-    getCampaignById(campaignId),
-    getApplicantsByCampaignId(campaignId),
-    getSeedingRecordsByCampaignId(campaignId),
-  ]);
+  const campaign = token
+    ? await getCampaignByToken("seeding_sheet_share", token)
+    : campaignId
+    ? await getCampaignById(campaignId)
+    : null;
 
   if (!campaign) {
     return new NextResponse("Campaign not found", { status: 404 });
   }
 
-  const selectedApplicants = applicants.filter((a) => a.status === "selected");
-  const merged = selectedApplicants.map((app) => {
-    const seeding = seedingRecords.find((s) => s.applicant_id === app.id) || {
-      id: `temp_${app.id}`,
-      campaign_id: campaignId,
-      applicant_id: app.id,
-      progress_stage: "선정완료" as const,
-      upload_deadline: null,
-      upload_link: null,
-      views: 0,
-      engagement: 0,
-      notes: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    return { applicant: app, seeding };
-  });
+  const [applicants, seedingRecords] = await Promise.all([
+    getApplicantsByCampaignId(campaign.id),
+    getSeedingRecordsByCampaignId(campaign.id),
+  ]);
 
-  const csv = seedingSheetToCSV(merged);
+  const csv = seedingSheetToCSV(mergeSeedingRows(campaign.id, applicants, seedingRecords), toKstDateString());
   const filename = encodeURIComponent(`${campaign.name}_시딩관리시트.csv`);
 
   return new NextResponse(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename*=UTF-8''${filename}`,
+      "Cache-Control": "no-store",
     },
   });
 }

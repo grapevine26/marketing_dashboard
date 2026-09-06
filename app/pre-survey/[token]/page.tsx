@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { getCampaignByToken, getPreSurveyTemplate, getPreSurveyResponse } from "@/lib/db";
+import { toPublicCampaign } from "@/lib/db/types";
 import PreSurveyPublicForm from "./PreSurveyPublicForm";
-import { FileQuestion, Building2 } from "lucide-react";
+import { Building2 } from "lucide-react";
 
 export const revalidate = 0;
 
@@ -27,18 +28,17 @@ export default async function PreSurveyPublicPage({
             <Building2 className="w-3.5 h-3.5" />
             <span>{campaign.company_name}</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-100">
-            {campaign.name} - 사전조사서
-          </h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-100">{campaign.name} - 사전조사서</h1>
           <p className="text-xs sm:text-sm text-zinc-400">
             성공적인 인플루언서 시딩 캠페인 기획을 위해 브랜드 정보를 입력해주세요.
           </p>
         </div>
 
         <PreSurveyPublicForm
-          campaign={campaign}
+          token={token}
+          campaign={toPublicCampaign(campaign)}
           template={template}
-          initialResponse={response}
+          initialAnswers={response?.answers || null}
         />
       </div>
     </div>

@@ -1,10 +1,5 @@
 import { notFound } from "next/navigation";
-import {
-  getSnsAccountById,
-  getSnsPlan,
-  getSnsIntakeResponse,
-  getPptTemplates,
-} from "@/lib/db";
+import { getSnsAccountById, getSnsPlan, getSnsIntakeResponse, getPptTemplates } from "@/lib/db";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import SnsPlanEditorClient from "./SnsPlanEditorClient";
@@ -40,8 +35,8 @@ export default async function SnsPlanPage({
       <SnsPlanEditorClient
         account={account}
         initialPlan={plan}
-        intakeResponse={intake}
-        templates={templates}
+        hasIntake={Boolean(intake)}
+        templates={templates.map((t) => ({ id: t.id, name: t.name, placeholders: t.placeholders, builtin: Boolean(t.builtin) }))}
       />
     </div>
   );

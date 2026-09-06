@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCampaignById, getEventById, getEventPlan, getPptTemplateById } from "@/lib/db";
-import { fillTemplate, generateDefaultPptBuffer } from "@/lib/ppt/engine";
+import { getCampaignById, getEventById, getEventPlan, getPptTemplateById, getPptTemplateBuffer } from "@/lib/db";
+import { fillTemplate } from "@/lib/ppt/engine";
 
+const TEMPLATE_ERROR = "템플릿 파일을 불러오지 못했습니다. 다시 업로드해주세요.";
+
+function textResponse(message: string, status: number) {
+  return new NextResponse(message, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+}
+
+/**
+ * 행사 운영안 PPT 다운로드.
+ * 운영안이 저장되지 않았거나 템플릿을 못 읽으면 기본 템플릿으로 조용히 대체하지 않고 에러를 돌려준다.
+ */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; eventId: string }> }
@@ -13,42 +23,32 @@ export async function GET(
     getEventPlan(eventId),
   ]);
 
-  if (!campaign || !event) {
-    return new NextResponse("Not Found", { status: 404 });
+  if (!campaign || !event || event.campaign_id !== campaign.id) {
+    return textResponse("행사를 찾을 수 없습니다.", 404);
+  }
+  if (!plan) {
+    return textResponse("저장된 운영안이 없습니다. 운영안 탭에서 내용을 작성하고 저장한 뒤 다운로드해주세요.", 400);
   }
 
-  let templateBuffer: Buffer;
-  let fieldValues: Record<string, string> = plan?.field_values || {};
-
-  if (plan?.template_id) {
-    const template = await getPptTemplateById(plan.template_id);
-    if (template?.file_data) {
-      templateBuffer = Buffer.from(template.file_data, "base64");
-    } else {
-      templateBuffer = await generateDefaultPptBuffer("event");
-    }
-  } else {
-    templateBuffer = await generateDefaultPptBuffer("event");
-    if (Object.keys(fieldValues).length === 0) {
-      fieldValues = {
-        브랜드명: campaign.company_name,
-        행사명: event.name,
-        행사일시: event.event_at ? new Date(event.event_at).toLocaleString() : "일시 미정",
-        행사장소: event.venue || "장소 미정",
-        행사개요: event.memo || "행사 기획안",
-        프로그램: "18:00 리셉션\n19:00 프레젠테이션\n20:00 네트워킹",
-      };
-    }
+  const template = await getPptTemplateById(plan.template_id);
+  const templateBuffer = template ? await getPptTemplateBuffer(template) : null;
+  if (!template || !templateBuffer) {
+    return textResponse(TEMPLATE_ERROR, 404);
   }
 
-  const outputBuffer = await fillTemplate(templateBuffer, fieldValues);
-  const filename = encodeURIComponent(`${campaign.company_name}_${event.name}_운영안.pptx`);
+  try {
+    const outputBuffer = await fillTemplate(templateBuffer, plan.field_values);
+    const filename = encodeURIComponent(`${campaign.company_name}_${event.name}_운영안.pptx`);
 
-  return new NextResponse(outputBuffer as any, {
-    headers: {
-      "Content-Type":
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      "Content-Disposition": `attachment; filename="${filename}"; filename*=UTF-8''${filename}`,
-    },
-  });
+    return new NextResponse(new Uint8Array(outputBuffer), {
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "Content-Disposition": `attachment; filename*=UTF-8''${filename}`,
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (err) {
+    console.error("Event PPT export failed:", err);
+    return textResponse(TEMPLATE_ERROR, 500);
+  }
 }

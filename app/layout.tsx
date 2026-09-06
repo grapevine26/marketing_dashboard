@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
@@ -10,22 +11,20 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   themeColor: "#121316",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+// 첫 페인트 전에 테마 클래스를 결정해 깜빡임을 막는다 (ThemeProvider.resolveInitialTheme와 동일 로직).
+const themeInitScript = `
+(function(){try{var s=localStorage.getItem("marketing_theme");var t=(s==="light"||s==="dark")?s:(window.matchMedia&&window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark");var r=document.documentElement;r.classList.remove("dark","light");r.classList.add(t);r.setAttribute("data-theme",t);}catch(e){}})();
+`;
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" className="dark" data-theme="dark" suppressHydrationWarning>
-      <body className="min-h-screen bg-[#121316] text-zinc-100 antialiased flex flex-col selection:bg-purple-600 selection:text-white font-sans">
-        <ThemeProvider>
-          {children}
-        </ThemeProvider>
+      <body className="min-h-screen antialiased flex flex-col selection:bg-purple-600 selection:text-white font-sans">
+        <Script id="theme-init" strategy="beforeInteractive">{themeInitScript}</Script>
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

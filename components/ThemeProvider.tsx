@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useSyncExternalStore } from "react";
 
 type Theme = "dark" | "light";
 
@@ -16,45 +16,68 @@ const ThemeContext = createContext<ThemeContextType>({
   setTheme: () => {},
 });
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setCurrentTheme] = useState<Theme>("dark");
-  const [mounted, setMounted] = useState(false);
+const STORAGE_KEY = "marketing_theme";
+const CHANGE_EVENT = "marketing-theme-change";
 
-  useEffect(() => {
-    const saved = localStorage.getItem("marketing_theme") as Theme | null;
-    if (saved === "light" || saved === "dark") {
-      setCurrentTheme(saved);
-      document.documentElement.classList.remove("dark", "light");
-      document.documentElement.classList.add(saved);
-      document.documentElement.setAttribute("data-theme", saved);
-    } else {
-      // Default to dark (Warm Charcoal)
-      setCurrentTheme("dark");
-      document.documentElement.classList.remove("dark", "light");
-      document.documentElement.classList.add("dark");
-      document.documentElement.setAttribute("data-theme", "dark");
+function readSaved(): Theme | null {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved === "light" || saved === "dark" ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 테마 결정 순서: 저장된 선택 > 시스템(prefers-color-scheme) > dark. app/layout.tsx의 인라인 스크립트와 같은 로직. */
+export function resolveInitialTheme(): Theme {
+  const saved = readSaved();
+  if (saved) return saved;
+  if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: light)").matches) return "light";
+  return "dark";
+}
+
+function applyTheme(theme: Theme) {
+  const root = document.documentElement;
+  root.classList.remove("dark", "light");
+  root.classList.add(theme);
+  root.setAttribute("data-theme", theme);
+}
+
+function subscribe(onChange: () => void) {
+  const mq = window.matchMedia?.("(prefers-color-scheme: light)");
+  const handleMq = () => {
+    if (!readSaved()) {
+      applyTheme(resolveInitialTheme());
+      onChange();
     }
-    setMounted(true);
-  }, []);
+  };
+  mq?.addEventListener?.("change", handleMq);
+  window.addEventListener(CHANGE_EVENT, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    mq?.removeEventListener?.("change", handleMq);
+    window.removeEventListener(CHANGE_EVENT, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  // 서버 스냅샷은 항상 "dark" (layout.tsx의 인라인 스크립트가 첫 페인트 전에 실제 테마 클래스를 적용한다)
+  const theme = useSyncExternalStore(subscribe, resolveInitialTheme, () => "dark" as Theme);
 
   const setTheme = (newTheme: Theme) => {
-    setCurrentTheme(newTheme);
-    localStorage.setItem("marketing_theme", newTheme);
-    document.documentElement.classList.remove("dark", "light");
-    document.documentElement.classList.add(newTheme);
-    document.documentElement.setAttribute("data-theme", newTheme);
+    try {
+      localStorage.setItem(STORAGE_KEY, newTheme);
+    } catch {
+      /* ignore */
+    }
+    applyTheme(newTheme);
+    window.dispatchEvent(new Event(CHANGE_EVENT));
   };
 
-  const toggleTheme = () => {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    setTheme(nextTheme);
-  };
+  const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {

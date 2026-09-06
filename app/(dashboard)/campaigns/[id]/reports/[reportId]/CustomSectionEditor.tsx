@@ -17,35 +17,33 @@ export default function CustomSectionEditor({
   const [sections, setSections] = useState<CustomSection[]>(initialSections);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const update = (id: string, patch: Partial<CustomSection>) =>
+    setSections((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
 
   const handleAdd = () => {
-    setSections([
-      ...sections,
-      {
-        id: `sec_${Date.now()}`,
-        title: "새 섹션 제목",
-        content: "내용을 입력하세요...",
-      },
+    setSections((prev) => [
+      ...prev,
+      { id: `sec_${Date.now()}`, title: "새 섹션 제목", content: "" },
     ]);
   };
 
   const handleRemove = (id: string) => {
-    setSections(sections.filter((s) => s.id !== id));
+    setSections((prev) => prev.filter((s) => s.id !== id));
   };
 
   const handleSave = async () => {
     setSaving(true);
-    try {
-      await saveReportSectionsAction({
-        reportId,
-        campaignId,
-        customSections: sections,
-      });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } finally {
-      setSaving(false);
+    setError(null);
+    const res = await saveReportSectionsAction({ reportId, campaignId, customSections: sections });
+    setSaving(false);
+    if (!res.ok) {
+      setError(res.error);
+      return;
     }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
   };
 
   return (
@@ -62,28 +60,24 @@ export default function CustomSectionEditor({
         </button>
       </div>
 
+      {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">{error}</div>}
+
       <div className="space-y-4">
-        {sections.map((sec, idx) => (
-          <div
-            key={sec.id}
-            className="p-5 rounded-2xl bg-[#090A0C] border border-[#22242A] space-y-3"
-          >
+        {sections.length === 0 && (
+          <div className="p-6 text-center text-zinc-500 text-xs border border-dashed border-[#22242A] rounded-xl bg-[#090A0C]">
+            섹션이 없습니다. 섹션 추가 버튼으로 총평을 작성하세요.
+          </div>
+        )}
+        {sections.map((sec) => (
+          <div key={sec.id} className="p-5 rounded-2xl bg-[#090A0C] border border-[#22242A] space-y-3">
             <div className="flex items-center justify-between">
               <input
                 type="text"
                 value={sec.title}
-                onChange={(e) => {
-                  const updated = [...sections];
-                  updated[idx].title = e.target.value;
-                  setSections(updated);
-                }}
+                onChange={(e) => update(sec.id, { title: e.target.value })}
                 className="px-3 py-1.5 rounded-lg bg-[#131418] border border-[#22242A] text-zinc-100 text-xs font-bold focus:outline-none focus:border-blue-500 w-2/3"
               />
-              <button
-                type="button"
-                onClick={() => handleRemove(sec.id)}
-                className="p-1 text-zinc-500 hover:text-red-400 transition"
-              >
+              <button type="button" onClick={() => handleRemove(sec.id)} className="p-1 text-zinc-500 hover:text-red-400 transition">
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
@@ -91,11 +85,8 @@ export default function CustomSectionEditor({
             <textarea
               rows={4}
               value={sec.content}
-              onChange={(e) => {
-                const updated = [...sections];
-                updated[idx].content = e.target.value;
-                setSections(updated);
-              }}
+              onChange={(e) => update(sec.id, { content: e.target.value })}
+              placeholder="내용을 입력하세요..."
               className="w-full px-3 py-2 rounded-lg bg-[#131418] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500 leading-relaxed"
             />
           </div>

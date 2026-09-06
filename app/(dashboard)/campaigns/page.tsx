@@ -1,4 +1,5 @@
 import { getCampaigns } from "@/lib/db";
+import { CAMPAIGN_STATUS_LABELS } from "@/lib/db/types";
 import Link from "next/link";
 import { Plus, ArrowRight, Building2, FolderKanban } from "lucide-react";
 
@@ -53,7 +54,7 @@ export default async function CampaignsPage() {
                     {camp.campaign_type === "shipping" ? "배송형" : "방문형"}
                   </span>
                   <span className="text-xs text-zinc-500 font-mono">
-                    {new Date(camp.created_at).toLocaleDateString()}
+                    {new Date(camp.created_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}
                   </span>
                 </div>
 
@@ -69,7 +70,12 @@ export default async function CampaignsPage() {
               </div>
 
               <div className="pt-3 border-t border-[#22242A] flex items-center justify-between text-xs text-zinc-400">
-                <span>상태: <strong className="text-blue-400 font-semibold">{camp.status}</strong></span>
+                <span>
+                  상태:{" "}
+                  <strong className="text-blue-400 font-semibold">
+                    {CAMPAIGN_STATUS_LABELS[camp.status] ?? camp.status}
+                  </strong>
+                </span>
                 <span className="flex items-center gap-1 group-hover:text-blue-400 font-semibold transition">
                   관리 허브 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition" />
                 </span>

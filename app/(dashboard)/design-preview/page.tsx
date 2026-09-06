@@ -105,7 +105,7 @@ export default function DesignPreviewPage() {
             <button
               key={t.id}
               type="button"
-              onClick={() => setSelectedTheme(t.id as any)}
+              onClick={() => setSelectedTheme(t.id as "slate" | "warm" | "light")}
               className={`p-5 rounded-3xl text-left border transition-all space-y-3 relative overflow-hidden ${
                 isSelected
                   ? "bg-[#181A20] border-indigo-500 shadow-xl shadow-indigo-500/15 ring-2 ring-indigo-500/30 scale-[1.02]"

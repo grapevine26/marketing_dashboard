@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { getCampaignById, getApplicantsByCampaignId } from "@/lib/db";
+import { getCampaignById, getApplicantsByCampaignId, getFormConfig } from "@/lib/db";
+import { toPublicCampaign } from "@/lib/db/types";
 import ApplicantTable from "./ApplicantTable";
 import { findDuplicates } from "@/lib/applicants/duplicates";
 
@@ -14,24 +15,28 @@ export default async function CampaignApplicantsPage({
   const campaign = await getCampaignById(id);
   if (!campaign) notFound();
 
-  const applicants = await getApplicantsByCampaignId(id);
-  const duplicatesMap = findDuplicates(applicants);
-  const duplicatesObj = Object.fromEntries(duplicatesMap);
+  const [applicants, formConfig] = await Promise.all([
+    getApplicantsByCampaignId(id),
+    getFormConfig(id),
+  ]);
+  const duplicates = Object.fromEntries(findDuplicates(applicants));
 
   return (
     <div className="space-y-6 font-sans">
       <div className="space-y-1">
         <h1 className="text-2xl font-bold text-zinc-100 tracking-tight">지원자 관리 & 선정</h1>
         <p className="text-sm text-zinc-400">
-          실시간 접수된 인플루언서 지원자를 확인하고 최종선정, 예비선정 및 선정을 취소할 수 있습니다.
+          실시간 접수된 인플루언서 지원자를 확인하고 최종선정, 예비선정, 미선정 처리를 할 수 있습니다.
         </p>
       </div>
 
       <ApplicantTable
-        campaign={campaign}
+        campaign={toPublicCampaign(campaign)}
         initialApplicants={applicants}
-        duplicatesObj={duplicatesObj}
-        isPublicShare={false}
+        duplicates={duplicates}
+        customQuestions={formConfig?.custom_questions || []}
+        mode="agency"
+        csvHref={`/api/applicants/export?campaignId=${campaign.id}`}
       />
     </div>
   );

@@ -1,76 +1,92 @@
 "use client";
 
 import { useState } from "react";
-import { Campaign, PreSurveyTemplate, PreSurveyResponse } from "@/lib/db/types";
+import { PublicCampaign, PreSurveyTemplate } from "@/lib/db/types";
 import { submitPublicPreSurveyAction, getPublicAiAssistAction } from "./actions";
-import { Sparkles, Send, CheckCircle2, Loader2 } from "lucide-react";
+import { Sparkles, Send, CheckCircle2, Loader2, Edit3 } from "lucide-react";
 
 export default function PreSurveyPublicForm({
+  token,
   campaign,
   template,
-  initialResponse,
+  initialAnswers,
 }: {
-  campaign: Campaign;
+  token: string;
+  campaign: PublicCampaign;
   template: PreSurveyTemplate;
-  initialResponse: PreSurveyResponse | null;
+  initialAnswers: Record<string, string> | null;
 }) {
-  const [answers, setAnswers] = useState<Record<string, string>>(
-    initialResponse?.answers || {}
-  );
+  const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers || {});
   const [loadingAiMap, setLoadingAiMap] = useState<Record<string, boolean>>({});
+  const [suggestions, setSuggestions] = useState<Record<string, string[]>>({});
+  const [usedAi, setUsedAi] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  const handleAiAssist = async (questionId: string, questionText: string) => {
+  const handleAiAssist = async (questionId: string) => {
     setLoadingAiMap((prev) => ({ ...prev, [questionId]: true }));
-    try {
-      const res = await getPublicAiAssistAction({
-        question: questionText,
-        userDraft: answers[questionId] || "",
-        campaignName: campaign.name,
-        companyName: campaign.company_name,
-        campaignType: campaign.campaign_type,
-      });
-
-      if (res.recommendedDraft) {
-        setAnswers((prev) => ({ ...prev, [questionId]: res.recommendedDraft }));
-      }
-    } finally {
-      setLoadingAiMap((prev) => ({ ...prev, [questionId]: false }));
+    setNotice(null);
+    const res = await getPublicAiAssistAction({ token, questionId, userDraft: answers[questionId] || "" });
+    setLoadingAiMap((prev) => ({ ...prev, [questionId]: false }));
+    if (!res.ok) {
+      setError(res.error);
+      return;
     }
+    if (res.data.fallback) {
+      setNotice("AI 제안 실패 — 직접 입력해주세요.");
+      return;
+    }
+    setUsedAi(true);
+    setAnswers((prev) => ({ ...prev, [questionId]: res.data.recommendedDraft }));
+    setSuggestions((prev) => ({ ...prev, [questionId]: res.data.suggestions }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    try {
-      await submitPublicPreSurveyAction({
-        token: campaign.pre_survey_token,
-        answers,
-        usedAiAssist: true,
-      });
-      setSubmitted(true);
-    } finally {
-      setSubmitting(false);
+    setError(null);
+    const res = await submitPublicPreSurveyAction({ token, answers, usedAiAssist: usedAi });
+    setSubmitting(false);
+    if (!res.ok) {
+      setError(res.error);
+      return;
     }
+    setSubmitted(true);
   };
 
   if (submitted) {
     return (
-      <div className="p-6 sm:p-8 rounded-3xl bg-[#131418] border border-[#22242A] text-center space-y-3 shadow-2xl font-sans">
+      <div className="p-6 sm:p-8 rounded-3xl bg-[#131418] border border-[#22242A] text-center space-y-4 shadow-2xl font-sans">
         <div className="w-12 h-12 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center mx-auto">
           <CheckCircle2 className="w-6 h-6" />
         </div>
         <h2 className="text-base sm:text-lg font-bold text-zinc-100">사전조사서가 성공적으로 제출되었습니다!</h2>
         <p className="text-xs text-zinc-400 leading-relaxed">
-          입력해주신 내용을 바탕으로 에이전시 전담 매니저가 인플루언서 모집을 시작합니다.
+          입력해주신 내용을 바탕으로 {campaign.company_name} 담당 매니저가 인플루언서 모집을 시작합니다.
         </p>
+        <button
+          type="button"
+          onClick={() => setSubmitted(false)}
+          className="px-4 py-2 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 text-xs font-semibold border border-[#22242A] inline-flex items-center gap-1.5"
+        >
+          <Edit3 className="w-3.5 h-3.5" /> 답변 수정하기
+        </button>
       </div>
     );
   }
 
   return (
     <form onSubmit={handleSubmit} className="p-5 sm:p-8 rounded-3xl bg-[#131418] border border-[#22242A] space-y-6 shadow-2xl font-sans">
+      {initialAnswers && (
+        <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-300 text-xs">
+          이전에 제출한 답변이 있습니다. 수정 후 다시 제출하면 덮어씁니다.
+        </div>
+      )}
+      {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">{error}</div>}
+      {notice && <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold">{notice}</div>}
+
       <div className="space-y-5 divide-y divide-[#22242A]">
         {template.questions.map((q, idx) => (
           <div key={q.id} className={idx > 0 ? "pt-5 space-y-2.5" : "space-y-2.5"}>
@@ -81,13 +97,21 @@ export default function PreSurveyPublicForm({
               <button
                 type="button"
                 disabled={loadingAiMap[q.id]}
-                onClick={() => handleAiAssist(q.id, q.question)}
-                className="self-start sm:self-auto px-2.5 py-1.5 sm:py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center gap-1"
+                onClick={() => handleAiAssist(q.id)}
+                className="self-start sm:self-auto px-2.5 py-1.5 sm:py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center gap-1 disabled:opacity-50"
               >
                 {loadingAiMap[q.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                 <span>AI 추천받기</span>
               </button>
             </div>
+
+            {suggestions[q.id]?.length ? (
+              <div className="flex flex-wrap gap-1.5">
+                {suggestions[q.id].map((s) => (
+                  <span key={s} className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20 text-[10px]">💡 {s}</span>
+                ))}
+              </div>
+            ) : null}
 
             <textarea
               rows={3}

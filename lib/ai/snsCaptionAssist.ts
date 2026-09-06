@@ -1,4 +1,5 @@
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { GEMINI_MODEL, AI_FALLBACK_TEXT, parseJsonLoose } from "./config";
 
 export async function generateSnsCaptionDraft(params: {
   brandName: string;
@@ -7,14 +8,14 @@ export async function generateSnsCaptionDraft(params: {
   title: string;
   scheduledOn?: string | null;
   mediaNote?: string | null;
-}): Promise<{ caption: string; hashtags: string }> {
+}): Promise<{ caption: string; hashtags: string; fallback: boolean }> {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return {
-      caption: "AI 제안 실패 — 직접 입력해주세요.",
-      hashtags: `#${params.brandName.replace(/\s+/g, "")} #마케팅`,
-    };
-  }
+  const fallback = () => ({
+    caption: AI_FALLBACK_TEXT,
+    hashtags: `#${params.brandName.replace(/\s+/g, "")}`,
+    fallback: true,
+  });
+  if (!apiKey) return fallback();
 
   try {
     const ai = new GoogleGenAI({ apiKey });
@@ -26,6 +27,7 @@ export async function generateSnsCaptionDraft(params: {
 - 브랜드명: ${params.brandName}
 - 플랫폼: ${params.platform} (@${params.handle})
 - 콘텐츠 제목/주제: ${params.title}
+- 발행 예정일: ${params.scheduledOn || "미정"}
 - 비주얼 및 연출 메모: ${params.mediaNote || "없음"}
 
 [출력 형식]
@@ -37,28 +39,24 @@ export async function generateSnsCaptionDraft(params: {
 `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.6-flash",
+      model: GEMINI_MODEL,
       contents: prompt,
       config: {
+        responseMimeType: "application/json",
         maxOutputTokens: 800,
-        thinkingConfig: {
-          thinkingLevel: ThinkingLevel.MINIMAL,
-        },
+        thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
       },
     });
 
-    const text = response.text || "";
-    const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
-    const parsed = JSON.parse(cleanJson);
+    const parsed = parseJsonLoose(response.text || "") as { caption?: unknown; hashtags?: unknown };
+    if (typeof parsed.caption !== "string" || !parsed.caption.trim()) return fallback();
     return {
-      caption: parsed.caption || "AI 제안 실패 — 직접 입력해주세요.",
-      hashtags: parsed.hashtags || `#${params.brandName.replace(/\s+/g, "")}`,
+      caption: parsed.caption,
+      hashtags: typeof parsed.hashtags === "string" ? parsed.hashtags : `#${params.brandName.replace(/\s+/g, "")}`,
+      fallback: false,
     };
   } catch (error) {
     console.error("Gemini SNS Caption Assist Error:", error);
-    return {
-      caption: "AI 제안 실패 — 직접 입력해주세요.",
-      hashtags: `#${params.brandName.replace(/\s+/g, "")} #마케팅`,
-    };
+    return fallback();
   }
 }
