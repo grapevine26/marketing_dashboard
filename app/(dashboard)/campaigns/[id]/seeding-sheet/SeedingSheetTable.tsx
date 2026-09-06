@@ -69,7 +69,7 @@ export default function SeedingSheetTable({
   const displayedRecords = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const dday = (deadline: string | null) => {
-    if (!deadline) return <span className="text-zinc-600">-</span>;
+    if (!deadline) return <span className="text-text-faint">-</span>;
     const info = calculateDDay(deadline, todayKst);
     return (
       <span className={`font-mono tabular-nums ${ddayToneClass(info.dday ?? 99)}`}>{info.label}</span>
@@ -84,7 +84,7 @@ export default function SeedingSheetTable({
         value={r.progress_stage}
         disabled={savingId === r.id || r.id.startsWith("temp_")}
         onChange={(e) => handleUpdate(r.id, { progress_stage: e.target.value as ProgressStage })}
-        className="px-2.5 py-1 rounded-lg bg-[#090A0C] border border-[#22242A] text-zinc-200 text-xs focus:outline-none focus:border-blue-500 font-semibold disabled:opacity-50"
+        className="px-2.5 py-1 rounded-lg bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500 font-semibold disabled:opacity-50"
       >
         {options.map((s) => (
           <option key={s} value={s}>{s}</option>
@@ -105,7 +105,7 @@ export default function SeedingSheetTable({
         const n = Number(e.target.value);
         if (n !== r[key]) handleUpdate(r.id, { [key]: n } as Patch);
       }}
-      className="w-20 px-2 py-1 rounded-lg bg-[#090A0C] border border-[#22242A] text-zinc-200 text-xs focus:outline-none focus:border-blue-500 font-mono tabular-nums"
+      className="w-20 px-2 py-1 rounded-lg bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500 font-mono tabular-nums"
     />
   );
 
@@ -114,7 +114,7 @@ export default function SeedingSheetTable({
   );
 
   return (
-    <div className="p-5 sm:p-8 rounded-3xl bg-[#131418] border border-[#22242A] space-y-5 sm:space-y-6 shadow-xl font-sans">
+    <div className="p-5 sm:p-8 rounded-3xl bg-surface border border-border space-y-5 sm:space-y-6 shadow-xl font-sans">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div className="relative w-full sm:w-64">
           <input
@@ -125,13 +125,13 @@ export default function SeedingSheetTable({
               setPage(1);
             }}
             placeholder="인플루언서 이름, SNS, 메모 검색..."
-            className="w-full pl-8 pr-3 py-2.5 sm:py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
+            className="w-full pl-8 pr-3 py-2.5 sm:py-2 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500"
           />
-          <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-3.5 sm:top-3" />
+          <Search className="w-3.5 h-3.5 text-text-muted absolute left-2.5 top-3.5 sm:top-3" />
         </div>
 
         <div className="flex items-center gap-3">
-          {savingId && <Loader2 className="w-4 h-4 animate-spin text-zinc-500" />}
+          {savingId && <Loader2 className="w-4 h-4 animate-spin text-text-muted" />}
           <div className="flex items-center gap-2">
             <a
               href={`${csvHref}&format=xlsx`}
@@ -143,10 +143,10 @@ export default function SeedingSheetTable({
             </a>
             <a
               href={csvHref}
-              className="w-full sm:w-auto text-center justify-center px-3 py-2.5 sm:py-2 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 text-xs font-medium inline-flex items-center gap-1.5 transition border border-[#22242A]"
+              className="w-full sm:w-auto text-center justify-center px-3 py-2.5 sm:py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-medium inline-flex items-center gap-1.5 transition border border-border"
               title="표준 CSV 파일 다운로드"
             >
-              <Download className="w-3.5 h-3.5 text-zinc-400" />
+              <Download className="w-3.5 h-3.5 text-text-sub" />
               <span>CSV</span>
             </a>
           </div>
@@ -160,14 +160,14 @@ export default function SeedingSheetTable({
       {/* Mobile Card Layout */}
       <div className="block sm:hidden space-y-3">
         {filtered.length === 0 ? (
-          <div className="p-8 text-center text-zinc-500 text-xs border border-dashed border-[#22242A] rounded-2xl bg-[#090A0C]">
+          <div className="p-8 text-center text-text-muted text-xs border border-dashed border-border rounded-2xl bg-bg">
             선정된 인플루언서 시딩 데이터가 없습니다.
           </div>
         ) : (
           displayedRecords.map(({ applicant: app, seeding: r }) => (
-            <div key={r.id} className="p-4 rounded-2xl bg-[#090A0C] border border-[#22242A] space-y-3">
+            <div key={r.id} className="p-4 rounded-2xl bg-bg border border-border space-y-3">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-sm text-zinc-100">{app.name}</span>
+                <span className="font-bold text-sm text-text">{app.name}</span>
                 <a href={app.sns_link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline text-xs inline-flex items-center gap-1 truncate max-w-[150px]">
                   <span>{app.sns_link}</span>
                   <ExternalLink className="w-3 h-3 shrink-0" />
@@ -176,14 +176,14 @@ export default function SeedingSheetTable({
 
               <div className="space-y-2 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">진행 단계:</span>
+                  <span className="text-text-sub">진행 단계:</span>
                   {isReadOnly ? stageBadge(r.progress_stage) : stageSelect(r)}
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">업로드 마감일:</span>
+                  <span className="text-text-sub">업로드 마감일:</span>
                   <div className="flex items-center gap-2">
                     {isReadOnly ? (
-                      <span className="font-mono text-zinc-200">{r.upload_deadline || "-"}</span>
+                      <span className="font-mono text-text">{r.upload_deadline || "-"}</span>
                     ) : (
                       <input
                         type="date"
@@ -193,14 +193,14 @@ export default function SeedingSheetTable({
                           const v = e.target.value || null;
                           if (v !== r.upload_deadline) handleUpdate(r.id, { upload_deadline: v });
                         }}
-                        className="px-2 py-1 rounded-lg bg-[#131418] border border-[#22242A] text-zinc-200 text-xs"
+                        className="px-2 py-1 rounded-lg bg-surface border border-border text-text text-xs"
                       />
                     )}
                     {dday(r.upload_deadline)}
                   </div>
                 </div>
                 <div className="space-y-1 pt-1">
-                  <span className="text-zinc-400 block text-[11px]">게시물 URL:</span>
+                  <span className="text-text-sub block text-[11px]">게시물 URL:</span>
                   {isReadOnly ? (
                     r.upload_link ? (
                       <a href={r.upload_link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline text-xs inline-flex items-center gap-1 truncate max-w-full">
@@ -208,7 +208,7 @@ export default function SeedingSheetTable({
                         <ExternalLink className="w-3 h-3 shrink-0" />
                       </a>
                     ) : (
-                      <span className="text-zinc-600">-</span>
+                      <span className="text-text-faint">-</span>
                     )
                   ) : (
                     <input
@@ -220,7 +220,7 @@ export default function SeedingSheetTable({
                         const v = e.target.value.trim() || null;
                         if (v !== r.upload_link) handleUpdate(r.id, { upload_link: v });
                       }}
-                      className="w-full px-2.5 py-1.5 rounded-lg bg-[#131418] border border-[#22242A] text-zinc-200 text-xs focus:outline-none focus:border-blue-500"
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-surface border border-border text-text text-xs focus:outline-none focus:border-blue-500"
                     />
                   )}
                 </div>
@@ -231,7 +231,7 @@ export default function SeedingSheetTable({
                   </div>
                 )}
                 {isReadOnly ? (
-                  r.notes && <div className="text-zinc-400">메모: {r.notes}</div>
+                  r.notes && <div className="text-text-sub">메모: {r.notes}</div>
                 ) : (
                   <textarea
                     rows={2}
@@ -242,7 +242,7 @@ export default function SeedingSheetTable({
                       const v = e.target.value.trim() || null;
                       if (v !== r.notes) handleUpdate(r.id, { notes: v });
                     }}
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-[#131418] border border-[#22242A] text-zinc-200 text-xs focus:outline-none focus:border-blue-500"
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-surface border border-border text-text text-xs focus:outline-none focus:border-blue-500"
                   />
                 )}
               </div>
@@ -252,9 +252,9 @@ export default function SeedingSheetTable({
       </div>
 
       {/* Desktop Table */}
-      <div className="hidden sm:block rounded-2xl border border-[#22242A] overflow-hidden overflow-x-auto">
+      <div className="hidden sm:block rounded-2xl border border-border overflow-hidden overflow-x-auto">
         <table className="w-full text-left text-xs">
-          <thead className="bg-[#090A0C] text-zinc-400 border-b border-[#22242A]">
+          <thead className="bg-bg text-text-sub border-b border-border">
             <tr>
               <th className="p-3.5">인플루언서</th>
               <th className="p-3.5">SNS 계정</th>
@@ -267,17 +267,17 @@ export default function SeedingSheetTable({
               <th className="p-3.5">메모</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#22242A] text-zinc-300">
+          <tbody className="divide-y divide-border text-text-2">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={isReadOnly ? 8 : 9} className="p-8 text-center text-zinc-500">
+                <td colSpan={isReadOnly ? 8 : 9} className="p-8 text-center text-text-muted">
                   선정된 인플루언서 시딩 데이터가 없습니다. 먼저 지원자를 최종선정해주세요.
                 </td>
               </tr>
             ) : (
               displayedRecords.map(({ applicant: app, seeding: r }) => (
-                <tr key={r.id} className="hover:bg-[#181A20] transition">
-                  <td className="p-3.5 font-bold text-zinc-100">{app.name}</td>
+                <tr key={r.id} className="hover:bg-surface2 transition">
+                  <td className="p-3.5 font-bold text-text">{app.name}</td>
                   <td className="p-3.5">
                     <a href={app.sns_link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline inline-flex items-center gap-1 truncate max-w-[130px]">
                       <span>{app.sns_link}</span>
@@ -285,7 +285,7 @@ export default function SeedingSheetTable({
                     </a>
                   </td>
                   {!isReadOnly && (
-                    <td className="p-3.5 text-zinc-400">
+                    <td className="p-3.5 text-text-sub">
                       {isShipping ? (
                         <div className="truncate max-w-[150px]" title={app.shipping_address}>{app.shipping_address || "-"}</div>
                       ) : (
@@ -296,7 +296,7 @@ export default function SeedingSheetTable({
                   <td className="p-3.5">{isReadOnly ? stageBadge(r.progress_stage) : stageSelect(r)}</td>
                   <td className="p-3.5">
                     {isReadOnly ? (
-                      <span className="font-mono text-zinc-300">{r.upload_deadline || "-"}</span>
+                      <span className="font-mono text-text-2">{r.upload_deadline || "-"}</span>
                     ) : (
                       <input
                         type="date"
@@ -306,7 +306,7 @@ export default function SeedingSheetTable({
                           const v = e.target.value || null;
                           if (v !== r.upload_deadline) handleUpdate(r.id, { upload_deadline: v });
                         }}
-                        className="px-2 py-1 rounded-lg bg-[#090A0C] border border-[#22242A] text-zinc-200 text-xs focus:outline-none focus:border-blue-500"
+                        className="px-2 py-1 rounded-lg bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500"
                       />
                     )}
                   </td>
@@ -331,7 +331,7 @@ export default function SeedingSheetTable({
                           const v = e.target.value.trim() || null;
                           if (v !== r.upload_link) handleUpdate(r.id, { upload_link: v });
                         }}
-                        className="w-36 px-2 py-1 rounded-lg bg-[#090A0C] border border-[#22242A] text-zinc-200 text-xs focus:outline-none focus:border-blue-500"
+                        className="w-36 px-2 py-1 rounded-lg bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500"
                       />
                     )}
                   </td>
@@ -347,7 +347,7 @@ export default function SeedingSheetTable({
                   </td>
                   <td className="p-3.5">
                     {isReadOnly ? (
-                      <span className="text-zinc-400 truncate max-w-[160px] block" title={r.notes || ""}>{r.notes || "-"}</span>
+                      <span className="text-text-sub truncate max-w-[160px] block" title={r.notes || ""}>{r.notes || "-"}</span>
                     ) : (
                       <input
                         type="text"
@@ -358,7 +358,7 @@ export default function SeedingSheetTable({
                           const v = e.target.value.trim() || null;
                           if (v !== r.notes) handleUpdate(r.id, { notes: v });
                         }}
-                        className="w-36 px-2 py-1 rounded-lg bg-[#090A0C] border border-[#22242A] text-zinc-200 text-xs focus:outline-none focus:border-blue-500"
+                        className="w-36 px-2 py-1 rounded-lg bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500"
                       />
                     )}
                   </td>
@@ -370,7 +370,7 @@ export default function SeedingSheetTable({
       </div>
 
       {totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-xs text-zinc-400">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-xs text-text-sub">
           <span>
             총 {filtered.length}건 중 {(page - 1) * PAGE_SIZE + 1} ~{" "}
             {Math.min(page * PAGE_SIZE, filtered.length)}건 표시
@@ -380,18 +380,18 @@ export default function SeedingSheetTable({
               type="button"
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="px-3 py-1.5 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 disabled:opacity-40 border border-[#22242A] font-medium transition"
+              className="px-3 py-1.5 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 disabled:opacity-40 border border-border font-medium transition"
             >
               이전
             </button>
-            <span className="px-3 py-1.5 rounded-xl bg-[#090A0C] border border-[#22242A] font-mono text-zinc-200">
+            <span className="px-3 py-1.5 rounded-xl bg-bg border border-border font-mono text-text">
               {page} / {totalPages}
             </span>
             <button
               type="button"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="px-3 py-1.5 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 disabled:opacity-40 border border-[#22242A] font-medium transition"
+              className="px-3 py-1.5 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 disabled:opacity-40 border border-border font-medium transition"
             >
               다음
             </button>
@@ -400,7 +400,7 @@ export default function SeedingSheetTable({
       )}
 
       {!isReadOnly && (
-        <p className="text-[11px] text-zinc-500">입력칸에서 포커스가 빠져나가면 자동 저장됩니다. 단계는 {isShipping ? "배송형" : "방문형"} 기준으로만 표시됩니다.</p>
+        <p className="text-[11px] text-text-muted">입력칸에서 포커스가 빠져나가면 자동 저장됩니다. 단계는 {isShipping ? "배송형" : "방문형"} 기준으로만 표시됩니다.</p>
       )}
     </div>
   );

@@ -85,7 +85,7 @@ export default function CampaignIntegrationsCard({
         );
       default:
         return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-800 text-text-muted border border-border">
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-surface3 text-text-muted border border-border">
             시스템
           </span>
         );
@@ -157,7 +157,7 @@ export default function CampaignIntegrationsCard({
             {isSaving ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : saveSuccess ? (
-              <Check className="w-3.5 h-3.5 text-white" />
+              <Check className="w-3.5 h-3.5 text-text" />
             ) : (
               <Save className="w-3.5 h-3.5" />
             )}

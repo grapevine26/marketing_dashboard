@@ -60,15 +60,15 @@ export default function PreSurveyAgencyView({
   return (
     <div className="space-y-6 max-w-4xl mx-auto font-sans">
       <div className="space-y-1">
-        <Link href={`/campaigns/${campaign.id}`} className="text-xs text-zinc-400 hover:text-white inline-flex items-center gap-1 transition">
+        <Link href={`/campaigns/${campaign.id}`} className="text-xs text-text-sub hover:text-text inline-flex items-center gap-1 transition">
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>캠페인 허브로 돌아가기</span>
         </Link>
-        <h1 className="text-xl font-bold text-zinc-100">1. 사전조사 작성 및 AI 답변 추천</h1>
-        <p className="text-xs text-zinc-400">
+        <h1 className="text-xl font-bold text-text">1. 사전조사 작성 및 AI 답변 추천</h1>
+        <p className="text-xs text-text-sub">
           광고주가 직접 작성하거나, 에이전시가 광고주 대신 사전조사 내용을 작성/수정할 수 있습니다.
           {initialResponse && (
-            <span className="ml-1 text-zinc-500">
+            <span className="ml-1 text-text-muted">
               (최근 제출: {new Date(initialResponse.submitted_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })})
             </span>
           )}
@@ -78,12 +78,12 @@ export default function PreSurveyAgencyView({
       {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">{error}</div>}
       {notice && <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold">{notice}</div>}
 
-      <form onSubmit={handleSave} className="p-8 rounded-3xl bg-[#131418] border border-[#22242A] space-y-6 shadow-xl">
-        <div className="space-y-5 divide-y divide-[#22242A]">
+      <form onSubmit={handleSave} className="p-8 rounded-3xl bg-surface border border-border space-y-6 shadow-xl">
+        <div className="space-y-5 divide-y divide-border">
           {template.questions.map((q, idx) => (
             <div key={q.id} className={idx > 0 ? "pt-5 space-y-2" : "space-y-2"}>
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-zinc-200">
+                <label className="text-xs font-bold text-text">
                   {idx + 1}. {q.question} {q.required && <span className="text-blue-400">*</span>}
                 </label>
                 <button
@@ -111,13 +111,13 @@ export default function PreSurveyAgencyView({
                 value={answers[q.id] || ""}
                 onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
                 placeholder={q.placeholder || "내용을 입력하세요..."}
-                className="w-full px-4 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500 leading-relaxed"
+                className="w-full px-4 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500 leading-relaxed"
               />
             </div>
           ))}
         </div>
 
-        <div className="pt-4 border-t border-[#22242A] flex items-center justify-between">
+        <div className="pt-4 border-t border-border flex items-center justify-between">
           <div>
             {saved && (
               <span className="text-xs text-blue-400 font-semibold flex items-center gap-1">

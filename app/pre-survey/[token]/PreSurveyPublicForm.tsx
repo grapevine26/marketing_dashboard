@@ -59,18 +59,18 @@ export default function PreSurveyPublicForm({
 
   if (submitted) {
     return (
-      <div className="p-6 sm:p-8 rounded-3xl bg-[#131418] border border-[#22242A] text-center space-y-4 shadow-2xl font-sans">
+      <div className="p-6 sm:p-8 rounded-3xl bg-surface border border-border text-center space-y-4 shadow-2xl font-sans">
         <div className="w-12 h-12 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center mx-auto">
           <CheckCircle2 className="w-6 h-6" />
         </div>
-        <h2 className="text-base sm:text-lg font-bold text-zinc-100">사전조사서가 성공적으로 제출되었습니다!</h2>
-        <p className="text-xs text-zinc-400 leading-relaxed">
+        <h2 className="text-base sm:text-lg font-bold text-text">사전조사서가 성공적으로 제출되었습니다!</h2>
+        <p className="text-xs text-text-sub leading-relaxed">
           입력해주신 내용을 바탕으로 {campaign.company_name} 담당 매니저가 인플루언서 모집을 시작합니다.
         </p>
         <button
           type="button"
           onClick={() => setSubmitted(false)}
-          className="px-4 py-2 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 text-xs font-semibold border border-[#22242A] inline-flex items-center gap-1.5"
+          className="px-4 py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-semibold border border-border inline-flex items-center gap-1.5"
         >
           <Edit3 className="w-3.5 h-3.5" /> 답변 수정하기
         </button>
@@ -79,7 +79,7 @@ export default function PreSurveyPublicForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="p-5 sm:p-8 rounded-3xl bg-[#131418] border border-[#22242A] space-y-6 shadow-2xl font-sans">
+    <form onSubmit={handleSubmit} className="p-5 sm:p-8 rounded-3xl bg-surface border border-border space-y-6 shadow-2xl font-sans">
       {initialAnswers && (
         <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-300 text-xs">
           이전에 제출한 답변이 있습니다. 수정 후 다시 제출하면 덮어씁니다.
@@ -88,11 +88,11 @@ export default function PreSurveyPublicForm({
       {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">{error}</div>}
       {notice && <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold">{notice}</div>}
 
-      <div className="space-y-5 divide-y divide-[#22242A]">
+      <div className="space-y-5 divide-y divide-border">
         {template.questions.map((q, idx) => (
           <div key={q.id} className={idx > 0 ? "pt-5 space-y-2.5" : "space-y-2.5"}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <label className="text-xs font-bold text-zinc-200">
+              <label className="text-xs font-bold text-text">
                 {idx + 1}. {q.question} {q.required && <span className="text-blue-400">*</span>}
               </label>
               <button
@@ -120,7 +120,7 @@ export default function PreSurveyPublicForm({
               value={answers[q.id] || ""}
               onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
               placeholder={q.placeholder || "내용을 입력하세요..."}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500 leading-relaxed"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500 leading-relaxed"
             />
           </div>
         ))}

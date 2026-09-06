@@ -68,7 +68,7 @@ export default function DashboardLayout({
           name: "사전조사 기본 템플릿",
           href: "/settings/pre-survey",
           icon: Settings,
-          color: "text-zinc-400",
+          color: "text-text-sub",
         },
         {
           name: "SNS 사전설문 기본틀",

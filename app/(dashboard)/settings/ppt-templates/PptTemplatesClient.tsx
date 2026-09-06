@@ -52,14 +52,14 @@ export default function PptTemplatesClient({ initialTemplates }: { initialTempla
 
   return (
     <div className="space-y-6">
-      <form onSubmit={handleUpload} className="p-6 rounded-3xl bg-[#131418] border border-[#22242A] space-y-4 shadow-xl">
-        <h2 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+      <form onSubmit={handleUpload} className="p-6 rounded-3xl bg-surface border border-border space-y-4 shadow-xl">
+        <h2 className="text-sm font-bold text-text flex items-center gap-2">
           <Upload className="w-4 h-4 text-amber-400" />
           <span>새 파워포인트 (.pptx) 템플릿 업로드</span>
         </h2>
-        <p className="text-xs text-zinc-400">
-          슬라이드 텍스트에 <code className="text-amber-400 bg-[#090A0C] px-1.5 py-0.5 rounded font-mono">{"{{브랜드명}}"}</code> 같은 치환 표시를 넣어 만든 .pptx를 올리면 자동으로 감지됩니다. 디자인은 그대로 보존됩니다.
-          결과보고서 템플릿에서는 <code className="text-amber-400 bg-[#090A0C] px-1.5 py-0.5 rounded font-mono">{"{{표:인플루언서}}"}</code>, <code className="text-amber-400 bg-[#090A0C] px-1.5 py-0.5 rounded font-mono">{"{{차트:성과}}"}</code>를 넣은 도형 자리에 표와 차트가 들어갑니다.
+        <p className="text-xs text-text-sub">
+          슬라이드 텍스트에 <code className="text-amber-400 bg-bg px-1.5 py-0.5 rounded font-mono">{"{{브랜드명}}"}</code> 같은 치환 표시를 넣어 만든 .pptx를 올리면 자동으로 감지됩니다. 디자인은 그대로 보존됩니다.
+          결과보고서 템플릿에서는 <code className="text-amber-400 bg-bg px-1.5 py-0.5 rounded font-mono">{"{{표:인플루언서}}"}</code>, <code className="text-amber-400 bg-bg px-1.5 py-0.5 rounded font-mono">{"{{차트:성과}}"}</code>를 넣은 도형 자리에 표와 차트가 들어갑니다.
         </p>
 
         {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">{error}</div>}
@@ -72,12 +72,12 @@ export default function PptTemplatesClient({ initialTemplates }: { initialTempla
             placeholder="템플릿 명칭 (예: 2026 프리미엄 행사 운영안)"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="px-3.5 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-amber-500"
+            className="px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-amber-500"
           />
           <select
             value={kind}
             onChange={(e) => setKind(e.target.value as PptTemplateKind)}
-            className="px-3.5 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-amber-500 font-semibold"
+            className="px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-amber-500 font-semibold"
           >
             {(Object.keys(PPT_TEMPLATE_KIND_LABELS) as PptTemplateKind[]).map((k) => (
               <option key={k} value={k}>{PPT_TEMPLATE_KIND_LABELS[k]} 템플릿</option>
@@ -89,7 +89,7 @@ export default function PptTemplatesClient({ initialTemplates }: { initialTempla
             required
             accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
-            className="px-3.5 py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-400 text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:bg-[#181A20] file:text-zinc-200"
+            className="px-3.5 py-2 rounded-xl bg-bg border border-border text-text-sub text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:bg-surface2 file:text-text"
           />
         </div>
 
@@ -106,10 +106,10 @@ export default function PptTemplatesClient({ initialTemplates }: { initialTempla
       </form>
 
       <div className="space-y-3">
-        <h2 className="text-sm font-bold text-zinc-300">등록된 템플릿 목록 ({templates.length})</h2>
+        <h2 className="text-sm font-bold text-text-2">등록된 템플릿 목록 ({templates.length})</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {templates.map((t) => (
-            <div key={t.id} className="p-5 rounded-3xl bg-[#131418] border border-[#22242A] space-y-3 shadow-md flex flex-col justify-between">
+            <div key={t.id} className="p-5 rounded-3xl bg-surface border border-border space-y-3 shadow-md flex flex-col justify-between">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
@@ -117,33 +117,33 @@ export default function PptTemplatesClient({ initialTemplates }: { initialTempla
                       {PPT_TEMPLATE_KIND_LABELS[t.kind]}
                     </span>
                     {t.builtin && (
-                      <span className="px-2 py-0.5 rounded-full bg-[#181A20] text-zinc-400 border border-[#22242A] text-[10px] font-semibold inline-flex items-center gap-1">
+                      <span className="px-2 py-0.5 rounded-full bg-surface2 text-text-sub border border-border text-[10px] font-semibold inline-flex items-center gap-1">
                         <Lock className="w-3 h-3" /> 기본 내장
                       </span>
                     )}
                   </div>
                   {!t.builtin && (
-                    <button type="button" onClick={() => handleDelete(t)} className="p-1 rounded text-zinc-500 hover:text-red-400" title="삭제">
+                    <button type="button" onClick={() => handleDelete(t)} className="p-1 rounded text-text-muted hover:text-red-400" title="삭제">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
-                <h3 className="text-base font-bold text-zinc-100">{t.name}</h3>
+                <h3 className="text-base font-bold text-text">{t.name}</h3>
                 <div className="space-y-1">
-                  <span className="text-[11px] text-zinc-500 block font-medium">감지된 치환 항목 ({t.placeholders.length}):</span>
+                  <span className="text-[11px] text-text-muted block font-medium">감지된 치환 항목 ({t.placeholders.length}):</span>
                   <div className="flex flex-wrap gap-1.5">
                     {t.placeholders.length === 0 ? (
                       <span className="text-[11px] text-amber-400">치환 항목 없음</span>
                     ) : (
                       t.placeholders.map((ph) => (
-                        <span key={ph} className="px-2 py-0.5 rounded bg-[#090A0C] border border-[#22242A] text-amber-300/80 font-mono text-[10px]">{`{{${ph}}}`}</span>
+                        <span key={ph} className="px-2 py-0.5 rounded bg-bg border border-border text-amber-300/80 font-mono text-[10px]">{`{{${ph}}}`}</span>
                       ))
                     )}
                   </div>
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-[#22242A] text-[11px] text-zinc-500 font-mono">
+              <div className="pt-3 border-t border-border text-[11px] text-text-muted font-mono">
                 등록일: {new Date(t.uploaded_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}
               </div>
             </div>

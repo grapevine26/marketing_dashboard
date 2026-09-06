@@ -35,6 +35,7 @@ import {
   SnsTokenType,
 } from "./types";
 import { generateDefaultPptBuffer } from "../ppt/engine";
+import { validateWebhookUrl } from "../notifications/webhook";
 
 /**
  * 로컬 JSON 파일 DB (MVP 전용).
@@ -513,11 +514,62 @@ function migrateDb(db: DatabaseSchema) {
   }
 }
 
+/**
+ * 저장 직전 현재 파일을 `.data/backups/db-YYYYMMDD-HHmmss.json` 로 복사한다.
+ * - 저장이 매우 잦으므로(입력칸 포커스 아웃마다) 10분에 1개만 남긴다.
+ * - 최근 BACKUP_KEEP 개만 유지한다. 복원: `npm run db:restore -- <백업파일>`
+ */
+const BACKUP_INTERVAL_MS = 10 * 60 * 1000;
+const BACKUP_KEEP = 48;
+
+export function getBackupDirPath(): string {
+  if (process.env.DB_BACKUP_DIR) return path.resolve(process.env.DB_BACKUP_DIR);
+  return path.join(path.dirname(getDbFilePath()), "backups");
+}
+
+function rotateBackup(filePath: string) {
+  try {
+    if (!fs.existsSync(/*turbopackIgnore: true*/ filePath)) return;
+    const dir = getBackupDirPath();
+    if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) fs.mkdirSync(/*turbopackIgnore: true*/ dir, { recursive: true });
+    const files = fs.readdirSync(/*turbopackIgnore: true*/ dir).filter((f) => /^db-\d{8}-\d{6}\.json$/.test(f)).sort();
+    const latest = files[files.length - 1];
+    if (latest) {
+      const latestMtime = fs.statSync(/*turbopackIgnore: true*/ path.join(dir, latest)).mtimeMs;
+      if (Date.now() - latestMtime < BACKUP_INTERVAL_MS) return;
+    }
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+    fs.copyFileSync(/*turbopackIgnore: true*/ filePath, path.join(dir, `db-${stamp}.json`));
+    const all = [...files, `db-${stamp}.json`].sort();
+    for (const old of all.slice(0, Math.max(0, all.length - BACKUP_KEEP))) {
+      try { fs.unlinkSync(/*turbopackIgnore: true*/ path.join(dir, old)); } catch { /* ignore */ }
+    }
+  } catch (err) {
+    console.warn("DB backup skipped:", err);
+  }
+}
+
+export function listBackups(): { file: string; size: number; created_at: string }[] {
+  const dir = getBackupDirPath();
+  if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) return [];
+  return fs.readdirSync(/*turbopackIgnore: true*/ dir)
+    .filter((f) => /^db-\d{8}-\d{6}\.json$/.test(f))
+    .sort()
+    .reverse()
+    .map((f) => {
+      const st = fs.statSync(/*turbopackIgnore: true*/ path.join(dir, f));
+      return { file: f, size: st.size, created_at: st.mtime.toISOString() };
+    });
+}
+
 async function persist(data: DatabaseSchema): Promise<void> {
   const filePath = getDbFilePath();
   ensureDataDir(filePath);
   let mtimeMs = Date.now();
   try {
+    rotateBackup(filePath);
     const tmp = `${filePath}.${process.pid}.tmp`;
     fs.writeFileSync(/*turbopackIgnore: true*/ tmp, JSON.stringify(data, null, 2), "utf-8");
     fs.renameSync(/*turbopackIgnore: true*/ tmp, filePath);
@@ -846,7 +898,13 @@ export async function updateCampaignWebhookUrl(
   return mutateDb((db) => {
     const camp = db.campaigns.find((c) => c.id === campaignId);
     if (!camp) return null;
-    camp.webhook_url = webhookUrl ? optionalUrl(webhookUrl, "웹훅 URL") || undefined : undefined;
+    if (webhookUrl) {
+      const valid = validateWebhookUrl(webhookUrl);
+      if (!valid.ok) throw new ValidationError(valid.reason);
+      camp.webhook_url = valid.url;
+    } else {
+      camp.webhook_url = undefined;
+    }
     appendAuditLog(db, {
       campaign_id: campaignId,
       entity_type: "campaign",
@@ -1239,6 +1297,8 @@ export async function updateSeedingRecord(
   return mutateDb((db) => {
     const record = db.seeding_records.find((s) => s.id === seedingId);
     if (!record) return null;
+    const prevStage = record.progress_stage;
+    const prevLink = record.upload_link;
     if (patch.progress_stage !== undefined) record.progress_stage = oneOf(patch.progress_stage, PROGRESS_STAGES, "진행 단계");
     if (patch.upload_deadline !== undefined) record.upload_deadline = optionalDate(patch.upload_deadline, "업로드 기한");
     if (patch.upload_link !== undefined) record.upload_link = optionalUrl(patch.upload_link, "업로드 링크");
@@ -1247,18 +1307,21 @@ export async function updateSeedingRecord(
     if (patch.notes !== undefined) record.notes = optionalText(patch.notes, 2000);
     record.updated_at = nowIso();
 
-    const app = db.applicants.find((a) => a.id === record.applicant_id);
-    const appName = app?.name || "인플루언서";
-    appendAuditLog(db, {
-      campaign_id: record.campaign_id,
-      entity_type: "seeding_record",
-      entity_id: record.id,
-      action: "seeding.updated",
-      actor_type: "agency",
-      summary: patch.progress_stage
-        ? `${appName}님의 진행 단계를 [${patch.progress_stage}](으)로 변경했습니다.`
-        : `${appName}님의 관리시트 정보를 수정했습니다.`,
-    });
+    // 입력칸에서 포커스가 빠질 때마다 저장되므로, 단계나 업로드 링크가 실제로 바뀐 경우에만 기록한다.
+    if (record.progress_stage !== prevStage || (record.upload_link && record.upload_link !== prevLink)) {
+      const app = db.applicants.find((a) => a.id === record.applicant_id);
+      const appName = app?.name || "인플루언서";
+      appendAuditLog(db, {
+        campaign_id: record.campaign_id,
+        entity_type: "seeding_record",
+        entity_id: record.id,
+        action: "seeding.updated",
+        actor_type: "agency",
+        summary: patch.progress_stage
+          ? `${appName}님의 진행 단계를 [${patch.progress_stage}](으)로 변경했습니다.`
+          : `${appName}님의 관리시트 정보를 수정했습니다.`,
+      });
+    }
 
     return record;
   });
@@ -2083,6 +2146,23 @@ export async function deleteSnsContent(id: string): Promise<boolean> {
   });
 }
 
+/** 파일 시그니처(매직 바이트) 검사. 브라우저가 준 MIME과 실제 내용이 일치하는지 본다. */
+export function matchesMediaSignature(buf: Buffer, mime: string): boolean {
+  if (buf.length < 12) return false;
+  const hex = (start: number, len: number) => buf.subarray(start, start + len).toString("hex");
+  const ascii = (start: number, len: number) => buf.subarray(start, start + len).toString("latin1");
+  switch (mime) {
+    case "image/jpeg": return hex(0, 3) === "ffd8ff";
+    case "image/png": return hex(0, 8) === "89504e470d0a1a0a";
+    case "image/gif": return ascii(0, 6) === "GIF87a" || ascii(0, 6) === "GIF89a";
+    case "image/webp": return ascii(0, 4) === "RIFF" && ascii(8, 4) === "WEBP";
+    case "video/mp4":
+    case "video/quicktime": return ascii(4, 4) === "ftyp";
+    case "video/webm": return hex(0, 4) === "1a45dfa3";
+    default: return false;
+  }
+}
+
 export const ALLOWED_SNS_MEDIA_MIME_TYPES: Record<string, string> = {
   "image/jpeg": ".jpg",
   "image/png": ".png",
@@ -2117,6 +2197,10 @@ export async function saveSnsMediaAttachment(
   }
   if (!file.buffer || file.buffer.length === 0) {
     throw new ValidationError("빈 파일은 업로드할 수 없습니다.");
+  }
+  // 브라우저가 보낸 MIME(file.type)은 확장자만 보고 정하므로, 실제 파일 시그니처와 맞는지 확인한다.
+  if (!matchesMediaSignature(file.buffer, mime)) {
+    throw new ValidationError("파일 내용이 확장자와 다릅니다. 실제 이미지/영상 파일만 업로드할 수 있습니다.");
   }
 
   const uploadsDir = ensureUploadsDir();

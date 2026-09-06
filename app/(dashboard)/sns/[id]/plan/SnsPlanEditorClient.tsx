@@ -105,14 +105,14 @@ export default function SnsPlanEditorClient({
   const canDownload = saved && !dirty && Boolean(selectedTemplateId);
 
   return (
-    <div className="p-5 sm:p-7 rounded-3xl bg-[#131418] border border-[#22242A] space-y-6 shadow-xl font-sans">
+    <div className="p-5 sm:p-7 rounded-3xl bg-surface border border-border space-y-6 shadow-xl font-sans">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
+          <h1 className="text-xl font-bold text-text flex items-center gap-2">
             <FileText className="w-5 h-5 text-sky-400" />
             <span>{account.company_name} SNS 공식 채널 운영 제안서</span>
           </h1>
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-text-sub">
             사전설문 응답을 바탕으로 항목별 AI 초안을 만들고, 저장 후 파워포인트(.pptx)로 다운로드합니다.
             {!hasIntake && <span className="text-amber-400 ml-1">광고주 사전설문 응답이 아직 없어 AI 초안 품질이 낮을 수 있습니다.</span>}
           </p>
@@ -130,7 +130,7 @@ export default function SnsPlanEditorClient({
           {canDownload ? (
             <DownloadFileButton href={`/sns/${account.id}/plan/export`} label="PPT 다운로드" fallbackFilename="SNS운영제안서.pptx" />
           ) : (
-            <span className="text-[11px] text-zinc-500">
+            <span className="text-[11px] text-text-muted">
               {!selectedTemplateId ? "템플릿을 선택해야 PPT를 만들 수 있습니다." : dirty ? "변경 사항을 저장하면 다운로드할 수 있습니다." : "저장 후 다운로드할 수 있습니다."}
             </span>
           )}
@@ -141,11 +141,11 @@ export default function SnsPlanEditorClient({
       {notice && <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">{notice}</div>}
 
       <div className="space-y-1">
-        <label className="text-xs font-semibold text-zinc-300">적용할 PPT 템플릿 (선택 안 함 = 웹 화면만 사용)</label>
+        <label className="text-xs font-semibold text-text-2">적용할 PPT 템플릿 (선택 안 함 = 웹 화면만 사용)</label>
         <select
           value={selectedTemplateId || ""}
           onChange={(e) => { setSelectedTemplateId(e.target.value || null); setDirty(true); }}
-          className="w-full sm:w-96 px-3.5 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-sky-500 font-semibold"
+          className="w-full sm:w-96 px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-sky-500 font-semibold"
         >
           <option value="">템플릿 선택 안 함</option>
           {templates.map((t) => (
@@ -154,8 +154,8 @@ export default function SnsPlanEditorClient({
         </select>
       </div>
 
-      <div className="space-y-4 pt-3 border-t border-[#22242A]">
-        <h3 className="text-xs font-bold text-zinc-300">운영안 항목</h3>
+      <div className="space-y-4 pt-3 border-t border-border">
+        <h3 className="text-xs font-bold text-text-2">운영안 항목</h3>
         {placeholders.map((ph) => (
           <div key={ph} className="space-y-1.5">
             <div className="flex items-center justify-between">
@@ -168,7 +168,7 @@ export default function SnsPlanEditorClient({
               rows={LONG_FIELDS.has(ph) ? 4 : 2}
               value={fieldValues[ph] || ""}
               onChange={(e) => setField(ph, e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-sky-500 leading-relaxed"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-sky-500 leading-relaxed"
             />
           </div>
         ))}

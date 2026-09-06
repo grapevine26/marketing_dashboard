@@ -51,11 +51,11 @@ export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTe
   };
 
   return (
-    <div className="p-6 rounded-3xl bg-[#131418] border border-[#22242A] space-y-6 shadow-xl">
+    <div className="p-6 rounded-3xl bg-surface border border-border space-y-6 shadow-xl">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-bold text-zinc-100">설문 질문 목록 ({questions.length})</h2>
+        <h2 className="text-base font-bold text-text">설문 질문 목록 ({questions.length})</h2>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={handleAddQuestion} className="px-3 py-1.5 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-200 text-xs font-semibold inline-flex items-center gap-1 transition">
+          <button type="button" onClick={handleAddQuestion} className="px-3 py-1.5 rounded-xl bg-surface2 hover:bg-surface3 text-text text-xs font-semibold inline-flex items-center gap-1 transition">
             <Plus className="w-3.5 h-3.5" />
             <span>질문 추가</span>
           </button>
@@ -71,19 +71,19 @@ export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTe
 
       <div className="space-y-3">
         {questions.map((q, idx) => (
-          <div key={q.id} className="p-4 rounded-2xl bg-[#090A0C] border border-[#22242A] space-y-3">
+          <div key={q.id} className="p-4 rounded-2xl bg-bg border border-border space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-sky-400">질문 {idx + 1}</span>
-                <button type="button" onClick={() => move(idx, -1)} disabled={idx === 0} className="p-1 text-zinc-500 hover:text-zinc-200 disabled:opacity-30"><ArrowUp className="w-3.5 h-3.5" /></button>
-                <button type="button" onClick={() => move(idx, 1)} disabled={idx === questions.length - 1} className="p-1 text-zinc-500 hover:text-zinc-200 disabled:opacity-30"><ArrowDown className="w-3.5 h-3.5" /></button>
+                <button type="button" onClick={() => move(idx, -1)} disabled={idx === 0} className="p-1 text-text-muted hover:text-text disabled:opacity-30"><ArrowUp className="w-3.5 h-3.5" /></button>
+                <button type="button" onClick={() => move(idx, 1)} disabled={idx === questions.length - 1} className="p-1 text-text-muted hover:text-text disabled:opacity-30"><ArrowDown className="w-3.5 h-3.5" /></button>
               </div>
               <div className="flex items-center gap-3">
-                <label className="text-xs text-zinc-400 flex items-center gap-1.5 cursor-pointer">
+                <label className="text-xs text-text-sub flex items-center gap-1.5 cursor-pointer">
                   <input type="checkbox" checked={q.required} onChange={(e) => handleUpdate(q.id, { required: e.target.checked })} className="w-3.5 h-3.5 accent-sky-500 rounded" />
                   <span>필수 입력</span>
                 </label>
-                <button type="button" onClick={() => handleDelete(q.id)} className="text-zinc-500 hover:text-red-400 p-1 rounded">
+                <button type="button" onClick={() => handleDelete(q.id)} className="text-text-muted hover:text-red-400 p-1 rounded">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -95,14 +95,14 @@ export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTe
                 value={q.question}
                 onChange={(e) => handleUpdate(q.id, { question: e.target.value })}
                 placeholder="질문 내용을 입력하세요"
-                className="w-full px-3 py-2 rounded-xl bg-[#131418] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-sky-500 font-medium"
+                className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-sky-500 font-medium"
               />
               <input
                 type="text"
                 value={q.placeholder || ""}
                 onChange={(e) => handleUpdate(q.id, { placeholder: e.target.value })}
                 placeholder="입력 예시 (Placeholder)"
-                className="w-full px-3 py-1.5 rounded-xl bg-[#131418] border border-[#22242A] text-zinc-400 text-xs focus:outline-none focus:border-sky-500"
+                className="w-full px-3 py-1.5 rounded-xl bg-surface border border-border text-text-sub text-xs focus:outline-none focus:border-sky-500"
               />
             </div>
           </div>

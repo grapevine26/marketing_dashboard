@@ -37,14 +37,14 @@ export default function CampaignStatusSelect({
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <label className="text-[11px] text-zinc-500">캠페인 상태</label>
+      <label className="text-[11px] text-text-muted">캠페인 상태</label>
       <div className="flex items-center gap-2">
-        {saving && <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-500" />}
+        {saving && <Loader2 className="w-3.5 h-3.5 animate-spin text-text-muted" />}
         <select
           value={status}
           disabled={saving}
           onChange={(e) => handleChange(e.target.value as CampaignStatus)}
-          className="px-3 py-1.5 rounded-lg bg-[#090A0C] border border-[#22242A] text-blue-400 text-xs font-bold focus:outline-none focus:border-blue-500"
+          className="px-3 py-1.5 rounded-lg bg-bg border border-border text-blue-400 text-xs font-bold focus:outline-none focus:border-blue-500"
         >
           {ORDER.map((s) => (
             <option key={s} value={s}>

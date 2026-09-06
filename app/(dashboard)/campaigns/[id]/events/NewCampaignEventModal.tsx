@@ -51,13 +51,13 @@ export default function NewCampaignEventModal({ campaignId }: { campaignId: stri
 
       {open && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="w-full max-w-lg bg-[#131418] border-t sm:border border-[#22242A] rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto font-sans">
-            <div className="flex items-center justify-between pb-2 border-b border-[#22242A]">
+          <div className="w-full max-w-lg bg-surface border-t sm:border border-border rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto font-sans">
+            <div className="flex items-center justify-between pb-2 border-b border-border">
               <div className="flex items-center gap-2">
                 <PartyPopper className="w-5 h-5 text-indigo-400" />
-                <h2 className="text-base font-bold text-zinc-100">신규 인플루언서 행사 개설</h2>
+                <h2 className="text-base font-bold text-text">신규 인플루언서 행사 개설</h2>
               </div>
-              <button type="button" onClick={() => setOpen(false)} className="p-1.5 rounded-lg text-zinc-400 hover:text-white transition">
+              <button type="button" onClick={() => setOpen(false)} className="p-1.5 rounded-lg text-text-sub hover:text-text transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -68,52 +68,52 @@ export default function NewCampaignEventModal({ campaignId }: { campaignId: stri
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-zinc-300">행사명 *</label>
+                <label className="text-xs font-semibold text-text-2">행사명 *</label>
                 <input
                   type="text"
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="예: 2026 하이드라 앰플 런칭 VIP 프라이빗 뷰티 나잇"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-indigo-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-zinc-300">행사 일시 (한국 시간)</label>
+                  <label className="text-xs font-semibold text-text-2">행사 일시 (한국 시간)</label>
                   <input
                     type="datetime-local"
                     value={formData.event_at}
                     onChange={(e) => setFormData({ ...formData, event_at: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-indigo-500"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-zinc-300">행사 장소</label>
+                  <label className="text-xs font-semibold text-text-2">행사 장소</label>
                   <input
                     type="text"
                     value={formData.venue}
                     onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
                     placeholder="예: 서울 성동구 성수이로 88 보테가 성수 2F"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-indigo-500"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-zinc-300">행사 메모 / 기획 의도</label>
+                <label className="text-xs font-semibold text-text-2">행사 메모 / 기획 의도</label>
                 <textarea
                   rows={3}
                   value={formData.memo}
                   onChange={(e) => setFormData({ ...formData, memo: e.target.value })}
                   placeholder="예: 최상위 뷰티 크리에이터 30인 초청, 신제품 앰플 체험 바 및 럭키드로우 운영"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-indigo-500 leading-relaxed"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-indigo-500 leading-relaxed"
                 />
               </div>
 
               <div className="pt-3 flex flex-col-reverse sm:flex-row justify-end gap-2">
-                <button type="button" onClick={() => setOpen(false)} className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 text-xs font-medium">
+                <button type="button" onClick={() => setOpen(false)} className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-medium">
                   취소
                 </button>
                 <button

@@ -6,7 +6,7 @@ import { submitApplicantAction } from "./actions";
 import { Send, CheckCircle2, Loader2, AlertTriangle } from "lucide-react";
 
 const inputCls =
-  "w-full px-3.5 py-3 sm:py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500";
+  "w-full px-3.5 py-3 sm:py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500";
 
 export default function ApplyPublicForm({
   token,
@@ -76,12 +76,12 @@ export default function ApplyPublicForm({
 
   if (submitted) {
     return (
-      <div className="p-6 sm:p-8 rounded-3xl bg-[#131418] border border-[#22242A] text-center space-y-3 shadow-2xl font-sans">
+      <div className="p-6 sm:p-8 rounded-3xl bg-surface border border-border text-center space-y-3 shadow-2xl font-sans">
         <div className="w-12 h-12 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center mx-auto">
           <CheckCircle2 className="w-6 h-6" />
         </div>
-        <h2 className="text-base sm:text-lg font-bold text-zinc-100">지원이 성공적으로 완료되었습니다!</h2>
-        <p className="text-xs text-zinc-400 leading-relaxed">
+        <h2 className="text-base sm:text-lg font-bold text-text">지원이 성공적으로 완료되었습니다!</h2>
+        <p className="text-xs text-text-sub leading-relaxed">
           선정되신 분들께는 기재해주신 연락처로 개별 안내 메시지를 발송해 드립니다.
         </p>
       </div>
@@ -117,7 +117,7 @@ export default function ApplyPublicForm({
         );
       case "checkbox":
         return (
-          <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+          <label className="flex items-center gap-2 text-xs text-text-2 cursor-pointer">
             <input
               type="checkbox"
               required={q.required}
@@ -142,22 +142,22 @@ export default function ApplyPublicForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-5 sm:p-8 rounded-3xl bg-[#131418] border border-[#22242A] space-y-4 sm:space-y-5 shadow-2xl font-sans">
+    <form onSubmit={handleSubmit} className="p-5 sm:p-8 rounded-3xl bg-surface border border-border space-y-4 sm:space-y-5 shadow-2xl font-sans">
       {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">{error}</div>}
 
       <div className="space-y-1">
-        <label className="text-xs font-semibold text-zinc-300">성함 / 활동명 *</label>
+        <label className="text-xs font-semibold text-text-2">성함 / 활동명 *</label>
         <input type="text" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="홍길동" className={inputCls} />
       </div>
 
       <div className="space-y-1">
-        <label className="text-xs font-semibold text-zinc-300">활동 SNS 계정 URL *</label>
+        <label className="text-xs font-semibold text-text-2">활동 SNS 계정 URL *</label>
         <input type="url" required value={formData.sns_link} onChange={(e) => setFormData({ ...formData, sns_link: e.target.value })} placeholder="https://instagram.com/your_id" className={inputCls} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-zinc-300">팔로워 / 구독자 수 (선택)</label>
+          <label className="text-xs font-semibold text-text-2">팔로워 / 구독자 수 (선택)</label>
           <input
             type="number"
             min="0"
@@ -168,7 +168,7 @@ export default function ApplyPublicForm({
           />
         </div>
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-zinc-300">주요 활동 분야 (선택)</label>
+          <label className="text-xs font-semibold text-text-2">주요 활동 분야 (선택)</label>
           <input
             type="text"
             value={formData.category}
@@ -181,38 +181,38 @@ export default function ApplyPublicForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-zinc-300">연락처 *</label>
+          <label className="text-xs font-semibold text-text-2">연락처 *</label>
           <input type="tel" required value={formData.contact} onChange={(e) => setFormData({ ...formData, contact: e.target.value })} placeholder="010-1234-5678" className={inputCls} />
         </div>
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-zinc-300">국적 *</label>
+          <label className="text-xs font-semibold text-text-2">국적 *</label>
           <input type="text" required value={formData.nationality} onChange={(e) => setFormData({ ...formData, nationality: e.target.value })} className={inputCls} />
         </div>
       </div>
 
       {isShipping ? (
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-zinc-300">배송지 주소 (상세주소 포함) *</label>
+          <label className="text-xs font-semibold text-text-2">배송지 주소 (상세주소 포함) *</label>
           <input type="text" required value={formData.shipping_address} onChange={(e) => setFormData({ ...formData, shipping_address: e.target.value })} placeholder="서울특별시 강남구 테헤란로 123 401호" className={inputCls} />
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-zinc-300">방문 희망 일정 *</label>
+            <label className="text-xs font-semibold text-text-2">방문 희망 일정 *</label>
             <input type="text" required value={formData.visit_schedule} onChange={(e) => setFormData({ ...formData, visit_schedule: e.target.value })} placeholder="예: 9월 10일 오후 3시" className={inputCls} />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-zinc-300">방문 인원수</label>
+            <label className="text-xs font-semibold text-text-2">방문 인원수</label>
             <input type="number" min={1} max={20} value={formData.visit_party_size} onChange={(e) => setFormData({ ...formData, visit_party_size: Number(e.target.value) })} className={inputCls} />
           </div>
         </div>
       )}
 
       {customQuestions.length > 0 && (
-        <div className="pt-2 border-t border-[#22242A] space-y-3">
+        <div className="pt-2 border-t border-border space-y-3">
           {customQuestions.map((q) => (
             <div key={q.id} className="space-y-1">
-              <label className="text-xs font-semibold text-zinc-300">
+              <label className="text-xs font-semibold text-text-2">
                 {q.label} {q.required && <span className="text-blue-400">*</span>}
               </label>
               {renderCustom(q)}
@@ -221,7 +221,7 @@ export default function ApplyPublicForm({
         </div>
       )}
 
-      <div className="pt-2 border-t border-[#22242A] space-y-3 text-xs text-zinc-400">
+      <div className="pt-2 border-t border-border space-y-3 text-xs text-text-sub">
         <label className="flex items-start gap-2.5 cursor-pointer py-1">
           <input type="checkbox" required checked={formData.privacy_agreed} onChange={(e) => setFormData({ ...formData, privacy_agreed: e.target.checked })} className="accent-blue-600 w-4 h-4 mt-0.5 rounded" />
           <span className="leading-snug">(필수) 개인정보 수집 및 리워드 배송/일정 안내를 위한 이용에 동의합니다.</span>
@@ -253,7 +253,7 @@ export default function ApplyPublicForm({
             <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
             <div className="space-y-1">
               <p className="font-semibold text-amber-300">중복 지원 확인 안내</p>
-              <p className="text-zinc-300 leading-relaxed">{duplicateWarning}</p>
+              <p className="text-text-2 leading-relaxed">{duplicateWarning}</p>
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
@@ -268,7 +268,7 @@ export default function ApplyPublicForm({
             <button
               type="button"
               onClick={() => setDuplicateWarning(null)}
-              className="px-3.5 py-2 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 text-xs transition text-center"
+              className="px-3.5 py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs transition text-center"
             >
               SNS 링크 수정하기
             </button>

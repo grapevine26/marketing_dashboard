@@ -40,19 +40,19 @@ export default function ReportDownloads({
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold shadow-md transition disabled:opacity-50"
         />
       </div>
-      <div className="flex items-center gap-2 text-[11px] text-slate-400">
+      <div className="flex items-center gap-2 text-[11px] text-text-sub">
         <span>PPT 템플릿</span>
         <select
           value={templateId}
           onChange={(e) => setTemplateId(e.target.value)}
-          className="px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 text-[11px] focus:outline-none focus:border-orange-500"
+          className="px-2 py-1 rounded-lg bg-bg border border-border text-text text-[11px] focus:outline-none focus:border-orange-500"
         >
           {templates.map((t) => (
             <option key={t.id} value={t.id}>{t.builtin ? "[기본] " : ""}{t.name}</option>
           ))}
         </select>
         {selected && !selected.builtin && (
-          <span className="text-slate-500">
+          <span className="text-text-muted">
             표 {hasTable ? "포함" : "없음"} · 차트 {hasChart ? "포함" : "없음"}
           </span>
         )}

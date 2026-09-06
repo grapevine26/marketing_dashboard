@@ -47,13 +47,13 @@ export default function CustomSectionEditor({
   };
 
   return (
-    <div className="p-8 rounded-3xl bg-[#131418] border border-[#22242A] space-y-6 shadow-xl font-sans">
+    <div className="p-8 rounded-3xl bg-surface border border-border space-y-6 shadow-xl font-sans">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-bold text-zinc-100">결과보고서 커스텀 총평 및 하이라이트 편집</h2>
+        <h2 className="text-sm font-bold text-text">결과보고서 커스텀 총평 및 하이라이트 편집</h2>
         <button
           type="button"
           onClick={handleAdd}
-          className="px-3 py-1.5 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-200 text-xs font-semibold inline-flex items-center gap-1 transition"
+          className="px-3 py-1.5 rounded-xl bg-surface2 hover:bg-surface3 text-text text-xs font-semibold inline-flex items-center gap-1 transition"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>섹션 추가</span>
@@ -64,20 +64,20 @@ export default function CustomSectionEditor({
 
       <div className="space-y-4">
         {sections.length === 0 && (
-          <div className="p-6 text-center text-zinc-500 text-xs border border-dashed border-[#22242A] rounded-xl bg-[#090A0C]">
+          <div className="p-6 text-center text-text-muted text-xs border border-dashed border-border rounded-xl bg-bg">
             섹션이 없습니다. 섹션 추가 버튼으로 총평을 작성하세요.
           </div>
         )}
         {sections.map((sec) => (
-          <div key={sec.id} className="p-5 rounded-2xl bg-[#090A0C] border border-[#22242A] space-y-3">
+          <div key={sec.id} className="p-5 rounded-2xl bg-bg border border-border space-y-3">
             <div className="flex items-center justify-between">
               <input
                 type="text"
                 value={sec.title}
                 onChange={(e) => update(sec.id, { title: e.target.value })}
-                className="px-3 py-1.5 rounded-lg bg-[#131418] border border-[#22242A] text-zinc-100 text-xs font-bold focus:outline-none focus:border-blue-500 w-2/3"
+                className="px-3 py-1.5 rounded-lg bg-surface border border-border text-text text-xs font-bold focus:outline-none focus:border-blue-500 w-2/3"
               />
-              <button type="button" onClick={() => handleRemove(sec.id)} className="p-1 text-zinc-500 hover:text-red-400 transition">
+              <button type="button" onClick={() => handleRemove(sec.id)} className="p-1 text-text-muted hover:text-red-400 transition">
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
@@ -87,13 +87,13 @@ export default function CustomSectionEditor({
               value={sec.content}
               onChange={(e) => update(sec.id, { content: e.target.value })}
               placeholder="내용을 입력하세요..."
-              className="w-full px-3 py-2 rounded-lg bg-[#131418] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500 leading-relaxed"
+              className="w-full px-3 py-2 rounded-lg bg-surface border border-border text-text text-xs focus:outline-none focus:border-blue-500 leading-relaxed"
             />
           </div>
         ))}
       </div>
 
-      <div className="pt-4 border-t border-[#22242A] flex items-center justify-between">
+      <div className="pt-4 border-t border-border flex items-center justify-between">
         <div>
           {saved && (
             <span className="text-xs text-blue-400 font-semibold flex items-center gap-1">

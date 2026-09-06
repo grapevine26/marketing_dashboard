@@ -89,17 +89,17 @@ export default function ApplyFormEditor({
   return (
     <div className="space-y-6 max-w-4xl mx-auto font-sans">
       <div className="space-y-1">
-        <Link href={`/campaigns/${campaign.id}`} className="text-xs text-zinc-400 hover:text-white inline-flex items-center gap-1 transition">
+        <Link href={`/campaigns/${campaign.id}`} className="text-xs text-text-sub hover:text-text inline-flex items-center gap-1 transition">
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>캠페인 허브로 돌아가기</span>
         </Link>
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-xl font-bold text-zinc-100">2. 인플루언서 신청폼 설정 에디터</h1>
+          <h1 className="text-xl font-bold text-text">2. 인플루언서 신청폼 설정 에디터</h1>
           <a href={applyPath} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline inline-flex items-center gap-1">
             <ExternalLink className="w-3.5 h-3.5" /> 공개 신청폼 미리보기
           </a>
         </div>
-        <p className="text-xs text-zinc-400">
+        <p className="text-xs text-text-sub">
           모집글 소개 문구(Gemini AI 작성 지원)와 인플루언서에게 추가로 물어볼 질문들을 커스텀 설정합니다.
         </p>
       </div>
@@ -108,9 +108,9 @@ export default function ApplyFormEditor({
       {notice && <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold">{notice}</div>}
 
       <form onSubmit={handleSave} className="space-y-6">
-        <div className="p-8 rounded-3xl bg-[#131418] border border-[#22242A] space-y-4 shadow-xl">
+        <div className="p-8 rounded-3xl bg-surface border border-border space-y-4 shadow-xl">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-zinc-100">모집 소개글 (Intro Text)</h2>
+            <h2 className="text-sm font-bold text-text">모집 소개글 (Intro Text)</h2>
             <button
               type="button"
               disabled={loadingAi}
@@ -126,22 +126,22 @@ export default function ApplyFormEditor({
             rows={6}
             value={introText}
             onChange={(e) => setIntroText(e.target.value)}
-            className="w-full px-4 py-3 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500 leading-relaxed"
+            className="w-full px-4 py-3 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500 leading-relaxed"
           />
         </div>
 
-        <div className="p-8 rounded-3xl bg-[#131418] border border-[#22242A] space-y-4 shadow-xl">
+        <div className="p-8 rounded-3xl bg-surface border border-border space-y-4 shadow-xl">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-bold text-zinc-100">추가 커스텀 문항</h2>
-              <p className="text-xs text-zinc-400">
+              <h2 className="text-sm font-bold text-text">추가 커스텀 문항</h2>
+              <p className="text-xs text-text-sub">
                 기본 정보(성함, SNS, 연락처, 국적, {campaign.campaign_type === "shipping" ? "배송지" : "방문일정/인원"}) 외에 추가로 확인할 항목
               </p>
             </div>
             <button
               type="button"
               onClick={handleAddQuestion}
-              className="px-3 py-1.5 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-200 text-xs font-semibold inline-flex items-center gap-1 transition"
+              className="px-3 py-1.5 rounded-xl bg-surface2 hover:bg-surface3 text-text text-xs font-semibold inline-flex items-center gap-1 transition"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>질문 추가</span>
@@ -149,22 +149,22 @@ export default function ApplyFormEditor({
           </div>
 
           {customQuestions.length === 0 ? (
-            <div className="p-6 text-center text-zinc-500 text-xs border border-dashed border-[#22242A] rounded-xl bg-[#090A0C]">
+            <div className="p-6 text-center text-text-muted text-xs border border-dashed border-border rounded-xl bg-bg">
               추가 문항이 없습니다. 필요한 경우 질문 추가 버튼을 누르세요.
             </div>
           ) : (
             <div className="space-y-3">
               {customQuestions.map((q, idx) => (
-                <div key={q.id} className="p-4 rounded-xl bg-[#090A0C] border border-[#22242A] space-y-2">
+                <div key={q.id} className="p-4 rounded-xl bg-bg border border-border space-y-2">
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-mono text-zinc-500">{idx + 1}</span>
+                    <span className="text-xs font-mono text-text-muted">{idx + 1}</span>
                     <input
                       type="text"
                       required
                       value={q.label}
                       onChange={(e) => updateQuestion(q.id, { label: e.target.value })}
                       placeholder="질문 내용을 입력하세요 (예: 피부 타입 및 고민)"
-                      className="flex-1 px-3 py-1.5 rounded-lg bg-[#131418] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-surface border border-border text-text text-xs focus:outline-none focus:border-blue-500"
                     />
                     <select
                       value={q.type}
@@ -172,13 +172,13 @@ export default function ApplyFormEditor({
                         const type = e.target.value as CustomQuestionType;
                         updateQuestion(q.id, { type, options: type === "select" ? q.options || [] : undefined });
                       }}
-                      className="px-2 py-1.5 rounded-lg bg-[#131418] border border-[#22242A] text-zinc-200 text-xs focus:outline-none focus:border-blue-500"
+                      className="px-2 py-1.5 rounded-lg bg-surface border border-border text-text text-xs focus:outline-none focus:border-blue-500"
                     >
                       {(Object.keys(TYPE_LABELS) as CustomQuestionType[]).map((t) => (
                         <option key={t} value={t}>{TYPE_LABELS[t]}</option>
                       ))}
                     </select>
-                    <label className="flex items-center gap-1 text-xs text-zinc-400 cursor-pointer whitespace-nowrap">
+                    <label className="flex items-center gap-1 text-xs text-text-sub cursor-pointer whitespace-nowrap">
                       <input
                         type="checkbox"
                         checked={q.required}
@@ -187,7 +187,7 @@ export default function ApplyFormEditor({
                       />
                       <span>필수</span>
                     </label>
-                    <button type="button" onClick={() => handleRemoveQuestion(q.id)} className="p-1.5 text-zinc-500 hover:text-red-400 transition">
+                    <button type="button" onClick={() => handleRemoveQuestion(q.id)} className="p-1.5 text-text-muted hover:text-red-400 transition">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -199,7 +199,7 @@ export default function ApplyFormEditor({
                         updateQuestion(q.id, { options: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })
                       }
                       placeholder="선택지를 쉼표로 구분해 입력 (예: 건성, 지성, 복합성, 민감성)"
-                      className="w-full ml-6 px-3 py-1.5 rounded-lg bg-[#131418] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
+                      className="w-full ml-6 px-3 py-1.5 rounded-lg bg-surface border border-border text-text text-xs focus:outline-none focus:border-blue-500"
                       style={{ width: "calc(100% - 1.5rem)" }}
                     />
                   )}
@@ -209,8 +209,8 @@ export default function ApplyFormEditor({
           )}
         </div>
 
-        <div className="p-6 rounded-3xl bg-[#131418] border border-[#22242A] flex items-center justify-between shadow-xl">
-          <label className="flex items-center gap-2 text-xs font-semibold text-zinc-300 cursor-pointer">
+        <div className="p-6 rounded-3xl bg-surface border border-border flex items-center justify-between shadow-xl">
+          <label className="flex items-center gap-2 text-xs font-semibold text-text-2 cursor-pointer">
             <input
               type="checkbox"
               checked={isPublished}

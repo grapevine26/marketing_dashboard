@@ -24,8 +24,8 @@ export default async function CampaignSeedingSheetPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white tracking-tight">시딩 관리시트</h1>
-        <p className="text-sm text-slate-400">
+        <h1 className="text-2xl font-bold text-text tracking-tight">시딩 관리시트</h1>
+        <p className="text-sm text-text-sub">
           최종 선정된 인플루언서의 진행 단계 체크, D-day 추적, 업로드 링크 및 성과를 기록합니다.
         </p>
       </div>

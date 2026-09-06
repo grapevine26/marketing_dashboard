@@ -92,15 +92,16 @@ export type CampaignTokenType =
 
 export type SnsTokenType = "intake" | "approval";
 
-/** 공개 페이지(지원폼/사전조사/공유 링크)에 내려보내는 최소 정보. 토큰은 절대 포함하지 않는다. */
+/**
+ * 공개 페이지(지원폼/사전조사/공유 링크)에 내려보내는 최소 정보.
+ * 토큰·웹훅 URL·내부 안내문 템플릿은 절대 포함하지 않는다 (HTML에 그대로 직렬화되어 누구나 볼 수 있다).
+ */
 export interface PublicCampaign {
   id: string;
   name: string;
   company_name: string;
   campaign_type: CampaignType;
   status: CampaignStatus;
-  message_templates?: Record<string, string>;
-  webhook_url?: string;
 }
 
 export function toPublicCampaign(c: Campaign): PublicCampaign {
@@ -110,8 +111,21 @@ export function toPublicCampaign(c: Campaign): PublicCampaign {
     company_name: c.company_name,
     campaign_type: c.campaign_type,
     status: c.status,
-    message_templates: c.message_templates,
-    webhook_url: c.webhook_url,
+  };
+}
+
+/**
+ * 광고주 공유 페이지(/applicants, /seeding-sheet)에 내려보내는 지원자.
+ * 연락처·주소·방문 일정·에이전시 내부 메모를 비운다. 새 개인정보 필드를 추가하면 여기도 같이 고칠 것.
+ */
+export function sanitizeApplicantForCompany(a: Applicant): Applicant {
+  return {
+    ...a,
+    contact: "",
+    shipping_address: undefined,
+    visit_schedule: undefined,
+    visit_party_size: undefined,
+    agency_memo: undefined,
   };
 }
 

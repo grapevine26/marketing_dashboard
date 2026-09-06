@@ -24,14 +24,15 @@ export default async function CampaignApplicantsPage({
   return (
     <div className="space-y-6 font-sans">
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-zinc-100 tracking-tight">지원자 관리 & 선정</h1>
-        <p className="text-sm text-zinc-400">
+        <h1 className="text-2xl font-bold text-text tracking-tight">지원자 관리 & 선정</h1>
+        <p className="text-sm text-text-sub">
           실시간 접수된 인플루언서 지원자를 확인하고 최종선정, 예비선정, 미선정 처리를 할 수 있습니다.
         </p>
       </div>
 
       <ApplicantTable
         campaign={toPublicCampaign(campaign)}
+        messageTemplates={campaign.message_templates}
         initialApplicants={applicants}
         duplicates={duplicates}
         customQuestions={formConfig?.custom_questions || []}

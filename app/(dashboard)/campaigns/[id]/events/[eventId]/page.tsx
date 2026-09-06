@@ -35,13 +35,13 @@ export default async function CampaignEventDetailPage({
 
   return (
     <div className="space-y-4 max-w-5xl mx-auto font-sans">
-      <div className="flex items-center gap-2 text-xs text-zinc-400">
+      <div className="flex items-center gap-2 text-xs text-text-sub">
         <Link href={`/campaigns/${campaign.id}/events`} className="hover:text-blue-400 flex items-center gap-1">
           <ChevronLeft className="w-3.5 h-3.5" />
           <span>행사 목록으로</span>
         </Link>
         <span>/</span>
-        <span className="text-zinc-200">{event.name}</span>
+        <span className="text-text">{event.name}</span>
       </div>
 
       <EventDetailClient

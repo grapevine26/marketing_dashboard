@@ -21,8 +21,8 @@ export default async function CampaignPreSurveyPage({
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold text-white tracking-tight">사전조사 관리 (에이전시 작성/조회)</h1>
-        <p className="text-sm text-slate-400">
+        <h1 className="text-2xl font-bold text-text tracking-tight">사전조사 관리 (에이전시 작성/조회)</h1>
+        <p className="text-sm text-text-sub">
           광고주가 제출한 답변을 확인하거나, 에이전시 담당자가 직접 대신 입력할 수 있습니다.
         </p>
       </div>

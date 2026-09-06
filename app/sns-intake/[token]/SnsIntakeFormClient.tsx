@@ -53,29 +53,29 @@ export default function SnsIntakeFormClient({
   if (submitted) {
     return (
       <div className="space-y-6">
-        <div className="p-8 text-center space-y-3 bg-[#090A0C] rounded-2xl border border-emerald-500/30 shadow-lg">
+        <div className="p-8 text-center space-y-3 bg-bg rounded-2xl border border-emerald-500/30 shadow-lg">
           <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-7 h-7" />
           </div>
-          <h2 className="text-lg font-bold text-zinc-100">사전설문 제출이 완료되었습니다!</h2>
-          <p className="text-xs sm:text-sm text-zinc-400 max-w-md mx-auto leading-relaxed">
+          <h2 className="text-lg font-bold text-text">사전설문 제출이 완료되었습니다!</h2>
+          <p className="text-xs sm:text-sm text-text-sub max-w-md mx-auto leading-relaxed">
             보내주신 답변을 바탕으로 {account.company_name}에 최적화된 SNS 콘텐츠를 기획하겠습니다.
           </p>
         </div>
 
-        <div className="p-5 sm:p-6 rounded-2xl bg-[#090A0C] border border-[#22242A] space-y-4">
-          <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">제출된 답변 요약</h3>
-          <div className="space-y-3 divide-y divide-[#22242A]">
+        <div className="p-5 sm:p-6 rounded-2xl bg-bg border border-border space-y-4">
+          <h3 className="text-xs font-bold text-text-sub uppercase tracking-wider">제출된 답변 요약</h3>
+          <div className="space-y-3 divide-y divide-border">
             {template.questions.map((q, idx) => (
               <div key={q.id} className={idx > 0 ? "pt-3 space-y-1" : "space-y-1"}>
                 <div className="text-xs font-semibold text-sky-400">{idx + 1}. {q.question}</div>
-                <div className="text-xs text-zinc-300 whitespace-pre-line leading-relaxed pl-2 border-l-2 border-[#292B34]">{answers[q.id] || "(답변 없음)"}</div>
+                <div className="text-xs text-text-2 whitespace-pre-line leading-relaxed pl-2 border-l-2 border-border">{answers[q.id] || "(답변 없음)"}</div>
               </div>
             ))}
           </div>
         </div>
 
-        <button type="button" onClick={() => setSubmitted(false)} className="w-full py-3 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 text-xs font-semibold border border-[#22242A] inline-flex items-center justify-center gap-1.5 transition">
+        <button type="button" onClick={() => setSubmitted(false)} className="w-full py-3 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-semibold border border-border inline-flex items-center justify-center gap-1.5 transition">
           <Edit3 className="w-3.5 h-3.5" />
           <span>답변 내용 다시 수정하기</span>
         </button>
@@ -96,9 +96,9 @@ export default function SnsIntakeFormClient({
 
       <div className="space-y-6">
         {template.questions.map((q, idx) => (
-          <div key={q.id} className="p-4 sm:p-5 rounded-2xl bg-[#090A0C] border border-[#22242A] space-y-3 focus-within:border-sky-500/50 transition">
+          <div key={q.id} className="p-4 sm:p-5 rounded-2xl bg-bg border border-border space-y-3 focus-within:border-sky-500/50 transition">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <label className="text-xs sm:text-sm font-bold text-zinc-200 flex items-start gap-1.5">
+              <label className="text-xs sm:text-sm font-bold text-text flex items-start gap-1.5">
                 <span className="text-sky-400 font-mono">{idx + 1}.</span>
                 <span>{q.question} {q.required && <strong className="text-rose-400">*</strong>}</span>
               </label>
@@ -127,7 +127,7 @@ export default function SnsIntakeFormClient({
               value={answers[q.id] || ""}
               onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
               placeholder={q.placeholder || "상세한 내용을 입력해주세요."}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#131418] border border-[#22242A] text-zinc-100 text-xs sm:text-sm focus:outline-none focus:border-sky-500 leading-relaxed placeholder:text-zinc-600 resize-y"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-border text-text text-xs sm:text-sm focus:outline-none focus:border-sky-500 leading-relaxed placeholder:text-text-faint resize-y"
             />
           </div>
         ))}

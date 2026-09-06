@@ -57,29 +57,29 @@ export default function SnsApprovalClient({
       )}
 
       {contents.length === 0 ? (
-        <div className="p-12 text-center rounded-3xl bg-[#131418] border border-dashed border-[#22242A] text-zinc-500 text-xs">
+        <div className="p-12 text-center rounded-3xl bg-surface border border-dashed border-border text-text-muted text-xs">
           현재 {account.company_name} 계정에 검토 대기 중인 콘텐츠 시안이 없습니다.
         </div>
       ) : (
         contents.map((c) => (
-          <div key={c.id} className="p-6 rounded-3xl border bg-[#131418] border-sky-500/40 transition space-y-5 shadow-xl">
+          <div key={c.id} className="p-6 rounded-3xl border bg-surface border-sky-500/40 transition space-y-5 shadow-xl">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30">광고주 승인 대기중</span>
-                <span className="text-xs text-zinc-500 font-mono">발행 예정: {c.scheduled_on || "미정"}</span>
+                <span className="text-xs text-text-muted font-mono">발행 예정: {c.scheduled_on || "미정"}</span>
               </div>
-              <h2 className="text-base font-bold text-zinc-100">{c.title}</h2>
+              <h2 className="text-base font-bold text-text">{c.title}</h2>
             </div>
 
             {/* Media Gallery (Image / Video drafts) */}
             {c.media_attachments && c.media_attachments.length > 0 && (
-              <div className="p-4 rounded-2xl bg-[#090A0C] border border-[#22242A] space-y-3">
+              <div className="p-4 rounded-2xl bg-bg border border-border space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-sky-400">
                     <ImageIcon className="w-3.5 h-3.5" />
                     <span>콘텐츠 시안 미디어 ({c.media_attachments.length}개)</span>
                   </div>
-                  <span className="text-[11px] text-zinc-500">클릭하여 확대 보기</span>
+                  <span className="text-[11px] text-text-muted">클릭하여 확대 보기</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -89,7 +89,7 @@ export default function SnsApprovalClient({
                     return (
                       <div
                         key={m.id}
-                        className="group relative rounded-2xl bg-[#131418] border border-[#22242A] hover:border-sky-500/50 p-2.5 space-y-2 transition overflow-hidden"
+                        className="group relative rounded-2xl bg-surface border border-border hover:border-sky-500/50 p-2.5 space-y-2 transition overflow-hidden"
                       >
                         {isVideo ? (
                           <div className="space-y-2">
@@ -100,7 +100,7 @@ export default function SnsApprovalClient({
                               src={mediaSrc}
                               className="w-full h-44 rounded-xl bg-black object-contain"
                             />
-                            <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                            <div className="flex items-center justify-between text-[11px] text-text-sub">
                               <span className="truncate max-w-[160px] font-medium inline-flex items-center gap-1" title={m.name}>
                                 <VideoIcon className="w-3 h-3 text-sky-400 shrink-0" />
                                 <span className="truncate">{m.name}</span>
@@ -114,7 +114,7 @@ export default function SnsApprovalClient({
                             onClick={() => setActiveMedia(m)}
                             className="w-full text-left space-y-2 cursor-pointer"
                           >
-                            <div className="w-full h-44 rounded-xl overflow-hidden bg-[#090A0C] relative">
+                            <div className="w-full h-44 rounded-xl overflow-hidden bg-bg relative">
                               <img
                                 src={mediaSrc}
                                 alt={m.name}
@@ -124,7 +124,7 @@ export default function SnsApprovalClient({
                                 클릭하여 확대
                               </div>
                             </div>
-                            <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                            <div className="flex items-center justify-between text-[11px] text-text-sub">
                               <span className="truncate max-w-[160px] font-medium" title={m.name}>{m.name}</span>
                               <span className="text-sky-400 shrink-0 font-mono">{(m.size / (1024 * 1024)).toFixed(1)} MB</span>
                             </div>
@@ -137,9 +137,9 @@ export default function SnsApprovalClient({
               </div>
             )}
 
-            <div className="p-4 rounded-2xl bg-[#090A0C] border border-[#22242A] space-y-2 text-xs">
-              <span className="text-[11px] font-bold text-zinc-400 block">원고 및 캡션:</span>
-              <p className="text-zinc-200 leading-relaxed whitespace-pre-line">{c.caption || "작성된 캡션이 없습니다."}</p>
+            <div className="p-4 rounded-2xl bg-bg border border-border space-y-2 text-xs">
+              <span className="text-[11px] font-bold text-text-sub block">원고 및 캡션:</span>
+              <p className="text-text leading-relaxed whitespace-pre-line">{c.caption || "작성된 캡션이 없습니다."}</p>
               {c.hashtags && <p className="text-sky-400 font-medium">{c.hashtags}</p>}
             </div>
 
@@ -150,21 +150,21 @@ export default function SnsApprovalClient({
               </div>
             )}
 
-            <div className="pt-3 border-t border-[#22242A] space-y-3">
+            <div className="pt-3 border-t border-border space-y-3">
               <div className="flex flex-col sm:flex-row items-center gap-2">
                 <input
                   type="text"
                   placeholder="수정 요청 사항 (수정 요청 시 필수, 예: 2번째 줄 문구 수정)"
                   value={comments[c.id] || ""}
                   onChange={(e) => setComments({ ...comments, [c.id]: e.target.value })}
-                  className="w-full sm:flex-1 px-3.5 py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-sky-500"
+                  className="w-full sm:flex-1 px-3.5 py-2 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-sky-500"
                 />
                 <div className="flex w-full sm:w-auto items-center gap-2">
                   <button
                     type="button"
                     disabled={loadingId === c.id}
                     onClick={() => handleReview(c, "request_changes")}
-                    className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-[#181A20] hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold transition disabled:opacity-50 inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-surface2 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold transition disabled:opacity-50 inline-flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     {loadingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageSquare className="w-3.5 h-3.5" />}
                     <span>수정 요청</span>
@@ -188,18 +188,18 @@ export default function SnsApprovalClient({
       {/* Fullscreen Lightbox Modal for Advertiser */}
       {activeMedia && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="max-w-4xl w-full bg-[#131418] border border-[#22242A] rounded-3xl p-5 space-y-4 shadow-2xl relative">
-            <div className="flex items-center justify-between pb-3 border-b border-[#22242A]">
+          <div className="max-w-4xl w-full bg-surface border border-border rounded-3xl p-5 space-y-4 shadow-2xl relative">
+            <div className="flex items-center justify-between pb-3 border-b border-border">
               <div className="space-y-0.5 min-w-0">
-                <h3 className="text-sm font-bold text-zinc-100 truncate">{activeMedia.name}</h3>
-                <p className="text-[11px] text-zinc-400 font-mono">
+                <h3 className="text-sm font-bold text-text truncate">{activeMedia.name}</h3>
+                <p className="text-[11px] text-text-sub font-mono">
                   {(activeMedia.size / (1024 * 1024)).toFixed(2)} MB · {activeMedia.mime_type}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setActiveMedia(null)}
-                className="p-1.5 rounded-lg bg-[#181A20] hover:bg-[#22242A] text-zinc-400 hover:text-white transition cursor-pointer"
+                className="p-1.5 rounded-lg bg-surface2 hover:bg-surface3 text-text-sub hover:text-text transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -228,7 +228,7 @@ export default function SnsApprovalClient({
                 href={`${activeMedia.url}?token=${encodeURIComponent(token)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-200 text-xs font-semibold inline-flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text text-xs font-semibold inline-flex items-center gap-1.5"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 <span>새 탭에서 원본 열기</span>

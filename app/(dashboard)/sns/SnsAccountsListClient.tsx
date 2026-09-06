@@ -158,7 +158,7 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
                   <div className="flex items-center gap-2">
                     <span
                       className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        acc.status === "active" ? "bg-emerald-500/15 text-emerald-400" : "bg-zinc-800 text-zinc-500"
+                        acc.status === "active" ? "bg-emerald-500/15 text-emerald-400" : "bg-surface3 text-text-muted"
                       }`}
                     >
                       {acc.status === "active" ? "운영중" : "계약종료"}

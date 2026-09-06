@@ -61,7 +61,7 @@ export default async function CampaignDetailPage({
           <CheckCircle2 className="w-3.5 h-3.5" /> 회신완료
         </span>
       ) : (
-        <span className="text-[11px] text-zinc-500 flex items-center gap-1">
+        <span className="text-[11px] text-text-muted flex items-center gap-1">
           <Clock className="w-3.5 h-3.5" /> 미작성
         </span>
       ),
@@ -84,7 +84,7 @@ export default async function CampaignDetailPage({
     {
       href: `/campaigns/${campaign.id}/applicants`,
       icon: Users,
-      badge: <span className="text-[11px] font-semibold text-zinc-300">총 {applicants.length}명 접수</span>,
+      badge: <span className="text-[11px] font-semibold text-text-2">총 {applicants.length}명 접수</span>,
       title: "3. 지원자 리스트 & 선정",
       desc: "중복 지원 감지, 최종선정/예비선정 및 광고주 실시간 공유",
       cta: "지원자 심사",
@@ -100,7 +100,7 @@ export default async function CampaignDetailPage({
     {
       href: `/campaigns/${campaign.id}/reports`,
       icon: FileSpreadsheet,
-      badge: <span className="text-[11px] font-semibold text-zinc-300">PDF & PPTX</span>,
+      badge: <span className="text-[11px] font-semibold text-text-2">PDF & PPTX</span>,
       title: "5. 결과보고서",
       desc: "성과 스냅샷, 총평 작성, 한글 PDF 및 편집 가능한 PPTX 다운로드",
       cta: "보고서 생성",

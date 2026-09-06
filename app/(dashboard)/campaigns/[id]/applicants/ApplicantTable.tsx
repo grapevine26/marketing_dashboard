@@ -40,6 +40,8 @@ type Mode = "agency" | "company";
 
 export interface ApplicantTableProps {
   campaign: PublicCampaign;
+  /** 안내문 템플릿 — 대시보드(agency 모드)에서만 넘긴다. 공개 공유 페이지에는 절대 넘기지 않는다. */
+  messageTemplates?: Record<string, string>;
   initialApplicants: Applicant[];
   /** 서버(lib/applicants/duplicates.ts)에서 정규화 비교로 계산한 중복 사유. applicant.id → 사유[] */
   duplicates: Record<string, string[]>;
@@ -53,7 +55,7 @@ export interface ApplicantTableProps {
 const STATUS_BADGE: Record<ApplicantStatus, string> = {
   selected: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
   reserved: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
-  applied: "bg-[#181A20] text-zinc-400 border border-[#22242A]",
+  applied: "bg-surface2 text-text-sub border border-border",
   rejected: "bg-rose-500/10 text-rose-300 border border-rose-500/20",
 };
 
@@ -94,6 +96,7 @@ export default function ApplicantTable({
   mode,
   shareToken,
   csvHref,
+  messageTemplates,
 }: ApplicantTableProps) {
   const router = useRouter();
   const [applicants, setApplicants] = useState<Applicant[]>(initialApplicants);
@@ -118,7 +121,7 @@ export default function ApplicantTable({
   const [copiedMsg, setCopiedMsg] = useState(false);
   const [savedTemplate, setSavedTemplate] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
-  const [templates, setTemplates] = useState<Record<string, string>>(campaign.message_templates || {});
+  const [templates, setTemplates] = useState<Record<string, string>>(messageTemplates || {});
 
   const openMessageModal = (app: Applicant) => {
     setMsgModalApp(app);
@@ -227,11 +230,11 @@ export default function ApplicantTable({
   const count = (s: ApplicantStatus) => applicants.filter((a) => a.status === s).length;
 
   const filterButtons: { key: "all" | ApplicantStatus; label: string; active: string; idle: string }[] = [
-    { key: "all", label: `전체 (${applicants.length})`, active: "bg-zinc-100 text-zinc-900", idle: "bg-[#090A0C] text-zinc-400 hover:text-zinc-200 border border-[#22242A]" },
-    { key: "selected", label: `최종선정 (${count("selected")})`, active: "bg-blue-600 text-white", idle: "bg-[#090A0C] text-blue-400 hover:bg-blue-500/10 border border-blue-500/20" },
-    { key: "reserved", label: `예비선정 (${count("reserved")})`, active: "bg-amber-600 text-white", idle: "bg-[#090A0C] text-amber-400 hover:bg-amber-500/10 border border-amber-500/20" },
-    { key: "applied", label: `대기 (${count("applied")})`, active: "bg-zinc-700 text-white", idle: "bg-[#090A0C] text-zinc-400 hover:bg-zinc-800 border border-[#22242A]" },
-    { key: "rejected", label: `미선정 (${count("rejected")})`, active: "bg-rose-700 text-white", idle: "bg-[#090A0C] text-rose-300 hover:bg-rose-500/10 border border-rose-500/20" },
+    { key: "all", label: `전체 (${applicants.length})`, active: "bg-zinc-100 text-zinc-900", idle: "bg-bg text-text-sub hover:text-text border border-border" },
+    { key: "selected", label: `최종선정 (${count("selected")})`, active: "bg-blue-600 text-white", idle: "bg-bg text-blue-400 hover:bg-blue-500/10 border border-blue-500/20" },
+    { key: "reserved", label: `예비선정 (${count("reserved")})`, active: "bg-amber-600 text-white", idle: "bg-bg text-amber-400 hover:bg-amber-500/10 border border-amber-500/20" },
+    { key: "applied", label: `대기 (${count("applied")})`, active: "bg-zinc-700 text-white", idle: "bg-bg text-text-sub hover:bg-surface3 border border-border" },
+    { key: "rejected", label: `미선정 (${count("rejected")})`, active: "bg-rose-700 text-white", idle: "bg-bg text-rose-300 hover:bg-rose-500/10 border border-rose-500/20" },
   ];
 
   const renderActions = (a: Applicant, compact: boolean) => {
@@ -240,9 +243,9 @@ export default function ApplicantTable({
       ? "flex-1 py-2 rounded-xl text-xs font-semibold transition disabled:opacity-50"
       : "px-2.5 py-1 rounded-lg text-xs font-semibold transition active:scale-95 disabled:opacity-50 inline-flex items-center gap-1";
     const primary = `${base} bg-blue-600 hover:bg-blue-500 text-white shadow-sm`;
-    const secondary = `${base} bg-[#181A20] hover:bg-amber-500/20 text-zinc-300 hover:text-amber-300 border border-[#22242A]`;
+    const secondary = `${base} bg-surface2 hover:bg-amber-500/20 text-text-2 hover:text-amber-300 border border-border`;
     const danger = `${base} bg-rose-600/15 hover:bg-rose-600/25 border border-rose-500/30 text-rose-300`;
-    const neutral = `${base} bg-[#181A20] hover:bg-[#22242A] text-zinc-300 border border-[#22242A]`;
+    const neutral = `${base} bg-surface2 hover:bg-surface3 text-text-2 border border-border`;
 
     const btn = (label: string, next: ApplicantStatus, cls: string, title?: string) => (
       <button key={next + label} type="button" disabled={busy} title={title} onClick={() => handleStatusChange(a.id, next)} className={cls}>
@@ -257,7 +260,7 @@ export default function ApplicantTable({
         type="button"
         title="안내문 템플릿 복사"
         onClick={() => openMessageModal(a)}
-        className={`${compact ? "py-2 px-3 rounded-xl text-xs font-semibold" : "px-2.5 py-1 rounded-lg text-xs font-semibold"} bg-[#181A20] hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 inline-flex items-center justify-center gap-1 transition`}
+        className={`${compact ? "py-2 px-3 rounded-xl text-xs font-semibold" : "px-2.5 py-1 rounded-lg text-xs font-semibold"} bg-surface2 hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 inline-flex items-center justify-center gap-1 transition`}
       >
         <MessageSquare className="w-3.5 h-3.5" />
         <span>안내문</span>
@@ -281,11 +284,11 @@ export default function ApplicantTable({
   };
 
   const renderDetails = (a: Applicant) => (
-    <div className="text-[11px] text-zinc-400 space-y-1">
+    <div className="text-[11px] text-text-sub space-y-1">
       {mode === "agency" && (
         <div>
-          <span className="text-zinc-500">{campaign.campaign_type === "shipping" ? "배송지: " : "방문 일정: "}</span>
-          <span className="text-zinc-300">
+          <span className="text-text-muted">{campaign.campaign_type === "shipping" ? "배송지: " : "방문 일정: "}</span>
+          <span className="text-text-2">
             {campaign.campaign_type === "shipping"
               ? a.shipping_address || "-"
               : `${a.visit_schedule || "-"} (${a.visit_party_size || 1}명)`}
@@ -297,19 +300,19 @@ export default function ApplicantTable({
         const text = v === undefined || v === null || v === "" ? "-" : typeof v === "boolean" ? (v ? "예" : "아니오") : String(v);
         return (
           <div key={cq.id}>
-            <span className="text-zinc-500">{cq.label}: </span>
-            <span className="text-zinc-300">{text}</span>
+            <span className="text-text-muted">{cq.label}: </span>
+            <span className="text-text-2">{text}</span>
           </div>
         );
       })}
       <div>
-        <span className="text-zinc-500">2차활용 동의: </span>
-        <span className="text-zinc-300">{a.secondary_use_agreed ? "예" : "아니오"}</span>
+        <span className="text-text-muted">2차활용 동의: </span>
+        <span className="text-text-2">{a.secondary_use_agreed ? "예" : "아니오"}</span>
       </div>
       {a.status_changed_at && (
         <div>
-          <span className="text-zinc-500">선정 변경: </span>
-          <span className="text-zinc-300">
+          <span className="text-text-muted">선정 변경: </span>
+          <span className="text-text-2">
             {a.status_changed_by === "company" ? "광고주" : "에이전시"} ·{" "}
             {new Date(a.status_changed_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}
           </span>
@@ -319,7 +322,7 @@ export default function ApplicantTable({
   );
 
   return (
-    <div className="p-5 sm:p-8 rounded-3xl bg-[#131418] border border-[#22242A] space-y-5 sm:space-y-6 shadow-xl font-sans">
+    <div className="p-5 sm:p-8 rounded-3xl bg-surface border border-border space-y-5 sm:space-y-6 shadow-xl font-sans">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1">
           <div className="relative flex-1 sm:max-w-xs">
@@ -331,12 +334,12 @@ export default function ApplicantTable({
                 setPage(1);
               }}
               placeholder={mode === "agency" ? "지원자명, 연락처, SNS, 메모 검색..." : "지원자명, SNS 계정 검색..."}
-              className="w-full pl-8 pr-3 py-2.5 sm:py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
+              className="w-full pl-8 pr-3 py-2.5 sm:py-2 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500"
             />
-            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-3 sm:top-2.5" />
+            <Search className="w-3.5 h-3.5 text-text-muted absolute left-2.5 top-3 sm:top-2.5" />
           </div>
 
-          <div className="flex items-center gap-1 bg-[#090A0C] border border-[#22242A] p-1 rounded-xl shrink-0">
+          <div className="flex items-center gap-1 bg-bg border border-border p-1 rounded-xl shrink-0">
             <button
               type="button"
               onClick={() => {
@@ -344,7 +347,7 @@ export default function ApplicantTable({
                 setPage(1);
               }}
               className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
-                sortBy === "latest" ? "bg-blue-600 text-white" : "text-zinc-400 hover:text-zinc-200"
+                sortBy === "latest" ? "bg-blue-600 text-white" : "text-text-sub hover:text-text"
               }`}
             >
               최신순
@@ -356,7 +359,7 @@ export default function ApplicantTable({
                 setPage(1);
               }}
               className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${
-                sortBy === "followers" ? "bg-blue-600 text-white" : "text-zinc-400 hover:text-zinc-200"
+                sortBy === "followers" ? "bg-blue-600 text-white" : "text-text-sub hover:text-text"
               }`}
             >
               <ArrowUpDown className="w-3 h-3" />
@@ -392,10 +395,10 @@ export default function ApplicantTable({
           </a>
           <a
             href={csvHref}
-            className="w-full sm:w-auto text-center justify-center px-3 py-2.5 sm:py-2 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 text-xs font-medium inline-flex items-center gap-1.5 transition border border-[#22242A]"
+            className="w-full sm:w-auto text-center justify-center px-3 py-2.5 sm:py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-medium inline-flex items-center gap-1.5 transition border border-border"
             title="표준 CSV 파일 다운로드"
           >
-            <Download className="w-3.5 h-3.5 text-zinc-400" />
+            <Download className="w-3.5 h-3.5 text-text-sub" />
             <span>CSV</span>
           </a>
         </div>
@@ -408,24 +411,24 @@ export default function ApplicantTable({
       {/* Mobile Cards */}
       <div className="block sm:hidden space-y-3">
         {displayedApplicants.length === 0 ? (
-          <div className="p-8 text-center text-zinc-500 text-xs border border-dashed border-[#22242A] rounded-2xl bg-[#090A0C]">
+          <div className="p-8 text-center text-text-muted text-xs border border-dashed border-border rounded-2xl bg-bg">
             표시할 지원자가 없습니다.
           </div>
         ) : (
           paginatedApplicants.map((a) => {
             const dups = duplicates[a.id] || [];
             return (
-              <div key={a.id} className="p-4 rounded-2xl bg-[#090A0C] border border-[#22242A] space-y-3 shadow-md">
+              <div key={a.id} className="p-4 rounded-2xl bg-bg border border-border space-y-3 shadow-md">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-zinc-100">{a.name}</span>
-                    <span className="text-[10px] text-zinc-500">({a.nationality})</span>
+                    <span className="font-bold text-sm text-text">{a.name}</span>
+                    <span className="text-[10px] text-text-muted">({a.nationality})</span>
                   </div>
                   <StatusBadge status={a.status} />
                 </div>
 
                 <div className="text-xs space-y-1.5">
-                  <div className="flex items-center justify-between text-zinc-400">
+                  <div className="flex items-center justify-between text-text-sub">
                     <span>SNS 채널:</span>
                     <div className="text-right">
                       <a href={a.sns_link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline inline-flex items-center gap-1 truncate max-w-[180px]">
@@ -435,7 +438,7 @@ export default function ApplicantTable({
                       {(a.follower_count !== undefined || a.category) && (
                         <div className="flex items-center justify-end gap-1.5 mt-0.5 text-[10px]">
                           {a.follower_count !== undefined && (
-                            <span className="px-1.5 py-0.5 rounded bg-[#181A20] border border-[#22242A] text-zinc-300 font-mono">
+                            <span className="px-1.5 py-0.5 rounded bg-surface2 border border-border text-text-2 font-mono">
                               {formatFollowers(a.follower_count)}
                             </span>
                           )}
@@ -449,9 +452,9 @@ export default function ApplicantTable({
                     </div>
                   </div>
                   {mode === "agency" && (
-                    <div className="flex items-center justify-between text-zinc-400">
+                    <div className="flex items-center justify-between text-text-sub">
                       <span>연락처:</span>
-                      <span className="font-mono text-zinc-200">{a.contact}</span>
+                      <span className="font-mono text-text">{a.contact}</span>
                     </div>
                   )}
                   {dups.length > 0 && (
@@ -463,9 +466,9 @@ export default function ApplicantTable({
                 </div>
 
                 {mode === "agency" && (
-                  <div className="pt-2 border-t border-[#181A20] text-xs">
+                  <div className="pt-2 border-t border-surface2 text-xs">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-zinc-500 font-medium">관리자 메모:</span>
+                      <span className="text-text-muted font-medium">관리자 메모:</span>
                       {memoEditingId !== a.id && (
                         <button
                           type="button"
@@ -486,7 +489,7 @@ export default function ApplicantTable({
                           value={memoDraft}
                           onChange={(e) => setMemoDraft(e.target.value)}
                           placeholder="메모 입력"
-                          className="flex-1 px-2.5 py-1.5 rounded-lg bg-[#181A20] border border-blue-500 text-zinc-200 text-xs focus:outline-none"
+                          className="flex-1 px-2.5 py-1.5 rounded-lg bg-surface2 border border-blue-500 text-text text-xs focus:outline-none"
                           autoFocus
                         />
                         <button
@@ -500,20 +503,20 @@ export default function ApplicantTable({
                         <button
                           type="button"
                           onClick={() => setMemoEditingId(null)}
-                          className="px-2.5 py-1.5 rounded-lg bg-zinc-800 text-zinc-400 text-xs"
+                          className="px-2.5 py-1.5 rounded-lg bg-surface3 text-text-sub text-xs"
                         >
                           취소
                         </button>
                       </div>
                     ) : (
-                      <p className="text-zinc-300 text-xs italic bg-[#181A20]/50 p-2 rounded-lg border border-[#22242A]">
+                      <p className="text-text-2 text-xs italic bg-surface2/50 p-2 rounded-lg border border-border">
                         {a.agency_memo || "메모가 없습니다."}
                       </p>
                     )}
                   </div>
                 )}
 
-                <div className="pt-2 border-t border-[#181A20] flex items-center gap-1.5">{renderActions(a, true)}</div>
+                <div className="pt-2 border-t border-surface2 flex items-center gap-1.5">{renderActions(a, true)}</div>
               </div>
             );
           })
@@ -521,9 +524,9 @@ export default function ApplicantTable({
       </div>
 
       {/* Desktop Table */}
-      <div className="hidden sm:block rounded-2xl border border-[#22242A] overflow-hidden overflow-x-auto">
+      <div className="hidden sm:block rounded-2xl border border-border overflow-hidden overflow-x-auto">
         <table className="w-full text-left text-xs">
-          <thead className="bg-[#090A0C] text-zinc-400 border-b border-[#22242A]">
+          <thead className="bg-bg text-text-sub border-b border-border">
             <tr>
               <th className="p-3.5">지원자명</th>
               <th className="p-3.5">SNS 계정</th>
@@ -534,10 +537,10 @@ export default function ApplicantTable({
               <th className="p-3.5 text-right">선정 결정 및 발송</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#22242A] text-zinc-300">
+          <tbody className="divide-y divide-border text-text-2">
             {displayedApplicants.length === 0 ? (
               <tr>
-                <td colSpan={mode === "agency" ? 7 : 6} className="p-8 text-center text-zinc-500">
+                <td colSpan={mode === "agency" ? 7 : 6} className="p-8 text-center text-text-muted">
                   표시할 지원자가 없습니다.
                 </td>
               </tr>
@@ -547,8 +550,8 @@ export default function ApplicantTable({
                 const expanded = expandedId === a.id;
                 return (
                   <Fragment key={a.id}>
-                    <tr className="hover:bg-[#181A20] transition">
-                      <td className="p-3.5 font-bold text-zinc-100">
+                    <tr className="hover:bg-surface2 transition">
+                      <td className="p-3.5 font-bold text-text">
                         <button type="button" onClick={() => setExpandedId(expanded ? null : a.id)} className="hover:text-blue-400 text-left" title="상세 보기">
                           {a.name}
                         </button>
@@ -561,9 +564,9 @@ export default function ApplicantTable({
                           </a>
                         </div>
                         {(a.follower_count !== undefined || a.category) && (
-                          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-zinc-400 flex-wrap">
+                          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-text-sub flex-wrap">
                             {a.follower_count !== undefined && (
-                              <span className="px-1.5 py-0.5 rounded bg-[#181A20] border border-[#22242A] text-zinc-300 font-mono text-[10px]">
+                              <span className="px-1.5 py-0.5 rounded bg-surface2 border border-border text-text-2 font-mono text-[10px]">
                                 {formatFollowers(a.follower_count)}
                               </span>
                             )}
@@ -576,8 +579,8 @@ export default function ApplicantTable({
                         )}
                       </td>
                       <td className="p-3.5">
-                        {mode === "agency" && <div className="font-mono text-zinc-200">{a.contact}</div>}
-                        <div className="text-[10px] text-zinc-500">{a.nationality}</div>
+                        {mode === "agency" && <div className="font-mono text-text">{a.contact}</div>}
+                        <div className="text-[10px] text-text-muted">{a.nationality}</div>
                       </td>
                       <td className="p-3.5">
                         {dups.length > 0 ? (
@@ -586,7 +589,7 @@ export default function ApplicantTable({
                             <span>중복 의심 {dups.length}건</span>
                           </span>
                         ) : (
-                          <span className="text-[10px] text-zinc-500">정상</span>
+                          <span className="text-[10px] text-text-muted">정상</span>
                         )}
                       </td>
                       {mode === "agency" && (
@@ -598,7 +601,7 @@ export default function ApplicantTable({
                                 value={memoDraft}
                                 onChange={(e) => setMemoDraft(e.target.value)}
                                 placeholder="메모 입력"
-                                className="w-full px-2 py-1 rounded bg-[#090A0C] border border-blue-500 text-zinc-200 text-xs focus:outline-none"
+                                className="w-full px-2 py-1 rounded bg-bg border border-blue-500 text-text text-xs focus:outline-none"
                                 autoFocus
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") handleSaveMemo(a.id);
@@ -616,7 +619,7 @@ export default function ApplicantTable({
                               <button
                                 type="button"
                                 onClick={() => setMemoEditingId(null)}
-                                className="p-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 shrink-0"
+                                className="p-1 rounded bg-surface3 hover:bg-zinc-700 text-text-2 shrink-0"
                               >
                                 <X className="w-3 h-3" />
                               </button>
@@ -628,11 +631,11 @@ export default function ApplicantTable({
                                 setMemoEditingId(a.id);
                                 setMemoDraft(a.agency_memo || "");
                               }}
-                              className="w-full text-left group flex items-center justify-between gap-1 text-zinc-400 hover:text-zinc-200"
+                              className="w-full text-left group flex items-center justify-between gap-1 text-text-sub hover:text-text"
                               title="클릭하여 메모 수정"
                             >
                               <span className="truncate text-xs">
-                                {a.agency_memo ? a.agency_memo : <span className="text-zinc-600 italic">메모 없음</span>}
+                                {a.agency_memo ? a.agency_memo : <span className="text-text-faint italic">메모 없음</span>}
                               </span>
                             </button>
                           )}
@@ -644,7 +647,7 @@ export default function ApplicantTable({
                       </td>
                     </tr>
                     {expanded && (
-                      <tr className="bg-[#0D0E12]">
+                      <tr className="bg-sidebar">
                         <td colSpan={mode === "agency" ? 7 : 6} className="p-3.5">
                           <div className="flex items-start justify-between gap-3">
                             {renderDetails(a)}
@@ -666,7 +669,7 @@ export default function ApplicantTable({
       </div>
 
       {totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-xs text-zinc-400">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-xs text-text-sub">
           <span>
             총 {displayedApplicants.length}명 중 {(page - 1) * PAGE_SIZE + 1} ~{" "}
             {Math.min(page * PAGE_SIZE, displayedApplicants.length)}명 표시
@@ -676,18 +679,18 @@ export default function ApplicantTable({
               type="button"
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="px-3 py-1.5 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 disabled:opacity-40 border border-[#22242A] font-medium transition"
+              className="px-3 py-1.5 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 disabled:opacity-40 border border-border font-medium transition"
             >
               이전
             </button>
-            <span className="px-3 py-1.5 rounded-xl bg-[#090A0C] border border-[#22242A] font-mono text-zinc-200">
+            <span className="px-3 py-1.5 rounded-xl bg-bg border border-border font-mono text-text">
               {page} / {totalPages}
             </span>
             <button
               type="button"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="px-3 py-1.5 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 disabled:opacity-40 border border-[#22242A] font-medium transition"
+              className="px-3 py-1.5 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 disabled:opacity-40 border border-border font-medium transition"
             >
               다음
             </button>
@@ -695,28 +698,28 @@ export default function ApplicantTable({
         </div>
       )}
 
-      <p className="text-[11px] text-zinc-500 flex items-center gap-1">
+      <p className="text-[11px] text-text-muted flex items-center gap-1">
         <RotateCcw className="w-3 h-3" /> 이름을 클릭하면 상세 답변을 볼 수 있습니다. 선정 취소 시에도 관리시트 기록은 보존됩니다.
       </p>
 
       {/* Message Template Modal */}
       {msgModalApp && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-[#131418] border border-[#22242A] rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[#22242A]">
+          <div className="bg-surface border border-border rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-border">
               <div>
-                <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                <h3 className="text-sm font-bold text-text flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-blue-400" />
                   <span>안내 메시지 템플릿</span>
                 </h3>
-                <p className="text-xs text-zinc-400 mt-0.5">
+                <p className="text-xs text-text-sub mt-0.5">
                   {msgModalApp.name}님 ({msgModalApp.contact}) 대상 안내문
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setMsgModalApp(null)}
-                className="p-1 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-[#181A20]"
+                className="p-1 rounded-lg text-text-sub hover:text-text hover:bg-surface2"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -741,7 +744,7 @@ export default function ApplicantTable({
                     className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
                       msgType === t
                         ? "bg-blue-600 text-white"
-                        : "bg-[#090A0C] text-zinc-400 hover:text-zinc-200 border border-[#22242A]"
+                        : "bg-bg text-text-sub hover:text-text border border-border"
                     }`}
                   >
                     {CAMPAIGN_MESSAGE_TYPE_LABELS[t]}
@@ -750,26 +753,26 @@ export default function ApplicantTable({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-400 mb-1.5">
+                <label className="block text-xs font-semibold text-text-sub mb-1.5">
                   치환된 메시지 내용 (클릭하여 직접 수정 가능)
                 </label>
                 <textarea
                   rows={8}
                   value={msgContent}
                   onChange={(e) => setMsgContent(e.target.value)}
-                  className="w-full p-3 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-200 text-xs font-mono leading-relaxed focus:outline-none focus:border-blue-500"
+                  className="w-full p-3 rounded-xl bg-bg border border-border text-text text-xs font-mono leading-relaxed focus:outline-none focus:border-blue-500"
                 />
-                <p className="text-[11px] text-zinc-500 mt-1">
+                <p className="text-[11px] text-text-muted mt-1">
                   지원자 정보(`{`{이름}`}`, `{`{SNS}`}`, `{`{마감일}`}` 등)가 자동으로 치환되었습니다.
                 </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-2 border-t border-[#22242A]">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-2 border-t border-border">
                 <button
                   type="button"
                   onClick={handleSaveTemplate}
                   disabled={savingTemplate}
-                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 text-xs font-semibold border border-[#22242A] transition inline-flex items-center justify-center gap-1.5"
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-semibold border border-border transition inline-flex items-center justify-center gap-1.5"
                 >
                   {savingTemplate ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                   <span>{savedTemplate ? "템플릿 저장 완료!" : "이 캠페인의 기본 템플릿으로 저장"}</span>
@@ -780,7 +783,7 @@ export default function ApplicantTable({
                   onClick={handleCopyMessage}
                   className="w-full sm:w-auto px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition inline-flex items-center justify-center gap-1.5 shadow-md"
                 >
-                  {copiedMsg ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copiedMsg ? <Check className="w-3.5 h-3.5 text-text" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copiedMsg ? "클립보드에 복사됨!" : "클립보드 복사"}</span>
                 </button>
               </div>
