@@ -31,7 +31,7 @@ export async function generateSnsCaptionDraft(params: {
 - 비주얼 및 연출 메모: ${params.mediaNote || "없음"}
 
 [출력 형식]
-반드시 다음 JSON 객체 형식으로만 응답하세요:
+반드시 다음 JSON 객체 형식으로만 응답하세요. 캡션은 그대로 게시할 수 있도록 마크다운 문법 없이 작성하세요:
 {
   "caption": "자연스러운 이모지와 줄바꿈이 포함된 본문 카피",
   "hashtags": "#브랜드명 #핵심키워드1 #핵심키워드2 #핵심키워드3"

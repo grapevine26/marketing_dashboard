@@ -10,7 +10,8 @@ export async function generateReportPPTX(report: Report): Promise<Buffer> {
   const { campaign, applicants, metrics } = snapshot;
 
   const pptx = new pptxgen();
-  pptx.layout = "LAYOUT_16x9";
+  // 좌표가 13.33 x 7.5 인치(와이드) 기준이므로 LAYOUT_WIDE. 16x9(10인치)로 두면 KPI 5번째 박스와 표가 잘린다.
+  pptx.layout = "LAYOUT_WIDE";
   pptx.title = report.title;
 
   const generatedAt = new Date(report.generated_at || report.created_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" });

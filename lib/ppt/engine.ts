@@ -131,7 +131,8 @@ export async function fillTemplate(
  */
 export async function generateDefaultPptBuffer(kind: "event" | "sns"): Promise<Buffer> {
   const pptx = new pptxgen();
-  pptx.layout = "LAYOUT_16x9";
+  // 아래 좌표(x 0.8 + w 11.7 등)는 13.33 x 7.5 인치 기준. LAYOUT_16x9(10 x 5.625)로 두면 오른쪽이 잘린다.
+  pptx.layout = "LAYOUT_WIDE";
 
   if (kind === "event") {
     const slide1 = pptx.addSlide();

@@ -36,7 +36,8 @@ export async function generateFormIntro(
 ${answerLines || "  (없음)"}
 
 인플루언서들의 지원율을 높이고 브랜드의 매력을 전달할 수 있는 매력적이고 친근한 인플루언서 모집 신청폼 상단 소개글(Intro Text)을 작성해주세요.
-이모지를 적절히 활용하고, 2~4문단 정도로 깔끔하게 작성해주세요. 소개글 본문만 출력하세요.`;
+이모지를 적절히 활용하고, 2~4문단 정도로 깔끔하게 작성해주세요.
+마크다운 문법(**, #, 목록 기호 등)은 절대 쓰지 말고, 그대로 화면에 붙여넣을 수 있는 순수 텍스트로 소개글 본문만 출력하세요.`;
 
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
