@@ -20,6 +20,7 @@ export default function PreSurveyPublicForm({
   const [loadingAiMap, setLoadingAiMap] = useState<Record<string, boolean>>({});
   const [suggestions, setSuggestions] = useState<Record<string, string[]>>({});
   const [usedAi, setUsedAi] = useState(false);
+  const [honeypot, setHoneypot] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +48,7 @@ export default function PreSurveyPublicForm({
     e.preventDefault();
     setSubmitting(true);
     setError(null);
-    const res = await submitPublicPreSurveyAction({ token, answers, usedAiAssist: usedAi });
+    const res = await submitPublicPreSurveyAction({ token, answers, usedAiAssist: usedAi, honeypot });
     setSubmitting(false);
     if (!res.ok) {
       setError(res.error);
@@ -123,6 +124,20 @@ export default function PreSurveyPublicForm({
             />
           </div>
         ))}
+      </div>
+
+      {/* 허니팟 숨김 필드 (봇 스팸 방어) */}
+      <div style={{ position: "absolute", left: "-9999px", opacity: 0, height: 0, overflow: "hidden" }} aria-hidden="true">
+        <label htmlFor="presurvey_hp_website">웹사이트 (비워두세요)</label>
+        <input
+          id="presurvey_hp_website"
+          type="text"
+          name="presurvey_hp_website"
+          value={honeypot}
+          onChange={(e) => setHoneypot(e.target.value)}
+          tabIndex={-1}
+          autoComplete="off"
+        />
       </div>
 
       <button

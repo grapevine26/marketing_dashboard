@@ -6,7 +6,7 @@ import { SeedingRow } from "@/lib/seeding/rows";
 import { getStagesForType } from "@/lib/seeding/stages";
 import { calculateDDay, ddayToneClass } from "@/lib/seeding/dday";
 import { updateSeedingRecordAction } from "./actions";
-import { Search, ExternalLink, Download, Loader2 } from "lucide-react";
+import { Search, ExternalLink, Download, Loader2, FileSpreadsheet } from "lucide-react";
 
 type Patch = {
   progress_stage?: ProgressStage;
@@ -33,6 +33,8 @@ export default function SeedingSheetTable({
 }) {
   const [records, setRecords] = useState(initialRecords);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const isShipping = campaign.campaign_type === "shipping";
@@ -58,9 +60,13 @@ export default function SeedingSheetTable({
     return (
       r.applicant.name.toLowerCase().includes(q) ||
       r.applicant.contact.includes(q) ||
-      r.applicant.sns_link.toLowerCase().includes(q)
+      r.applicant.sns_link.toLowerCase().includes(q) ||
+      (r.seeding.notes && r.seeding.notes.toLowerCase().includes(q))
     );
   });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const displayedRecords = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const dday = (deadline: string | null) => {
     if (!deadline) return <span className="text-zinc-600">-</span>;
@@ -114,8 +120,11 @@ export default function SeedingSheetTable({
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="인플루언서 이름, SNS 검색..."
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            placeholder="인플루언서 이름, SNS, 메모 검색..."
             className="w-full pl-8 pr-3 py-2.5 sm:py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
           />
           <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-3.5 sm:top-3" />
@@ -123,13 +132,24 @@ export default function SeedingSheetTable({
 
         <div className="flex items-center gap-3">
           {savingId && <Loader2 className="w-4 h-4 animate-spin text-zinc-500" />}
-          <a
-            href={csvHref}
-            className="w-full sm:w-auto text-center justify-center px-4 py-2.5 sm:py-2 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-200 text-xs font-semibold inline-flex items-center gap-1.5 transition border border-[#22242A]"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>관리시트 CSV 다운로드</span>
-          </a>
+          <div className="flex items-center gap-2">
+            <a
+              href={`${csvHref}&format=xlsx`}
+              className="w-full sm:w-auto text-center justify-center px-3.5 py-2.5 sm:py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-semibold inline-flex items-center gap-1.5 transition border border-emerald-500/30 active:scale-95"
+              title="마이크로소프트 엑셀 서식 적용 파일 다운로드"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Excel 다운로드</span>
+            </a>
+            <a
+              href={csvHref}
+              className="w-full sm:w-auto text-center justify-center px-3 py-2.5 sm:py-2 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 text-xs font-medium inline-flex items-center gap-1.5 transition border border-[#22242A]"
+              title="표준 CSV 파일 다운로드"
+            >
+              <Download className="w-3.5 h-3.5 text-zinc-400" />
+              <span>CSV</span>
+            </a>
+          </div>
         </div>
       </div>
 
@@ -144,7 +164,7 @@ export default function SeedingSheetTable({
             선정된 인플루언서 시딩 데이터가 없습니다.
           </div>
         ) : (
-          filtered.map(({ applicant: app, seeding: r }) => (
+          displayedRecords.map(({ applicant: app, seeding: r }) => (
             <div key={r.id} className="p-4 rounded-2xl bg-[#090A0C] border border-[#22242A] space-y-3">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-sm text-zinc-100">{app.name}</span>
@@ -255,7 +275,7 @@ export default function SeedingSheetTable({
                 </td>
               </tr>
             ) : (
-              filtered.map(({ applicant: app, seeding: r }) => (
+              displayedRecords.map(({ applicant: app, seeding: r }) => (
                 <tr key={r.id} className="hover:bg-[#181A20] transition">
                   <td className="p-3.5 font-bold text-zinc-100">{app.name}</td>
                   <td className="p-3.5">
@@ -348,6 +368,37 @@ export default function SeedingSheetTable({
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-xs text-zinc-400">
+          <span>
+            총 {filtered.length}건 중 {(page - 1) * PAGE_SIZE + 1} ~{" "}
+            {Math.min(page * PAGE_SIZE, filtered.length)}건 표시
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="px-3 py-1.5 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 disabled:opacity-40 border border-[#22242A] font-medium transition"
+            >
+              이전
+            </button>
+            <span className="px-3 py-1.5 rounded-xl bg-[#090A0C] border border-[#22242A] font-mono text-zinc-200">
+              {page} / {totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="px-3 py-1.5 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 disabled:opacity-40 border border-[#22242A] font-medium transition"
+            >
+              다음
+            </button>
+          </div>
+        </div>
+      )}
+
       {!isReadOnly && (
         <p className="text-[11px] text-zinc-500">입력칸에서 포커스가 빠져나가면 자동 저장됩니다. 단계는 {isShipping ? "배송형" : "방문형"} 기준으로만 표시됩니다.</p>
       )}

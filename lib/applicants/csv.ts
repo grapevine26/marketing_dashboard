@@ -18,8 +18,10 @@ export function applicantsToCSV(
     "이름",
     "상태",
     "SNS 링크",
+    "팔로워 수",
+    "카테고리",
     "국적",
-    ...(includeContact ? ["연락처", "배송주소/방문일정", "방문 인원"] : []),
+    ...(includeContact ? ["연락처", "배송주소/방문일정", "방문 인원", "에이전시 메모"] : []),
     ...customQuestions.map((q) => q.label),
     "2차활용 동의",
     "선정 변경 주체",
@@ -31,9 +33,11 @@ export function applicantsToCSV(
     a.name,
     APPLICANT_STATUS_LABELS[a.status] ?? a.status,
     a.sns_link,
+    a.follower_count != null ? String(a.follower_count) : "",
+    a.category || "",
     a.nationality,
     ...(includeContact
-      ? [a.contact, a.shipping_address || a.visit_schedule || "-", a.visit_party_size ?? ""]
+      ? [a.contact, a.shipping_address || a.visit_schedule || "-", a.visit_party_size ?? "", a.agency_memo || ""]
       : []),
     ...customQuestions.map((q) => {
       const v = a.custom_answers?.[q.id];

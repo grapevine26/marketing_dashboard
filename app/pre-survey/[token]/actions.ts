@@ -3,13 +3,25 @@
 import { getCampaignByToken, getPreSurveyTemplate, upsertPreSurveyResponse } from "@/lib/db";
 import { assistPreSurvey, PreSurveyAssistResponse } from "@/lib/ai/preSurveyAssist";
 import { ActionResult, runAction, fail } from "@/lib/actions/result";
+import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
 import { revalidatePath } from "next/cache";
 
 export async function submitPublicPreSurveyAction(params: {
   token: string;
   answers: Record<string, string>;
   usedAiAssist: boolean;
+  honeypot?: string;
 }): Promise<ActionResult<{ submitted_at: string }>> {
+  if (params.honeypot && params.honeypot.trim().length > 0) {
+    return { ok: true, data: { submitted_at: new Date().toISOString() } };
+  }
+
+  const clientIp = await getClientIp();
+  const rateLimit = checkRateLimit(`presurvey:${params.token}:${clientIp}`, 10, 10 * 60 * 1000);
+  if (!rateLimit.allowed) {
+    return fail("단시간에 너무 많은 요청이 발생했습니다. 10분 후 다시 시도해 주세요.");
+  }
+
   const campaign = await getCampaignByToken("pre_survey", params.token);
   if (!campaign) return fail("유효하지 않은 사전조사 링크입니다.");
 

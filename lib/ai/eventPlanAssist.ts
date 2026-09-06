@@ -1,5 +1,7 @@
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { GEMINI_MODEL, AI_FALLBACK_TEXT, parseJsonLoose } from "./config";
+import { eventPlanPrompt } from "./prompts";
+import { withCache } from "./cache";
 
 export interface EventPlanDraftParams {
   eventName: string;
@@ -15,68 +17,39 @@ export interface EventPlanDraftParams {
 }
 
 export async function generateEventPlanDraft(params: EventPlanDraftParams): Promise<Record<string, string>> {
-  const fallback = () =>
-    Object.fromEntries(params.placeholders.map((ph) => [ph, AI_FALLBACK_TEXT]));
+  const fallback = () => Object.fromEntries(params.placeholders.map((ph) => [ph, AI_FALLBACK_TEXT]));
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || params.placeholders.length === 0) return fallback();
 
-  try {
-    const ai = new GoogleGenAI({ apiKey });
-    const answerLines = Object.entries(params.preSurveyAnswers || {})
-      .map(([q, a]) => `  - ${q}: ${a}`)
-      .join("\n");
-    const currentLines = Object.entries(params.currentValues || {})
-      .filter(([k, v]) => v && !params.placeholders.includes(k))
-      .map(([k, v]) => `  - ${k}: ${v}`)
-      .join("\n");
+  return withCache(
+    "eventPlan",
+    params,
+    async () => {
+      try {
+        const ai = new GoogleGenAI({ apiKey });
+        const response = await ai.models.generateContent({
+          model: GEMINI_MODEL,
+          contents: eventPlanPrompt(params),
+          config: {
+            responseMimeType: "application/json",
+            maxOutputTokens: 1200,
+            thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
+          },
+        });
 
-    const prompt = `
-당신은 하이엔드 뷰티 & 라이프스타일 마케팅 에이전시의 수석 이벤트 디렉터입니다.
-아래 행사 정보 및 사전조사 요구사항을 바탕으로 행사 운영안 PPT의 치환 항목에 들어갈 전문적이고 매력적인 한국어 문안을 작성해주세요.
-
-[행사 기본 정보]
-- 브랜드명: ${params.brandName}
-- 행사명: ${params.eventName}
-- 행사 일시: ${params.eventAt || "미정"}
-- 장소: ${params.venue || "미정"}
-- 브랜드 사전조사 내용:
-${answerLines || "  (없음)"}
-${currentLines ? `\n[담당자가 이미 작성한 다른 항목 — 톤을 맞출 것]\n${currentLines}` : ""}
-
-[작성해야 할 항목]
-${params.placeholders.map((p) => `- ${p}`).join("\n")}
-
-[작성 규칙]
-- 각 항목 값은 PPT 슬라이드에 그대로 들어가므로 마크다운 문법(**, #, 목록 기호 등) 없이 순수 텍스트로 작성하세요.
-- 일시·장소는 위에 주어진 값을 그대로 쓰고 임의로 바꾸지 마세요.
-
-[출력 형식]
-반드시 다음 JSON 객체 형식으로만 응답하세요. 다른 설명은 절대 추가하지 마세요. 여러 줄이 필요한 항목은 \\n으로 줄바꿈하세요:
-{
-  ${params.placeholders.map((p) => `"${p}": "문안 내용"`).join(",\n  ")}
-}
-`;
-
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        maxOutputTokens: 1200,
-        thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
-      },
-    });
-
-    const parsed = parseJsonLoose(response.text || "") as Record<string, unknown>;
-    const out: Record<string, string> = {};
-    for (const ph of params.placeholders) {
-      const v = parsed?.[ph];
-      out[ph] = typeof v === "string" && v.trim() ? v : AI_FALLBACK_TEXT;
-    }
-    return out;
-  } catch (error) {
-    console.error("Gemini Event Plan Assist Error:", error);
-    return fallback();
-  }
+        const parsed = parseJsonLoose(response.text || "") as Record<string, unknown>;
+        const out: Record<string, string> = {};
+        for (const ph of params.placeholders) {
+          const v = parsed?.[ph];
+          out[ph] = typeof v === "string" && v.trim() ? v : AI_FALLBACK_TEXT;
+        }
+        return out;
+      } catch (error) {
+        console.error("Gemini Event Plan Assist Error:", error);
+        return fallback();
+      }
+    },
+    (result) => !Object.values(result).some((v) => v === AI_FALLBACK_TEXT)
+  );
 }

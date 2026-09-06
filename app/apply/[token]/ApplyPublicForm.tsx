@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { PublicCampaign, CustomFormQuestion } from "@/lib/db/types";
 import { submitApplicantAction } from "./actions";
-import { Send, CheckCircle2, Loader2 } from "lucide-react";
+import { Send, CheckCircle2, Loader2, AlertTriangle } from "lucide-react";
 
 const inputCls =
   "w-full px-3.5 py-3 sm:py-2.5 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500";
@@ -24,6 +24,8 @@ export default function ApplyPublicForm({
     sns_link: "",
     nationality: "대한민국",
     contact: "",
+    follower_count: "",
+    category: "",
     shipping_address: "",
     visit_schedule: "",
     visit_party_size: 1,
@@ -32,6 +34,8 @@ export default function ApplyPublicForm({
     secondary_use_agreed: false,
   });
 
+  const [honeypot, setHoneypot] = useState("");
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,21 +43,34 @@ export default function ApplyPublicForm({
   const setCustom = (id: string, value: string | number | boolean) =>
     setFormData((prev) => ({ ...prev, custom_answers: { ...prev.custom_answers, [id]: value } }));
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent, allowDuplicate = false) => {
+    if (e) e.preventDefault();
     setError(null);
+    if (!allowDuplicate) setDuplicateWarning(null);
     if (!formData.privacy_agreed) {
       setError("개인정보 수집 및 이용에 동의해주세요.");
       return;
     }
 
     setSubmitting(true);
-    const res = await submitApplicantAction({ token, ...formData });
+    const res = await submitApplicantAction({
+      token,
+      ...formData,
+      follower_count: formData.follower_count ? Number(formData.follower_count) : null,
+      category: formData.category || null,
+      honeypot,
+      allow_duplicate: allowDuplicate,
+    });
     setSubmitting(false);
     if (!res.ok) {
+      if (res.error.startsWith("DUPLICATE_SNS:")) {
+        setDuplicateWarning("이미 동일한 SNS 링크로 접수된 지원서가 있습니다. 기존 접수 건 외에 추가로 접수하시겠습니까?");
+        return;
+      }
       setError(res.error);
       return;
     }
+    setDuplicateWarning(null);
     setSubmitted(true);
   };
 
@@ -140,6 +157,30 @@ export default function ApplyPublicForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1">
+          <label className="text-xs font-semibold text-zinc-300">팔로워 / 구독자 수 (선택)</label>
+          <input
+            type="number"
+            min="0"
+            value={formData.follower_count}
+            onChange={(e) => setFormData({ ...formData, follower_count: e.target.value })}
+            placeholder="예: 15000"
+            className={inputCls}
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-zinc-300">주요 활동 분야 (선택)</label>
+          <input
+            type="text"
+            value={formData.category}
+            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+            placeholder="예: 뷰티, 패션, 라이프, 푸드"
+            className={inputCls}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-1">
           <label className="text-xs font-semibold text-zinc-300">연락처 *</label>
           <input type="tel" required value={formData.contact} onChange={(e) => setFormData({ ...formData, contact: e.target.value })} placeholder="010-1234-5678" className={inputCls} />
         </div>
@@ -190,6 +231,50 @@ export default function ApplyPublicForm({
           <span className="leading-snug">(선택) 제작된 콘텐츠의 브랜드 2차 마케팅 활용에 동의합니다.</span>
         </label>
       </div>
+
+      {/* 허니팟 숨김 필드 (봇 스팸 방어) */}
+      <div style={{ position: "absolute", left: "-9999px", opacity: 0, height: 0, overflow: "hidden" }} aria-hidden="true">
+        <label htmlFor="agency_hp_website">웹사이트 (비워두세요)</label>
+        <input
+          id="agency_hp_website"
+          type="text"
+          name="agency_hp_website"
+          value={honeypot}
+          onChange={(e) => setHoneypot(e.target.value)}
+          tabIndex={-1}
+          autoComplete="off"
+        />
+      </div>
+
+      {/* 중복 SNS 경고 및 계속 제출 UI */}
+      {duplicateWarning && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 space-y-2">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-semibold text-amber-300">중복 지원 확인 안내</p>
+              <p className="text-zinc-300 leading-relaxed">{duplicateWarning}</p>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => handleSubmit(undefined, true)}
+              className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition active:scale-95 text-center"
+            >
+              기존 내역 유지하고 계속 제출하기
+            </button>
+            <button
+              type="button"
+              onClick={() => setDuplicateWarning(null)}
+              className="px-3.5 py-2 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 text-xs transition text-center"
+            >
+              SNS 링크 수정하기
+            </button>
+          </div>
+        </div>
+      )}
 
       <button
         type="submit"

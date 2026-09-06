@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { useOrigin } from "@/components/useOrigin";
 import { useRouter } from "next/navigation";
 import {
@@ -9,6 +9,7 @@ import {
   SnsIntakeResponse,
   SnsContentStatus,
   SnsPlatform,
+  SnsMediaAttachment,
   PreSurveyQuestion,
   SNS_CONTENT_STATUSES,
   SNS_CONTENT_STATUS_LABELS,
@@ -17,8 +18,11 @@ import {
   createSnsContentAction,
   updateSnsContentAction,
   deleteSnsContentAction,
+  uploadSnsMediaAction,
+  deleteSnsMediaAction,
   generateSnsAiCaptionAction,
   updateSnsAccountAction,
+  regenerateSnsTokenAction,
 } from "../actions";
 import { isoToKstDateString, buildMonthGrid, shiftMonth } from "@/lib/seeding/dday";
 import Link from "next/link";
@@ -39,6 +43,11 @@ import {
   Pencil,
   Trash2,
   X,
+  Image as ImageIcon,
+  Video as VideoIcon,
+  UploadCloud,
+  RotateCcw,
+  ShieldAlert,
 } from "lucide-react";
 
 const STATUS_TONE: Record<SnsContentStatus, string> = {
@@ -82,6 +91,8 @@ export default function SnsAccountDetailClient({
   const origin = useOrigin();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [confirmTokenTarget, setConfirmTokenTarget] = useState<{ key: "intake" | "approval"; title: string } | null>(null);
+  const [reissuingToken, setReissuingToken] = useState(false);
 
   // Calendar (initial month from server KST today)
   const [calendarMonth, setCalendarMonth] = useState(todayKst.slice(0, 7));
@@ -105,6 +116,11 @@ export default function SnsAccountDetailClient({
   const [form, setForm] = useState<ContentForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [loadingAi, setLoadingAi] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [previewMedia, setPreviewMedia] = useState<SnsMediaAttachment | null>(null);
+  const editingContent = useMemo(() => (editingId ? contents.find((c) => c.id === editingId) || null : null), [editingId, contents]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Performance inputs
   const [perfInputs, setPerfInputs] = useState<Record<string, { views: string; likes: string; comments: string; postUrl: string }>>({});
@@ -134,6 +150,24 @@ export default function SnsAccountDetailClient({
     } catch {
       window.prompt("아래 링크를 복사하세요", url);
     }
+  };
+
+  const handleRegenerateSnsToken = async () => {
+    if (!confirmTokenTarget) return;
+    setReissuingToken(true);
+    setError(null);
+    setNotice(null);
+    const res = await regenerateSnsTokenAction(account.id, confirmTokenTarget.key);
+    setReissuingToken(false);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    setAccount(res.data);
+    setNotice(`'${confirmTokenTarget.title}' 링크가 새로 발급되었습니다. 이전 링크는 즉시 차단되었습니다.`);
+    setConfirmTokenTarget(null);
+    router.refresh();
+    setTimeout(() => setNotice(null), 4000);
   };
 
   // ---------- Account ----------
@@ -167,12 +201,14 @@ export default function SnsAccountDetailClient({
   // ---------- Content modal ----------
   const openCreate = (dateStr?: string) => {
     setEditingId(null);
+    setSelectedFiles([]);
     setForm({ ...EMPTY_FORM, scheduled_on: dateStr || "" });
     setModalOpen(true);
   };
 
   const openEdit = (c: SnsContent) => {
     setEditingId(c.id);
+    setSelectedFiles([]);
     setForm({
       title: c.title,
       scheduled_on: c.scheduled_on || "",
@@ -182,6 +218,53 @@ export default function SnsAccountDetailClient({
       media_note: c.media_note || "",
     });
     setModalOpen(true);
+  };
+
+  const handleSelectFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    if (!editingId) {
+      setSelectedFiles((prev) => [...prev, ...Array.from(files)]);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setUploadingMedia(true);
+    setError(null);
+    for (const file of Array.from(files)) {
+      const fd = new FormData();
+      fd.append("contentId", editingId);
+      fd.append("accountId", account.id);
+      fd.append("file", file);
+      const res = await uploadSnsMediaAction(fd);
+      if (!res.ok) {
+        setError(res.error);
+      } else {
+        setContents((prev) =>
+          prev.map((c) =>
+            c.id === editingId
+              ? { ...c, media_attachments: [...(c.media_attachments || []), res.data] }
+              : c
+          )
+        );
+      }
+    }
+    setUploadingMedia(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleDeleteMedia = async (contentId: string, attachmentId: string) => {
+    if (!confirm("이 시안 미디어를 삭제할까요?")) return;
+    const res = await deleteSnsMediaAction(contentId, attachmentId, account.id);
+    if (!res.ok) return setError(res.error);
+    setContents((prev) =>
+      prev.map((c) =>
+        c.id === contentId
+          ? { ...c, media_attachments: (c.media_attachments || []).filter((m) => m.id !== attachmentId) }
+          : c
+      )
+    );
   };
 
   const handleAiCaption = async () => {
@@ -233,9 +316,28 @@ export default function SnsAccountDetailClient({
         hashtags: form.hashtags || null,
         mediaNote: form.media_note || null,
       });
+      if (!res.ok) {
+        setSaving(false);
+        return setError(res.error);
+      }
+      let createdContent = res.data;
+      if (selectedFiles.length > 0) {
+        for (const file of selectedFiles) {
+          const fd = new FormData();
+          fd.append("contentId", createdContent.id);
+          fd.append("accountId", account.id);
+          fd.append("file", file);
+          const upRes = await uploadSnsMediaAction(fd);
+          if (upRes.ok) {
+            createdContent = {
+              ...createdContent,
+              media_attachments: [...(createdContent.media_attachments || []), upRes.data],
+            };
+          }
+        }
+      }
       setSaving(false);
-      if (!res.ok) return setError(res.error);
-      setContents((prev) => [res.data, ...prev]);
+      setContents((prev) => [createdContent, ...prev]);
     }
     setModalOpen(false);
     router.refresh();
@@ -388,23 +490,91 @@ export default function SnsAccountDetailClient({
         {/* Public links */}
         <div className="pt-3 border-t border-[#22242A] grid grid-cols-1 md:grid-cols-2 gap-3">
           {[
-            { key: "intake", title: "1. 광고주 자료요청 / 사전설문 링크", path: `/sns-intake/${account.intake_token}`, desc: "브랜드 톤앤매너 및 중점 프로모션을 수집하는 무로그인 공개 링크" },
-            { key: "approval", title: "2. 광고주 시안 승인(컨펌) 링크", path: `/sns-approval/${account.approval_token}`, desc: "승인대기 콘텐츠만 확인하고 승인/수정요청을 처리하는 전용 링크" },
+            { key: "intake" as const, title: "1. 광고주 자료요청 / 사전설문 링크", path: `/sns-intake/${account.intake_token}`, desc: "브랜드 톤앤매너 및 중점 프로모션을 수집하는 무로그인 공개 링크" },
+            { key: "approval" as const, title: "2. 광고주 시안 승인(컨펌) 링크", path: `/sns-approval/${account.approval_token}`, desc: "승인대기 콘텐츠만 확인하고 승인/수정요청을 처리하는 전용 링크" },
           ].map((l) => (
-            <div key={l.key} className="p-3.5 rounded-2xl bg-[#090A0C] border border-[#22242A] space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-zinc-200">{l.title}</span>
-                <a href={l.path} target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-sky-400 p-0.5"><ExternalLink className="w-3.5 h-3.5" /></a>
+            <div key={l.key} className="p-3.5 rounded-2xl bg-[#090A0C] border border-[#22242A] space-y-2 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-zinc-200">{l.title}</span>
+                  <a href={l.path} target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-sky-400 p-0.5" title="새 창으로 링크 열기"><ExternalLink className="w-3.5 h-3.5" /></a>
+                </div>
+                <p className="text-[11px] text-zinc-500 mt-0.5">{l.desc}</p>
               </div>
-              <p className="text-[11px] text-zinc-500">{l.desc}</p>
-              <button type="button" onClick={() => handleCopy(l.key, `${origin}${l.path}`)} className="w-full py-1.5 rounded-lg bg-[#131418] hover:bg-[#181A20] border border-[#22242A] text-xs font-medium text-zinc-300 inline-flex items-center justify-center gap-1.5 transition">
-                {copiedKey === l.key ? <Check className="w-3.5 h-3.5 text-sky-400" /> : <Copy className="w-3.5 h-3.5 text-zinc-400" />}
-                <span>{copiedKey === l.key ? "복사완료!" : "링크 복사"}</span>
-              </button>
+              <div className="flex items-center gap-1.5 pt-1">
+                <button type="button" onClick={() => handleCopy(l.key, `${origin}${l.path}`)} className="flex-1 py-1.5 rounded-lg bg-[#131418] hover:bg-[#181A20] border border-[#22242A] text-xs font-medium text-zinc-300 inline-flex items-center justify-center gap-1.5 transition">
+                  {copiedKey === l.key ? <Check className="w-3.5 h-3.5 text-sky-400" /> : <Copy className="w-3.5 h-3.5 text-zinc-400" />}
+                  <span>{copiedKey === l.key ? "복사완료!" : "링크 복사"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmTokenTarget({ key: l.key, title: l.title })}
+                  title="보안 링크 재발급 (이전 링크 즉시 무효화)"
+                  className="px-2.5 py-1.5 rounded-lg bg-[#131418] hover:bg-amber-500/10 hover:border-amber-500/30 border border-[#22242A] text-zinc-400 hover:text-amber-300 text-xs font-medium inline-flex items-center justify-center gap-1 transition active:scale-95"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span className="text-[11px]">재발급</span>
+                </button>
+              </div>
             </div>
           ))}
         </div>
       </div>
+
+      {/* 보안 토큰 재발급 확인 모달 */}
+      {confirmTokenTarget && (
+        <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-md bg-[#131418] border border-amber-500/30 rounded-3xl p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5 text-amber-400">
+                <ShieldAlert className="w-5 h-5" />
+                <h3 className="text-sm font-bold text-zinc-100">SNS 전용 링크 재발급 (보안 회수)</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmTokenTarget(null)}
+                className="text-zinc-400 hover:text-zinc-200 p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-[#090A0C] border border-[#22242A] space-y-1.5">
+              <div className="text-xs font-bold text-zinc-200">{confirmTokenTarget.title}</div>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                전용 접속 토큰을 즉시 새로운 난수로 교체합니다.
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 leading-relaxed space-y-1">
+              <p className="font-semibold text-amber-300">⚠️ 이전 링크 즉시 404 차단 안내</p>
+              <p className="text-zinc-300">
+                재발급 즉시 이전에 공유되었던 기존 링크는 유효하지 않은 주소가 되어 외부 접근이 차단됩니다. 광고주에게 새로운 링크를 다시 전달해야 합니다.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#22242A]">
+              <button
+                type="button"
+                onClick={() => setConfirmTokenTarget(null)}
+                disabled={reissuingToken}
+                className="px-4 py-2 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 text-xs font-medium transition"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleRegenerateSnsToken}
+                disabled={reissuingToken}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition inline-flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+              >
+                {reissuingToken ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                <span>새 링크로 재발급 진행</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">{error}</div>}
       {notice && <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-semibold">{notice}</div>}
@@ -545,6 +715,41 @@ export default function SnsAccountDetailClient({
                     {c.media_note && <div className="pt-2 border-t border-[#181A20] text-zinc-500"><strong>내부 제작 메모 (광고주 비노출):</strong> {c.media_note}</div>}
                   </div>
 
+                  {c.media_attachments && c.media_attachments.length > 0 && (
+                    <div className="p-3.5 rounded-2xl bg-[#090A0C] border border-[#22242A] space-y-2.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1.5 font-semibold text-zinc-300">
+                          <ImageIcon className="w-3.5 h-3.5 text-sky-400" />
+                          <span>시안 첨부 미디어 ({c.media_attachments.length}개)</span>
+                        </div>
+                        <span className="text-[10px] text-zinc-500">클릭하여 원본 미리보기</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                        {c.media_attachments.map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => setPreviewMedia(m)}
+                            className="group relative flex flex-col items-start p-2 rounded-xl bg-[#131418] border border-[#22242A] hover:border-sky-500/50 text-left transition overflow-hidden cursor-pointer"
+                          >
+                            {m.mime_type.startsWith("image/") ? (
+                              <div className="w-full h-20 rounded-lg overflow-hidden bg-[#090A0C] relative">
+                                <img src={m.url} alt={m.name} className="w-full h-full object-cover group-hover:scale-105 transition" />
+                              </div>
+                            ) : (
+                              <div className="w-full h-20 rounded-lg bg-[#090A0C] flex flex-col items-center justify-center gap-1 text-sky-400">
+                                <VideoIcon className="w-6 h-6" />
+                                <span className="text-[10px] text-zinc-400 font-mono">동영상</span>
+                              </div>
+                            )}
+                            <span className="mt-1.5 text-[11px] font-medium text-zinc-200 truncate w-full" title={m.name}>{m.name}</span>
+                            <span className="text-[10px] text-zinc-500 font-mono">{(m.size / (1024 * 1024)).toFixed(1)} MB</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {c.status === "posted" && (
                     <div className="pt-3 border-t border-[#22242A] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                       <div className="flex flex-wrap items-center gap-2">
@@ -654,6 +859,90 @@ export default function SnsAccountDetailClient({
                 <input type="text" value={form.hashtags} onChange={(e) => setForm({ ...form, hashtags: e.target.value })} placeholder="#글로우랩 #하이드라앰플" className={inputCls} />
               </div>
 
+              {/* Media Attachments Section */}
+              <div className="space-y-2.5 pt-3 border-t border-[#22242A]">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5 text-sky-400" />
+                    <span>시안 미디어 (이미지 / 영상)</span>
+                  </label>
+                  <span className="text-[10px] text-zinc-500">최대 50MB (JPG, PNG, WebP, GIF, MP4, WebM)</span>
+                </div>
+
+                {/* Existing attachments when editing */}
+                {editingId && editingContent?.media_attachments && editingContent.media_attachments.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {editingContent.media_attachments.map((m) => (
+                      <div key={m.id} className="relative p-2 rounded-xl bg-[#090A0C] border border-[#22242A] group">
+                        {m.mime_type.startsWith("image/") ? (
+                          <div className="w-full h-16 rounded-lg overflow-hidden bg-[#181A20]">
+                            <img src={m.url} alt={m.name} className="w-full h-full object-cover" />
+                          </div>
+                        ) : (
+                          <div className="w-full h-16 rounded-lg bg-[#181A20] flex items-center justify-center text-sky-400">
+                            <VideoIcon className="w-6 h-6" />
+                          </div>
+                        )}
+                        <p className="mt-1 text-[11px] text-zinc-300 truncate" title={m.name}>{m.name}</p>
+                        <div className="flex items-center justify-between mt-1 text-[10px] text-zinc-500 font-mono">
+                          <span>{(m.size / (1024 * 1024)).toFixed(1)} MB</span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteMedia(editingId, m.id)}
+                            className="text-red-400 hover:text-red-300 p-0.5 rounded hover:bg-red-500/10"
+                            title="삭제"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Staged files when creating */}
+                {!editingId && selectedFiles.length > 0 && (
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] text-sky-400 font-medium">등록 시 자동 업로드될 파일 ({selectedFiles.length}개):</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {selectedFiles.map((file, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-[#090A0C] border border-[#22242A] text-xs">
+                          <span className="text-zinc-200 truncate text-[11px] max-w-[120px]">{file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedFiles((prev) => prev.filter((_, i) => i !== idx))}
+                            className="text-zinc-500 hover:text-red-400"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Upload Button */}
+                <label className="flex flex-col items-center justify-center p-3.5 rounded-2xl border border-dashed border-[#22242A] hover:border-sky-500/50 bg-[#090A0C] hover:bg-sky-500/5 cursor-pointer transition">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
+                    onChange={handleSelectFiles}
+                    disabled={uploadingMedia}
+                    className="hidden"
+                  />
+                  <div className="flex items-center gap-2 text-xs text-zinc-400">
+                    {uploadingMedia ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
+                    ) : (
+                      <UploadCloud className="w-4 h-4 text-sky-400" />
+                    )}
+                    <span>{uploadingMedia ? "미디어 업로드 중..." : "+ 이미지 또는 영상 추가"}</span>
+                  </div>
+                </label>
+              </div>
+
               <div className="pt-3 flex flex-col-reverse sm:flex-row justify-end gap-2">
                 <button type="button" onClick={() => setModalOpen(false)} className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 text-xs">취소</button>
                 <button type="submit" disabled={saving} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold shadow-md disabled:opacity-50">
@@ -661,6 +950,56 @@ export default function SnsAccountDetailClient({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox / Media Preview Modal */}
+      {previewMedia && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="max-w-4xl w-full bg-[#131418] border border-[#22242A] rounded-3xl p-5 space-y-4 shadow-2xl relative">
+            <div className="flex items-center justify-between pb-3 border-b border-[#22242A]">
+              <div className="space-y-0.5 min-w-0">
+                <h3 className="text-sm font-bold text-zinc-100 truncate">{previewMedia.name}</h3>
+                <p className="text-[11px] text-zinc-400 font-mono">
+                  {(previewMedia.size / (1024 * 1024)).toFixed(2)} MB · {previewMedia.mime_type}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewMedia(null)}
+                className="p-1.5 rounded-lg bg-[#181A20] hover:bg-[#22242A] text-zinc-400 hover:text-white transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-center bg-black/60 rounded-2xl overflow-hidden max-h-[70vh] p-2">
+              {previewMedia.mime_type.startsWith("image/") ? (
+                <img src={previewMedia.url} alt={previewMedia.name} className="max-h-[65vh] max-w-full object-contain rounded-xl" />
+              ) : (
+                <video controls autoPlay playsInline src={previewMedia.url} className="max-h-[65vh] max-w-full rounded-xl bg-black" />
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <a
+                href={previewMedia.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-200 text-xs font-semibold inline-flex items-center gap-1.5"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>새 탭에서 원본 열기</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => setPreviewMedia(null)}
+                className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold"
+              >
+                닫기
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -67,7 +67,7 @@ export default function DownloadFileButton({
         disabled={loading}
         className={
           className ||
-          "px-4 py-2 rounded-xl bg-[#181A20] hover:bg-[#22242A] border border-[#22242A] text-zinc-200 text-xs font-semibold inline-flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50"
+          "px-4 py-2 rounded-xl bg-surface2 hover:bg-surface border border-border text-text-sub hover:text-text text-xs font-semibold inline-flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50"
         }
       >
         {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : icon ? <Download className="w-3.5 h-3.5" /> : null}

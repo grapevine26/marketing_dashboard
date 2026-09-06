@@ -19,6 +19,7 @@ export default function SnsIntakeFormClient({
   const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers || {});
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [honeypot, setHoneypot] = useState("");
   const [aiLoadingKey, setAiLoadingKey] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +44,7 @@ export default function SnsIntakeFormClient({
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const res = await submitSnsIntakeAction({ token, answers });
+    const res = await submitSnsIntakeAction({ token, answers, honeypot });
     setLoading(false);
     if (!res.ok) return setError(res.error);
     setSubmitted(true);
@@ -130,6 +131,20 @@ export default function SnsIntakeFormClient({
             />
           </div>
         ))}
+      </div>
+
+      {/* 허니팟 숨김 필드 (봇 스팸 방어) */}
+      <div style={{ position: "absolute", left: "-9999px", opacity: 0, height: 0, overflow: "hidden" }} aria-hidden="true">
+        <label htmlFor="snsintake_hp_website">웹사이트 (비워두세요)</label>
+        <input
+          id="snsintake_hp_website"
+          type="text"
+          name="snsintake_hp_website"
+          value={honeypot}
+          onChange={(e) => setHoneypot(e.target.value)}
+          tabIndex={-1}
+          autoComplete="off"
+        />
       </div>
 
       <button

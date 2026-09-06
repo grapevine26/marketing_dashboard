@@ -27,6 +27,48 @@ export const APPLICANT_STATUS_LABELS: Record<ApplicantStatus, string> = {
   rejected: "미선정",
 };
 
+export type CampaignMessageType =
+  | "selected"
+  | "reserved"
+  | "shipping"
+  | "guide"
+  | "reminder";
+
+export const CAMPAIGN_MESSAGE_TYPE_LABELS: Record<CampaignMessageType, string> = {
+  selected: "최종선정 안내",
+  reserved: "예비선정 안내",
+  shipping: "배송/방문 안내",
+  guide: "가이드라인 전달",
+  reminder: "업로드 리마인드",
+};
+
+export const DEFAULT_CAMPAIGN_MESSAGE_TEMPLATES: Record<CampaignMessageType, string> = {
+  selected: `안녕하세요, {{이름}}님!
+{{브랜드명}} '{{캠페인명}}' 체험단에 최종 선정되셨음을 축하드립니다.
+활동 관련 상세 일정 및 가이드는 순차적으로 안내해 드리겠습니다.
+궁금하신 점이 있으시면 편하게 회신 부탁드립니다. 감사합니다!`,
+
+  reserved: `안녕하세요, {{이름}}님!
+{{브랜드명}} '{{캠페인명}}' 체험단에 지원해 주셔서 진심으로 감사드립니다.
+높은 지원 경쟁률로 인해 현재 예비 후보로 등록되셨습니다.
+최종 선정자 변동 시 우선적으로 연락드리도록 하겠습니다. 감사합니다!`,
+
+  shipping: `안녕하세요, {{이름}}님!
+{{브랜드명}} '{{캠페인명}}' 체험단 제품이 발송되었습니다.
+- 수령지 주소: {{배송주소}}
+제품 수령 후 이상이 있으실 경우 바로 말씀해 주시기 바랍니다.`,
+
+  guide: `안녕하세요, {{이름}}님!
+{{브랜드명}} '{{캠페인명}}' 콘텐츠 제작 가이드라인을 전달드립니다.
+- 필수 키워드 및 해시태그 준수
+- 업로드 마감일: {{마감일}}
+정성스러운 후기 부탁드립니다!`,
+
+  reminder: `안녕하세요, {{이름}}님!
+{{브랜드명}} '{{캠페인명}}' 콘텐츠 업로드 마감일({{마감일}})이 임박하여 안내드립니다.
+기한 내에 멋진 콘텐츠 업로드 및 링크 공유를 부탁드립니다. 감사합니다!`,
+};
+
 export interface Campaign {
   id: string;
   name: string;
@@ -37,8 +79,18 @@ export interface Campaign {
   apply_form_token: string;
   applicants_share_token: string;
   seeding_sheet_share_token: string;
+  message_templates?: Record<string, string>;
+  webhook_url?: string;
   created_at: string;
 }
+
+export type CampaignTokenType =
+  | "apply_form"
+  | "pre_survey"
+  | "applicants_share"
+  | "seeding_sheet_share";
+
+export type SnsTokenType = "intake" | "approval";
 
 /** 공개 페이지(지원폼/사전조사/공유 링크)에 내려보내는 최소 정보. 토큰은 절대 포함하지 않는다. */
 export interface PublicCampaign {
@@ -47,6 +99,8 @@ export interface PublicCampaign {
   company_name: string;
   campaign_type: CampaignType;
   status: CampaignStatus;
+  message_templates?: Record<string, string>;
+  webhook_url?: string;
 }
 
 export function toPublicCampaign(c: Campaign): PublicCampaign {
@@ -56,6 +110,8 @@ export function toPublicCampaign(c: Campaign): PublicCampaign {
     company_name: c.company_name,
     campaign_type: c.campaign_type,
     status: c.status,
+    message_templates: c.message_templates,
+    webhook_url: c.webhook_url,
   };
 }
 
@@ -107,6 +163,9 @@ export interface Applicant {
   sns_link: string;
   nationality: string;
   contact: string;
+  follower_count?: number;
+  category?: string;
+  agency_memo?: string;
   shipping_address?: string;
   visit_schedule?: string;
   visit_party_size?: number;
@@ -325,6 +384,15 @@ export interface SnsPlan {
   updated_at: string;
 }
 
+export interface SnsMediaAttachment {
+  id: string;
+  name: string;
+  url: string;
+  mime_type: string;
+  size: number;
+  uploaded_at: string;
+}
+
 export interface SnsContent {
   id: string;
   account_id: string;
@@ -335,6 +403,7 @@ export interface SnsContent {
   caption: string | null;
   hashtags: string | null;
   media_note: string | null; // Internal production note (hidden on public approval)
+  media_attachments?: SnsMediaAttachment[];
   client_comment: string | null; // Feedback from client
   post_url: string | null;
   view_count: number | null;
@@ -352,6 +421,7 @@ export interface ReviewableSnsContent {
   caption: string | null;
   hashtags: string | null;
   client_comment: string | null;
+  media_attachments?: SnsMediaAttachment[];
 }
 
 export function toReviewableSnsContent(c: SnsContent): ReviewableSnsContent {
@@ -362,5 +432,24 @@ export function toReviewableSnsContent(c: SnsContent): ReviewableSnsContent {
     caption: c.caption,
     hashtags: c.hashtags,
     client_comment: c.client_comment,
+    media_attachments: c.media_attachments || [],
   };
 }
+
+// Audit Log Types (Backlog 2-6)
+export type AuditActorType = "agency" | "company" | "public" | "system";
+
+export interface AuditLogEntry {
+  id: string;
+  campaign_id?: string | null;
+  account_id?: string | null;
+  entity_type: "campaign" | "applicant" | "seeding_record" | "sns_account" | "sns_content" | "event";
+  entity_id: string;
+  action: string;
+  actor_type: AuditActorType;
+  actor_name?: string | null;
+  summary: string;
+  details?: Record<string, unknown> | null;
+  created_at: string;
+}
+

@@ -7,9 +7,11 @@ import {
   getPreSurveyResponse,
   getFormConfig,
   getEventsByCampaignId,
+  getAuditLogs,
 } from "@/lib/db";
 import TokenShareBox from "./TokenShareBox";
 import CampaignStatusSelect from "./CampaignStatusSelect";
+import CampaignIntegrationsCard from "./CampaignIntegrationsCard";
 import {
   FileQuestion,
   FileText,
@@ -35,12 +37,13 @@ export default async function CampaignDetailPage({
   const campaign = await getCampaignById(id);
   if (!campaign) notFound();
 
-  const [applicants, seedingRecords, preSurvey, formConfig, events] = await Promise.all([
+  const [applicants, seedingRecords, preSurvey, formConfig, events, auditLogs] = await Promise.all([
     getApplicantsByCampaignId(id),
     getSeedingRecordsByCampaignId(id),
     getPreSurveyResponse(id),
     getFormConfig(id),
     getEventsByCampaignId(id),
+    getAuditLogs({ campaign_id: id, limit: 10 }),
   ]);
 
   const selectedIds = new Set(applicants.filter((a) => a.status === "selected").map((a) => a.id));
@@ -107,33 +110,33 @@ export default async function CampaignDetailPage({
   return (
     <div className="space-y-6 max-w-6xl mx-auto font-sans">
       {/* Campaign Header */}
-      <div className="p-6 rounded-3xl bg-[#131418] border border-[#22242A] flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
+      <div className="p-6 rounded-3xl bg-surface border border-border flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-semibold">
               {campaign.campaign_type === "shipping" ? "배송형" : "방문형"}
             </span>
-            <span className="text-xs text-zinc-400 flex items-center gap-1">
-              <Building2 className="w-3.5 h-3.5 text-zinc-500" />
+            <span className="text-xs text-text-sub flex items-center gap-1">
+              <Building2 className="w-3.5 h-3.5 text-text-muted" />
               {campaign.company_name}
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-zinc-100">{campaign.name}</h1>
+          <h1 className="text-2xl font-bold text-text">{campaign.name}</h1>
         </div>
 
         <div className="flex items-center gap-4">
           <div className="text-right">
-            <span className="text-xs text-zinc-500 block">지원자 / 최종선정</span>
-            <span className="text-sm font-bold text-zinc-200">
+            <span className="text-xs text-text-muted block">지원자 / 최종선정</span>
+            <span className="text-sm font-bold text-text">
               {applicants.length}명 / <strong className="text-blue-400">{selectedCount}명</strong>
             </span>
           </div>
-          <div className="h-8 w-px bg-[#22242A]" />
+          <div className="h-8 w-px bg-border" />
           <div className="text-right">
-            <span className="text-xs text-zinc-500 block">업로드 완주</span>
+            <span className="text-xs text-text-muted block">업로드 완주</span>
             <span className="text-sm font-bold text-emerald-400">{completedUploads}건</span>
           </div>
-          <div className="h-8 w-px bg-[#22242A]" />
+          <div className="h-8 w-px bg-border" />
           <CampaignStatusSelect campaignId={campaign.id} initialStatus={campaign.status} />
         </div>
       </div>
@@ -141,19 +144,19 @@ export default async function CampaignDetailPage({
       <TokenShareBox campaign={campaign} />
 
       {/* Event Section Entry */}
-      <div className="p-5 rounded-3xl bg-gradient-to-r from-indigo-950/30 to-[#131418] border border-indigo-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg">
+      <div className="p-5 rounded-3xl bg-gradient-to-r from-indigo-950/30 to-surface border border-indigo-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg">
         <div className="flex items-center gap-3.5">
           <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0">
             <PartyPopper className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-zinc-100">캠페인 연계 인플루언서 행사</h2>
+              <h2 className="text-base font-bold text-text">캠페인 연계 인플루언서 행사</h2>
               <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-bold">
                 {events.length}개 행사
               </span>
             </div>
-            <p className="text-xs text-zinc-400 mt-0.5">
+            <p className="text-xs text-text-sub mt-0.5">
               브랜드 VIP 런칭 파티, 팝업스토어 초청(RSVP), 운영안 PPT 및 준비 체크리스트 관리
             </p>
           </div>
@@ -170,7 +173,7 @@ export default async function CampaignDetailPage({
 
       {/* 5-Step Workflow Cards */}
       <div className="space-y-3">
-        <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-wider">시딩 5단계 워크플로우</h2>
+        <h2 className="text-sm font-bold text-text-sub uppercase tracking-wider">시딩 5단계 워크플로우</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {steps.map((step) => {
@@ -179,7 +182,7 @@ export default async function CampaignDetailPage({
               <Link
                 key={step.href}
                 href={step.href}
-                className="p-5 rounded-2xl bg-[#131418] border border-[#22242A] hover:border-blue-500/40 hover:bg-[#181A20] transition flex flex-col justify-between space-y-4 group"
+                className="p-5 rounded-2xl bg-surface border border-border hover:border-blue-500/40 hover:bg-surface2 transition flex flex-col justify-between space-y-4 group"
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -189,11 +192,11 @@ export default async function CampaignDetailPage({
                     {step.badge}
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-zinc-100 group-hover:text-blue-400 transition">{step.title}</h3>
-                    <p className="text-xs text-zinc-400 mt-0.5">{step.desc}</p>
+                    <h3 className="text-sm font-bold text-text group-hover:text-blue-400 transition">{step.title}</h3>
+                    <p className="text-xs text-text-sub mt-0.5">{step.desc}</p>
                   </div>
                 </div>
-                <div className="pt-2 border-t border-[#22242A] flex items-center justify-between text-xs text-blue-400 font-semibold">
+                <div className="pt-2 border-t border-border flex items-center justify-between text-xs text-blue-400 font-semibold">
                   <span>{step.cta}</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition" />
                 </div>
@@ -202,6 +205,13 @@ export default async function CampaignDetailPage({
           })}
         </div>
       </div>
+
+      {/* Webhook Integrations & Audit Log */}
+      <CampaignIntegrationsCard
+        campaignId={campaign.id}
+        initialWebhookUrl={campaign.webhook_url}
+        auditLogs={auditLogs}
+      />
     </div>
   );
 }

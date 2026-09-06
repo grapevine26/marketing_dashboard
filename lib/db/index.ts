@@ -9,6 +9,7 @@ import {
   CampaignFormConfig,
   Applicant,
   ApplicantStatus,
+  APPLICANT_STATUS_LABELS,
   SeedingRecord,
   ProgressStage,
   CampaignReport,
@@ -27,6 +28,11 @@ import {
   SnsContent,
   SnsContentStatus,
   SNS_CONTENT_STATUSES,
+  SnsMediaAttachment,
+  AuditLogEntry,
+  AuditActorType,
+  CampaignTokenType,
+  SnsTokenType,
 } from "./types";
 import { generateDefaultPptBuffer } from "../ppt/engine";
 
@@ -55,6 +61,25 @@ function getDbFilePath(): string {
   return path.join(process.cwd(), ".data", "db.json");
 }
 
+export function getUploadsDirPath(): string {
+  if (process.env.UPLOADS_DIR) return path.resolve(process.env.UPLOADS_DIR);
+  if (process.env.DB_FILE) {
+    return path.join(path.dirname(path.resolve(process.env.DB_FILE)), "uploads");
+  }
+  if (process.env.VERCEL) {
+    return path.join(os.tmpdir(), "marketing_uploads");
+  }
+  return path.join(process.cwd(), ".data", "uploads");
+}
+
+function ensureUploadsDir(): string {
+  const dir = getUploadsDirPath();
+  if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) {
+    fs.mkdirSync(/*turbopackIgnore: true*/ dir, { recursive: true });
+  }
+  return dir;
+}
+
 interface DatabaseSchema {
   campaigns: Campaign[];
   pre_survey_template: PreSurveyTemplate;
@@ -73,6 +98,7 @@ interface DatabaseSchema {
   sns_intake_responses: SnsIntakeResponse[];
   sns_plans: SnsPlan[];
   sns_contents: SnsContent[];
+  audit_logs: AuditLogEntry[];
 }
 
 interface CacheEntry {
@@ -446,6 +472,7 @@ function getInitialData(): DatabaseSchema {
         created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
       },
     ],
+    audit_logs: [],
   };
 }
 
@@ -454,7 +481,7 @@ function migrateDb(db: DatabaseSchema) {
   const emptyArrays: (keyof DatabaseSchema)[] = [
     "campaigns", "pre_survey_responses", "form_configs", "applicants", "seeding_records", "reports",
     "ppt_templates", "events", "event_invitees", "event_checklist_items", "event_plans",
-    "sns_accounts", "sns_intake_responses", "sns_plans", "sns_contents",
+    "sns_accounts", "sns_intake_responses", "sns_plans", "sns_contents", "audit_logs",
   ];
   for (const key of emptyArrays) {
     if (!Array.isArray(db[key])) (db as unknown as Record<string, unknown>)[key] = [];
@@ -479,6 +506,10 @@ function migrateDb(db: DatabaseSchema) {
 
   for (const a of db.applicants) {
     if ((a.status as string) === "dropped") a.status = "rejected";
+  }
+
+  for (const c of db.sns_contents) {
+    if (!Array.isArray(c.media_attachments)) c.media_attachments = [];
   }
 }
 
@@ -619,6 +650,74 @@ const EVENT_STATUSES: EventStatus[] = ["preparing", "done", "canceled"];
 const RSVP_STATUSES: EventRsvpStatus[] = ["pending", "attending", "not_attending"];
 const SNS_PLATFORMS: SnsAccount["platform"][] = ["instagram", "youtube", "tiktok", "other"];
 
+// ---------- 감사 로그 (Audit Log) ----------
+
+function appendAuditLog(
+  db: DatabaseSchema,
+  entry: {
+    campaign_id?: string | null;
+    account_id?: string | null;
+    entity_type: AuditLogEntry["entity_type"];
+    entity_id: string;
+    action: string;
+    actor_type: AuditActorType;
+    actor_name?: string | null;
+    summary: string;
+    details?: Record<string, unknown> | null;
+  }
+): AuditLogEntry {
+  if (!Array.isArray(db.audit_logs)) db.audit_logs = [];
+  const record: AuditLogEntry = {
+    id: crypto.randomUUID(),
+    campaign_id: entry.campaign_id || null,
+    account_id: entry.account_id || null,
+    entity_type: entry.entity_type,
+    entity_id: entry.entity_id,
+    action: entry.action,
+    actor_type: entry.actor_type,
+    actor_name: entry.actor_name || null,
+    summary: entry.summary,
+    details: entry.details || null,
+    created_at: nowIso(),
+  };
+  db.audit_logs.unshift(record);
+  if (db.audit_logs.length > 1000) {
+    db.audit_logs = db.audit_logs.slice(0, 1000);
+  }
+  return record;
+}
+
+export async function recordAuditLog(entry: {
+  campaign_id?: string | null;
+  account_id?: string | null;
+  entity_type: AuditLogEntry["entity_type"];
+  entity_id: string;
+  action: string;
+  actor_type: AuditActorType;
+  actor_name?: string | null;
+  summary: string;
+  details?: Record<string, unknown> | null;
+}): Promise<AuditLogEntry> {
+  return mutateDb((db) => appendAuditLog(db, entry));
+}
+
+export async function getAuditLogs(filter?: {
+  campaign_id?: string;
+  account_id?: string;
+  limit?: number;
+}): Promise<AuditLogEntry[]> {
+  const db = await readDb();
+  let logs = db.audit_logs || [];
+  if (filter?.campaign_id) {
+    logs = logs.filter((l) => l.campaign_id === filter.campaign_id);
+  }
+  if (filter?.account_id) {
+    logs = logs.filter((l) => l.account_id === filter.account_id);
+  }
+  const limit = filter?.limit || 50;
+  return logs.slice(0, limit);
+}
+
 // ---------- 1. Campaigns & Seeding (Subproject A) ----------
 
 export async function getCampaigns(): Promise<Campaign[]> {
@@ -689,6 +788,120 @@ export async function updateCampaign(
     if (patch.name !== undefined) camp.name = requireText(patch.name, "캠페인명", 200);
     if (patch.company_name !== undefined) camp.company_name = requireText(patch.company_name, "브랜드명", 200);
     if (patch.status !== undefined) camp.status = oneOf(patch.status, CAMPAIGN_STATUSES, "캠페인 상태");
+    return camp;
+  });
+}
+
+export async function updateCampaignMessageTemplates(
+  campaignId: string,
+  templates: Record<string, string>
+): Promise<Campaign | null> {
+  return mutateDb((db) => {
+    const camp = db.campaigns.find((c) => c.id === campaignId);
+    if (!camp) return null;
+    const cleaned: Record<string, string> = {};
+    for (const [k, v] of Object.entries(templates || {})) {
+      if (typeof v === "string") cleaned[k] = v.slice(0, 5000);
+    }
+    camp.message_templates = cleaned;
+    return camp;
+  });
+}
+
+export async function deleteCampaign(id: string): Promise<boolean> {
+  return mutateDb((db) => {
+    const idx = db.campaigns.findIndex((c) => c.id === id);
+    if (idx < 0) return false;
+    const target = db.campaigns[idx];
+    appendAuditLog(db, {
+      campaign_id: id,
+      entity_type: "campaign",
+      entity_id: id,
+      action: "campaign.deleted",
+      actor_type: "agency",
+      summary: `[${target.name}] 캠페인을 삭제했습니다.`,
+    });
+    db.campaigns.splice(idx, 1);
+
+    db.form_configs = db.form_configs.filter((f) => f.campaign_id !== id);
+    db.pre_survey_responses = db.pre_survey_responses.filter((r) => r.campaign_id !== id);
+    db.applicants = db.applicants.filter((a) => a.campaign_id !== id);
+    db.seeding_records = db.seeding_records.filter((s) => s.campaign_id !== id);
+    db.reports = db.reports.filter((r) => r.campaign_id !== id);
+
+    const eventIds = db.events.filter((e) => e.campaign_id === id).map((e) => e.id);
+    db.events = db.events.filter((e) => e.campaign_id !== id);
+    db.event_invitees = db.event_invitees.filter((i) => !eventIds.includes(i.event_id));
+    db.event_checklist_items = db.event_checklist_items.filter((c) => !eventIds.includes(c.event_id));
+    db.event_plans = db.event_plans.filter((p) => !eventIds.includes(p.event_id));
+
+    return true;
+  });
+}
+
+export async function updateCampaignWebhookUrl(
+  campaignId: string,
+  webhookUrl: string | null
+): Promise<Campaign | null> {
+  return mutateDb((db) => {
+    const camp = db.campaigns.find((c) => c.id === campaignId);
+    if (!camp) return null;
+    camp.webhook_url = webhookUrl ? optionalUrl(webhookUrl, "웹훅 URL") || undefined : undefined;
+    appendAuditLog(db, {
+      campaign_id: campaignId,
+      entity_type: "campaign",
+      entity_id: campaignId,
+      action: "campaign.webhook_updated",
+      actor_type: "agency",
+      summary: webhookUrl ? "웹훅 알림 URL을 설정했습니다." : "웹훅 알림 설정을 해제했습니다.",
+    });
+    return camp;
+  });
+}
+
+export async function regenerateCampaignToken(
+  campaignId: string,
+  tokenType: CampaignTokenType
+): Promise<Campaign> {
+  return mutateDb((db) => {
+    const camp = db.campaigns.find((c) => c.id === campaignId);
+    if (!camp) throw new ValidationError("캠페인을 찾을 수 없습니다.");
+
+    let tokenField: "apply_form_token" | "pre_survey_token" | "applicants_share_token" | "seeding_sheet_share_token";
+    let newToken: string;
+    let tokenLabel: string;
+
+    if (tokenType === "apply_form") {
+      tokenField = "apply_form_token";
+      newToken = `apply_${crypto.randomUUID().slice(0, 12)}`;
+      tokenLabel = "인플루언서 지원 신청폼";
+    } else if (tokenType === "pre_survey") {
+      tokenField = "pre_survey_token";
+      newToken = `ps_${crypto.randomUUID().slice(0, 12)}`;
+      tokenLabel = "광고주 사전조사";
+    } else if (tokenType === "applicants_share") {
+      tokenField = "applicants_share_token";
+      newToken = `app_share_${crypto.randomUUID().slice(0, 12)}`;
+      tokenLabel = "광고주 지원자 선정 공유";
+    } else if (tokenType === "seeding_sheet_share") {
+      tokenField = "seeding_sheet_share_token";
+      newToken = `seed_share_${crypto.randomUUID().slice(0, 12)}`;
+      tokenLabel = "광고주 시딩 관리시트 공유";
+    } else {
+      throw new ValidationError("유효하지 않은 토큰 유형입니다.");
+    }
+
+    camp[tokenField] = newToken;
+
+    appendAuditLog(db, {
+      campaign_id: campaignId,
+      entity_type: "campaign",
+      entity_id: campaignId,
+      action: "token_regenerated",
+      actor_type: "agency",
+      summary: `[보안] '${tokenLabel}' 외부 공유 링크 토큰이 재발급되었습니다. 이전 링크는 즉시 무효화되었습니다.`,
+    });
+
     return camp;
   });
 }
@@ -813,12 +1026,16 @@ export async function createApplicant(data: {
   sns_link: string;
   nationality: string;
   contact: string;
+  follower_count?: number | null;
+  category?: string | null;
+  agency_memo?: string | null;
   shipping_address?: string | null;
   visit_schedule?: string | null;
   visit_party_size?: number | null;
   custom_answers?: Record<string, unknown>;
   privacy_agreed: boolean;
   secondary_use_agreed: boolean;
+  allow_duplicate?: boolean;
 }): Promise<Applicant> {
   return mutateDb((db) => {
     const campaign = db.campaigns.find((c) => c.id === data.campaign_id);
@@ -834,6 +1051,17 @@ export async function createApplicant(data: {
     const name = requireText(data.name, "성함", 100);
     const snsLink = optionalUrl(data.sns_link, "SNS 계정 URL");
     if (!snsLink) throw new ValidationError("SNS 계정 URL을 입력해주세요.");
+
+    const cleanSns = snsLink.trim().toLowerCase().replace(/\/$/, "");
+    const existingApplicant = db.applicants.find((a) => {
+      if (a.campaign_id !== campaign.id) return false;
+      const existingClean = (a.sns_link || "").trim().toLowerCase().replace(/\/$/, "");
+      return existingClean === cleanSns;
+    });
+    if (existingApplicant && !data.allow_duplicate) {
+      throw new ValidationError("DUPLICATE_SNS: 이미 동일한 SNS 계정으로 접수된 지원서가 있습니다.");
+    }
+
     const nationality = requireText(data.nationality, "국적", 100);
     const contact = requireText(data.contact, "연락처", 50);
 
@@ -873,6 +1101,10 @@ export async function createApplicant(data: {
       }
     }
 
+    const followerCount = data.follower_count != null && !isNaN(Number(data.follower_count))
+      ? Math.max(0, Math.floor(Number(data.follower_count)))
+      : undefined;
+
     const newApp: Applicant = {
       id: crypto.randomUUID(),
       campaign_id: campaign.id,
@@ -880,6 +1112,9 @@ export async function createApplicant(data: {
       sns_link: snsLink,
       nationality,
       contact,
+      follower_count: followerCount,
+      category: optionalText(data.category, 100) ?? undefined,
+      agency_memo: optionalText(data.agency_memo, 2000) ?? undefined,
       shipping_address: shippingAddress,
       visit_schedule: visitSchedule,
       visit_party_size: visitPartySize,
@@ -891,7 +1126,37 @@ export async function createApplicant(data: {
       applied_at: nowIso(),
     };
     db.applicants.push(newApp);
+    appendAuditLog(db, {
+      campaign_id: campaign.id,
+      entity_type: "applicant",
+      entity_id: newApp.id,
+      action: "applicant.applied",
+      actor_type: "public",
+      actor_name: newApp.name,
+      summary: `${newApp.name}님이 체험단에 지원했습니다.`,
+    });
     return newApp;
+  });
+}
+
+export async function updateApplicantAgencyMemo(
+  applicantId: string,
+  memo: string | null | undefined
+): Promise<Applicant | null> {
+  return mutateDb((db) => {
+    const app = db.applicants.find((a) => a.id === applicantId);
+    if (!app) return null;
+    const cleaned = typeof memo === "string" ? memo.trim().slice(0, 2000) : "";
+    app.agency_memo = cleaned || undefined;
+    appendAuditLog(db, {
+      campaign_id: app.campaign_id,
+      entity_type: "applicant",
+      entity_id: app.id,
+      action: "applicant.memo_updated",
+      actor_type: "agency",
+      summary: `${app.name}님의 에이전시 메모를 수정했습니다.`,
+    });
+    return app;
   });
 }
 
@@ -911,9 +1176,22 @@ export async function updateApplicantStatus(
     if (!app) return null;
     if (app.status === nextStatus) return { applicant: app, changed: false };
 
+    const prevStatus = app.status;
     app.status = nextStatus;
     app.status_changed_by = changedBy;
     app.status_changed_at = nowIso();
+
+    const statusLabel = APPLICANT_STATUS_LABELS[nextStatus] ?? nextStatus;
+    const actorLabel = changedBy === "company" ? "광고주" : "에이전시";
+    appendAuditLog(db, {
+      campaign_id: app.campaign_id,
+      entity_type: "applicant",
+      entity_id: app.id,
+      action: "applicant.status_changed",
+      actor_type: changedBy,
+      summary: `${actorLabel}가 ${app.name}님의 상태를 [${statusLabel}](으)로 변경했습니다.`,
+      details: { previous: prevStatus, next: nextStatus },
+    });
 
     if (nextStatus === "selected") {
       const existing = db.seeding_records.find((s) => s.applicant_id === applicantId);
@@ -968,6 +1246,20 @@ export async function updateSeedingRecord(
     if (patch.engagement !== undefined) record.engagement = nonNegativeInt(patch.engagement, "인게이지먼트");
     if (patch.notes !== undefined) record.notes = optionalText(patch.notes, 2000);
     record.updated_at = nowIso();
+
+    const app = db.applicants.find((a) => a.id === record.applicant_id);
+    const appName = app?.name || "인플루언서";
+    appendAuditLog(db, {
+      campaign_id: record.campaign_id,
+      entity_type: "seeding_record",
+      entity_id: record.id,
+      action: "seeding.updated",
+      actor_type: "agency",
+      summary: patch.progress_stage
+        ? `${appName}님의 진행 단계를 [${patch.progress_stage}](으)로 변경했습니다.`
+        : `${appName}님의 관리시트 정보를 수정했습니다.`,
+    });
+
     return record;
   });
 }
@@ -1490,6 +1782,87 @@ export async function updateSnsAccount(
   });
 }
 
+export async function regenerateSnsToken(
+  accountId: string,
+  tokenType: SnsTokenType
+): Promise<SnsAccount> {
+  return mutateDb((db) => {
+    const acc = db.sns_accounts.find((a) => a.id === accountId);
+    if (!acc) throw new ValidationError("SNS 계정을 찾을 수 없습니다.");
+
+    let tokenField: "intake_token" | "approval_token";
+    let newToken: string;
+    let tokenLabel: string;
+
+    if (tokenType === "intake") {
+      tokenField = "intake_token";
+      newToken = `sns_in_${crypto.randomUUID().slice(0, 12)}`;
+      tokenLabel = "광고주 자료요청/사전설문";
+    } else if (tokenType === "approval") {
+      tokenField = "approval_token";
+      newToken = `sns_appr_${crypto.randomUUID().slice(0, 12)}`;
+      tokenLabel = "광고주 시안 승인(컨펌)";
+    } else {
+      throw new ValidationError("유효하지 않은 토큰 유형입니다.");
+    }
+
+    acc[tokenField] = newToken;
+
+    appendAuditLog(db, {
+      account_id: accountId,
+      entity_type: "sns_account",
+      entity_id: accountId,
+      action: "token_regenerated",
+      actor_type: "agency",
+      summary: `[보안] '${tokenLabel}' 전용 링크 토큰이 재발급되었습니다. 이전 링크는 즉시 무효화되었습니다.`,
+    });
+
+    return acc;
+  });
+}
+
+export async function deleteSnsAccount(id: string): Promise<boolean> {
+  return mutateDb((db) => {
+    const idx = db.sns_accounts.findIndex((a) => a.id === id);
+    if (idx < 0) return false;
+    const target = db.sns_accounts[idx];
+    appendAuditLog(db, {
+      account_id: id,
+      entity_type: "sns_account",
+      entity_id: id,
+      action: "sns_account.deleted",
+      actor_type: "agency",
+      summary: `[${target.company_name}] (@${target.handle}) SNS 계정을 삭제했습니다.`,
+    });
+    db.sns_accounts.splice(idx, 1);
+
+    const removedContents = db.sns_contents.filter((c) => c.account_id === id);
+    const uploadsDir = getUploadsDirPath();
+    if (fs.existsSync(/*turbopackIgnore: true*/ uploadsDir)) {
+      try {
+        const files = fs.readdirSync(/*turbopackIgnore: true*/ uploadsDir);
+        for (const c of removedContents) {
+          if (c.media_attachments) {
+            for (const att of c.media_attachments) {
+              for (const file of files) {
+                if (file.startsWith(att.id)) {
+                  try { fs.unlinkSync(path.join(/*turbopackIgnore: true*/ uploadsDir, file)); } catch {}
+                }
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+
+    db.sns_contents = db.sns_contents.filter((c) => c.account_id !== id);
+    db.sns_plans = db.sns_plans.filter((p) => p.account_id !== id);
+    db.sns_intake_responses = db.sns_intake_responses.filter((r) => r.account_id !== id);
+
+    return true;
+  });
+}
+
 export async function getSnsIntakeTemplate(): Promise<SnsIntakeTemplate> {
   const db = await readDb();
   return db.sns_intake_template;
@@ -1620,6 +1993,7 @@ export async function createSnsContent(data: {
       caption: optionalText(data.caption, 5000),
       hashtags: optionalText(data.hashtags, 1000),
       media_note: optionalText(data.media_note, 3000),
+      media_attachments: [],
       client_comment: null,
       post_url: null,
       view_count: null,
@@ -1689,9 +2063,167 @@ export async function deleteSnsContent(id: string): Promise<boolean> {
   return mutateDb((db) => {
     const idx = db.sns_contents.findIndex((c) => c.id === id);
     if (idx < 0) return false;
-    db.sns_contents.splice(idx, 1);
+    const [removed] = db.sns_contents.splice(idx, 1);
+    if (removed.media_attachments && removed.media_attachments.length > 0) {
+      const uploadsDir = getUploadsDirPath();
+      if (fs.existsSync(/*turbopackIgnore: true*/ uploadsDir)) {
+        try {
+          const files = fs.readdirSync(/*turbopackIgnore: true*/ uploadsDir);
+          for (const att of removed.media_attachments) {
+            for (const file of files) {
+              if (file.startsWith(att.id)) {
+                try { fs.unlinkSync(path.join(/*turbopackIgnore: true*/ uploadsDir, file)); } catch {}
+              }
+            }
+          }
+        } catch {}
+      }
+    }
     return true;
   });
+}
+
+export const ALLOWED_SNS_MEDIA_MIME_TYPES: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/gif": ".gif",
+  "video/mp4": ".mp4",
+  "video/webm": ".webm",
+  "video/quicktime": ".mov",
+};
+
+function sanitizeFileName(name: string): string {
+  return path.basename(name).replace(/[^a-zA-Z0-9._\-\uAC00-\uD7A3]/g, "_");
+}
+
+export async function saveSnsMediaAttachment(
+  contentId: string,
+  file: {
+    name: string;
+    buffer: Buffer;
+    mime_type: string;
+    size: number;
+  }
+): Promise<SnsMediaAttachment> {
+  const mime = file.mime_type?.toLowerCase() || "";
+  const ext = ALLOWED_SNS_MEDIA_MIME_TYPES[mime];
+  if (!ext) {
+    throw new ValidationError("지원하지 않는 파일 형식입니다. (JPG, PNG, WebP, GIF, MP4, WebM, MOV 지원)");
+  }
+  const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+  if (file.size > MAX_SIZE || file.buffer.length > MAX_SIZE) {
+    throw new ValidationError("파일 크기는 50MB 이하만 업로드할 수 있습니다.");
+  }
+  if (!file.buffer || file.buffer.length === 0) {
+    throw new ValidationError("빈 파일은 업로드할 수 없습니다.");
+  }
+
+  const uploadsDir = ensureUploadsDir();
+  const attachmentId = crypto.randomUUID();
+  const safeName = sanitizeFileName(file.name) || `attachment_${attachmentId}${ext}`;
+  const storedFilename = `${attachmentId}${ext}`;
+  const targetPath = path.join(/*turbopackIgnore: true*/ uploadsDir, storedFilename);
+
+  fs.writeFileSync(/*turbopackIgnore: true*/ targetPath, file.buffer);
+
+  const attachment: SnsMediaAttachment = {
+    id: attachmentId,
+    name: safeName,
+    url: `/api/media/${attachmentId}`,
+    mime_type: mime,
+    size: file.size,
+    uploaded_at: nowIso(),
+  };
+
+  return mutateDb((db) => {
+    const content = db.sns_contents.find((c) => c.id === contentId);
+    if (!content) {
+      try { fs.unlinkSync(/*turbopackIgnore: true*/ targetPath); } catch {}
+      throw new ValidationError("콘텐츠를 찾을 수 없습니다.");
+    }
+    if (!content.media_attachments) {
+      content.media_attachments = [];
+    }
+    content.media_attachments.push(attachment);
+
+    appendAuditLog(db, {
+      account_id: content.account_id,
+      entity_type: "sns_content",
+      entity_id: content.id,
+      action: "sns.add_media",
+      actor_type: "agency",
+      summary: `[${content.title}] 시안 미디어 첨부: ${attachment.name} (${(attachment.size / (1024 * 1024)).toFixed(1)}MB)`,
+    });
+
+    return attachment;
+  });
+}
+
+export async function deleteSnsMediaAttachment(
+  contentId: string,
+  attachmentId: string
+): Promise<boolean> {
+  return mutateDb((db) => {
+    const content = db.sns_contents.find((c) => c.id === contentId);
+    if (!content || !content.media_attachments) return false;
+
+    const idx = content.media_attachments.findIndex((m) => m.id === attachmentId);
+    if (idx < 0) return false;
+
+    const [deleted] = content.media_attachments.splice(idx, 1);
+
+    const uploadsDir = getUploadsDirPath();
+    if (fs.existsSync(/*turbopackIgnore: true*/ uploadsDir)) {
+      try {
+        const files = fs.readdirSync(/*turbopackIgnore: true*/ uploadsDir);
+        for (const file of files) {
+          if (file.startsWith(attachmentId)) {
+            try { fs.unlinkSync(path.join(/*turbopackIgnore: true*/ uploadsDir, file)); } catch {}
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to delete media file from disk:", err);
+      }
+    }
+
+    appendAuditLog(db, {
+      account_id: content.account_id,
+      entity_type: "sns_content",
+      entity_id: content.id,
+      action: "sns.delete_media",
+      actor_type: "agency",
+      summary: `[${content.title}] 시안 미디어 삭제: ${deleted.name}`,
+    });
+
+    return true;
+  });
+}
+
+export async function getSnsMediaAttachmentById(
+  attachmentId: string
+): Promise<{ attachment: SnsMediaAttachment; filePath: string; accountId: string } | null> {
+  const db = await readDb();
+  for (const content of db.sns_contents) {
+    if (content.media_attachments) {
+      const att = content.media_attachments.find((m) => m.id === attachmentId);
+      if (att) {
+        const uploadsDir = getUploadsDirPath();
+        if (fs.existsSync(/*turbopackIgnore: true*/ uploadsDir)) {
+          const files = fs.readdirSync(/*turbopackIgnore: true*/ uploadsDir);
+          const foundFile = files.find((f) => f.startsWith(attachmentId));
+          if (foundFile) {
+            return {
+              attachment: att,
+              filePath: path.join(/*turbopackIgnore: true*/ uploadsDir, foundFile),
+              accountId: content.account_id,
+            };
+          }
+        }
+      }
+    }
+  }
+  return null;
 }
 
 /**
@@ -1721,6 +2253,17 @@ export async function reviewSnsContent(data: {
       content.client_comment = optionalText(data.comment, 2000) || "수정 요청이 접수되었습니다.";
     }
     content.status_changed_at = nowIso();
+
+    appendAuditLog(db, {
+      account_id: data.accountId,
+      entity_type: "sns_content",
+      entity_id: content.id,
+      action: decision === "approve" ? "sns.approved" : "sns.revision_requested",
+      actor_type: "company",
+      summary: `광고주가 [${content.title}] 시안을 ${decision === "approve" ? "승인" : "수정요청"}했습니다.`,
+      details: decision === "request_changes" ? { comment: data.comment } : null,
+    });
+
     return { content, changed: true };
   });
 }

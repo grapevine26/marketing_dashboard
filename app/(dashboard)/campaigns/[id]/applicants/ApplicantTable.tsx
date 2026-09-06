@@ -2,8 +2,21 @@
 
 import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
-import { PublicCampaign, Applicant, ApplicantStatus, CustomFormQuestion, APPLICANT_STATUS_LABELS } from "@/lib/db/types";
-import { changeApplicantStatusAction } from "./actions";
+import {
+  PublicCampaign,
+  Applicant,
+  ApplicantStatus,
+  CustomFormQuestion,
+  APPLICANT_STATUS_LABELS,
+  CampaignMessageType,
+  CAMPAIGN_MESSAGE_TYPE_LABELS,
+  DEFAULT_CAMPAIGN_MESSAGE_TEMPLATES,
+} from "@/lib/db/types";
+import {
+  changeApplicantStatusAction,
+  updateAgencyMemoAction,
+  saveCampaignMessageTemplatesAction,
+} from "./actions";
 import { changeApplicantStatusByTokenAction } from "@/app/applicants/[token]/actions";
 import {
   Search,
@@ -15,6 +28,12 @@ import {
   XCircle,
   RotateCcw,
   Loader2,
+  Copy,
+  Check,
+  MessageSquare,
+  ArrowUpDown,
+  X,
+  FileSpreadsheet,
 } from "lucide-react";
 
 type Mode = "agency" | "company";
@@ -48,6 +67,25 @@ function StatusBadge({ status }: { status: ApplicantStatus }) {
   );
 }
 
+function formatFollowers(count?: number) {
+  if (count == null || count === 0) return "-";
+  if (count >= 10000) return `${(count / 10000).toFixed(1).replace(/\.0$/, "")}만`;
+  return count.toLocaleString();
+}
+
+function populateTemplate(tmpl: string, app: Applicant, camp: PublicCampaign) {
+  return tmpl
+    .replace(/\{\{이름\}\}/g, app.name)
+    .replace(/\{\{SNS\}\}/g, app.sns_link)
+    .replace(/\{\{연락처\}\}/g, app.contact)
+    .replace(/\{\{국적\}\}/g, app.nationality)
+    .replace(/\{\{브랜드명\}\}/g, camp.company_name)
+    .replace(/\{\{캠페인명\}\}/g, camp.name)
+    .replace(/\{\{배송주소\}\}/g, app.shipping_address || "(등록된 배송지 없음)")
+    .replace(/\{\{방문일정\}\}/g, app.visit_schedule || "(등록된 방문일정 없음)")
+    .replace(/\{\{마감일\}\}/g, "가이드 전달 후 7일 이내");
+}
+
 export default function ApplicantTable({
   campaign,
   initialApplicants,
@@ -61,9 +99,87 @@ export default function ApplicantTable({
   const [applicants, setApplicants] = useState<Applicant[]>(initialApplicants);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | ApplicantStatus>("all");
+  const [sortBy, setSortBy] = useState<"latest" | "followers">("latest");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Agency memo state
+  const [memoEditingId, setMemoEditingId] = useState<string | null>(null);
+  const [memoDraft, setMemoDraft] = useState("");
+  const [savingMemo, setSavingMemo] = useState(false);
+
+  // Message template modal state
+  const [msgModalApp, setMsgModalApp] = useState<Applicant | null>(null);
+  const [msgType, setMsgType] = useState<CampaignMessageType>("selected");
+  const [msgContent, setMsgContent] = useState("");
+  const [copiedMsg, setCopiedMsg] = useState(false);
+  const [savedTemplate, setSavedTemplate] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templates, setTemplates] = useState<Record<string, string>>(campaign.message_templates || {});
+
+  const openMessageModal = (app: Applicant) => {
+    setMsgModalApp(app);
+    const initialType: CampaignMessageType =
+      app.status === "selected" ? "selected" : app.status === "reserved" ? "reserved" : "selected";
+    setMsgType(initialType);
+    const rawTmpl = templates[initialType] || DEFAULT_CAMPAIGN_MESSAGE_TEMPLATES[initialType];
+    setMsgContent(populateTemplate(rawTmpl, app, campaign));
+    setCopiedMsg(false);
+    setSavedTemplate(false);
+  };
+
+  const handleTypeChange = (type: CampaignMessageType) => {
+    setMsgType(type);
+    if (!msgModalApp) return;
+    const rawTmpl = templates[type] || DEFAULT_CAMPAIGN_MESSAGE_TEMPLATES[type];
+    setMsgContent(populateTemplate(rawTmpl, msgModalApp, campaign));
+    setCopiedMsg(false);
+    setSavedTemplate(false);
+  };
+
+  const handleCopyMessage = async () => {
+    try {
+      await navigator.clipboard.writeText(msgContent);
+      setCopiedMsg(true);
+      setTimeout(() => setCopiedMsg(false), 2000);
+    } catch {
+      alert("클립보드 복사에 실패했습니다.");
+    }
+  };
+
+  const handleSaveTemplate = async () => {
+    setSavingTemplate(true);
+    const updated = { ...templates, [msgType]: msgContent };
+    const res = await saveCampaignMessageTemplatesAction({
+      campaignId: campaign.id,
+      templates: updated,
+    });
+    setSavingTemplate(false);
+    if (res.ok) {
+      setTemplates(updated);
+      setSavedTemplate(true);
+      setTimeout(() => setSavedTemplate(false), 2000);
+    } else {
+      alert(res.error || "템플릿 저장 실패");
+    }
+  };
+
+  const handleSaveMemo = async (applicantId: string) => {
+    setSavingMemo(true);
+    const res = await updateAgencyMemoAction({ applicantId, memo: memoDraft });
+    setSavingMemo(false);
+    if (res.ok) {
+      setApplicants((prev) =>
+        prev.map((a) => (a.id === applicantId ? { ...a, agency_memo: memoDraft } : a))
+      );
+      setMemoEditingId(null);
+    } else {
+      setError(res.error);
+    }
+  };
 
   const handleStatusChange = async (applicantId: string, nextStatus: ApplicantStatus) => {
     const before = applicants;
@@ -92,10 +208,21 @@ export default function ApplicantTable({
       !q ||
       a.name.toLowerCase().includes(q) ||
       a.sns_link.toLowerCase().includes(q) ||
-      (mode === "agency" && a.contact.includes(q));
+      (a.category && a.category.toLowerCase().includes(q)) ||
+      (mode === "agency" && (a.contact.includes(q) || (a.agency_memo && a.agency_memo.toLowerCase().includes(q))));
     const matchesStatus = statusFilter === "all" || a.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const displayedApplicants = [...filtered].sort((a, b) => {
+    if (sortBy === "followers") {
+      return (b.follower_count || 0) - (a.follower_count || 0);
+    }
+    return new Date(b.applied_at).getTime() - new Date(a.applied_at).getTime();
+  });
+
+  const totalPages = Math.max(1, Math.ceil(displayedApplicants.length / PAGE_SIZE));
+  const paginatedApplicants = displayedApplicants.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const count = (s: ApplicantStatus) => applicants.filter((a) => a.status === s).length;
 
@@ -124,16 +251,33 @@ export default function ApplicantTable({
       </button>
     );
 
-    switch (a.status) {
-      case "selected":
-        return [btn("선정 취소", "applied", danger, "최종선정을 취소하고 대기 상태로 변경합니다."), btn("예비로 변경", "reserved", secondary)];
-      case "reserved":
-        return [btn("최종선정 승격", "selected", primary), btn("예비 취소", "applied", danger)];
-      case "rejected":
-        return [btn("대기로 복구", "applied", neutral)];
-      default:
-        return [btn("최종선정", "selected", primary), btn("예비선정", "reserved", secondary), btn("미선정", "rejected", danger)];
-    }
+    const msgBtn = mode === "agency" && (
+      <button
+        key="msg-btn"
+        type="button"
+        title="안내문 템플릿 복사"
+        onClick={() => openMessageModal(a)}
+        className={`${compact ? "py-2 px-3 rounded-xl text-xs font-semibold" : "px-2.5 py-1 rounded-lg text-xs font-semibold"} bg-[#181A20] hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 inline-flex items-center justify-center gap-1 transition`}
+      >
+        <MessageSquare className="w-3.5 h-3.5" />
+        <span>안내문</span>
+      </button>
+    );
+
+    const statusBtns = (() => {
+      switch (a.status) {
+        case "selected":
+          return [btn("선정 취소", "applied", danger, "최종선정을 취소하고 대기 상태로 변경합니다."), btn("예비로 변경", "reserved", secondary)];
+        case "reserved":
+          return [btn("최종선정 승격", "selected", primary), btn("예비 취소", "applied", danger)];
+        case "rejected":
+          return [btn("대기로 복구", "applied", neutral)];
+        default:
+          return [btn("최종선정", "selected", primary), btn("예비선정", "reserved", secondary), btn("미선정", "rejected", danger)];
+      }
+    })();
+
+    return msgBtn ? [...statusBtns, msgBtn] : statusBtns;
   };
 
   const renderDetails = (a: Applicant) => (
@@ -182,11 +326,42 @@ export default function ApplicantTable({
             <input
               type="text"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={mode === "agency" ? "지원자명, 연락처, SNS 계정 검색..." : "지원자명, SNS 계정 검색..."}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder={mode === "agency" ? "지원자명, 연락처, SNS, 메모 검색..." : "지원자명, SNS 계정 검색..."}
               className="w-full pl-8 pr-3 py-2.5 sm:py-2 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-100 text-xs focus:outline-none focus:border-blue-500"
             />
             <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-3 sm:top-2.5" />
+          </div>
+
+          <div className="flex items-center gap-1 bg-[#090A0C] border border-[#22242A] p-1 rounded-xl shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setSortBy("latest");
+                setPage(1);
+              }}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
+                sortBy === "latest" ? "bg-blue-600 text-white" : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              최신순
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSortBy("followers");
+                setPage(1);
+              }}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${
+                sortBy === "followers" ? "bg-blue-600 text-white" : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              <ArrowUpDown className="w-3 h-3" />
+              <span>팔로워순</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
@@ -194,7 +369,10 @@ export default function ApplicantTable({
               <button
                 key={f.key}
                 type="button"
-                onClick={() => setStatusFilter(f.key)}
+                onClick={() => {
+                  setStatusFilter(f.key);
+                  setPage(1);
+                }}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${statusFilter === f.key ? f.active : f.idle}`}
               >
                 {f.label}
@@ -203,13 +381,24 @@ export default function ApplicantTable({
           </div>
         </div>
 
-        <a
-          href={csvHref}
-          className="w-full sm:w-auto text-center justify-center px-4 py-2.5 sm:py-2 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-200 text-xs font-semibold inline-flex items-center gap-1.5 transition border border-[#22242A]"
-        >
-          <Download className="w-3.5 h-3.5" />
-          <span>CSV 다운로드</span>
-        </a>
+        <div className="flex items-center gap-2">
+          <a
+            href={`${csvHref}&format=xlsx`}
+            className="w-full sm:w-auto text-center justify-center px-3.5 py-2.5 sm:py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-semibold inline-flex items-center gap-1.5 transition border border-emerald-500/30 active:scale-95"
+            title="마이크로소프트 엑셀 서식 적용 파일 다운로드"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Excel 다운로드</span>
+          </a>
+          <a
+            href={csvHref}
+            className="w-full sm:w-auto text-center justify-center px-3 py-2.5 sm:py-2 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 text-xs font-medium inline-flex items-center gap-1.5 transition border border-[#22242A]"
+            title="표준 CSV 파일 다운로드"
+          >
+            <Download className="w-3.5 h-3.5 text-zinc-400" />
+            <span>CSV</span>
+          </a>
+        </div>
       </div>
 
       {error && (
@@ -218,12 +407,12 @@ export default function ApplicantTable({
 
       {/* Mobile Cards */}
       <div className="block sm:hidden space-y-3">
-        {filtered.length === 0 ? (
+        {displayedApplicants.length === 0 ? (
           <div className="p-8 text-center text-zinc-500 text-xs border border-dashed border-[#22242A] rounded-2xl bg-[#090A0C]">
             표시할 지원자가 없습니다.
           </div>
         ) : (
-          filtered.map((a) => {
+          paginatedApplicants.map((a) => {
             const dups = duplicates[a.id] || [];
             return (
               <div key={a.id} className="p-4 rounded-2xl bg-[#090A0C] border border-[#22242A] space-y-3 shadow-md">
@@ -235,13 +424,29 @@ export default function ApplicantTable({
                   <StatusBadge status={a.status} />
                 </div>
 
-                <div className="text-xs space-y-1">
+                <div className="text-xs space-y-1.5">
                   <div className="flex items-center justify-between text-zinc-400">
                     <span>SNS 채널:</span>
-                    <a href={a.sns_link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline inline-flex items-center gap-1 truncate max-w-[180px]">
-                      <span>{a.sns_link}</span>
-                      <ExternalLink className="w-3 h-3 shrink-0" />
-                    </a>
+                    <div className="text-right">
+                      <a href={a.sns_link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline inline-flex items-center gap-1 truncate max-w-[180px]">
+                        <span>{a.sns_link}</span>
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                      </a>
+                      {(a.follower_count !== undefined || a.category) && (
+                        <div className="flex items-center justify-end gap-1.5 mt-0.5 text-[10px]">
+                          {a.follower_count !== undefined && (
+                            <span className="px-1.5 py-0.5 rounded bg-[#181A20] border border-[#22242A] text-zinc-300 font-mono">
+                              {formatFollowers(a.follower_count)}
+                            </span>
+                          )}
+                          {a.category && (
+                            <span className="px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-300">
+                              {a.category}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   {mode === "agency" && (
                     <div className="flex items-center justify-between text-zinc-400">
@@ -256,6 +461,57 @@ export default function ApplicantTable({
                   )}
                   {renderDetails(a)}
                 </div>
+
+                {mode === "agency" && (
+                  <div className="pt-2 border-t border-[#181A20] text-xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-zinc-500 font-medium">관리자 메모:</span>
+                      {memoEditingId !== a.id && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMemoEditingId(a.id);
+                            setMemoDraft(a.agency_memo || "");
+                          }}
+                          className="text-[11px] text-blue-400 hover:underline"
+                        >
+                          {a.agency_memo ? "수정" : "추가"}
+                        </button>
+                      )}
+                    </div>
+                    {memoEditingId === a.id ? (
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <input
+                          type="text"
+                          value={memoDraft}
+                          onChange={(e) => setMemoDraft(e.target.value)}
+                          placeholder="메모 입력"
+                          className="flex-1 px-2.5 py-1.5 rounded-lg bg-[#181A20] border border-blue-500 text-zinc-200 text-xs focus:outline-none"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          disabled={savingMemo}
+                          onClick={() => handleSaveMemo(a.id)}
+                          className="px-2.5 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold"
+                        >
+                          저장
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMemoEditingId(null)}
+                          className="px-2.5 py-1.5 rounded-lg bg-zinc-800 text-zinc-400 text-xs"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-zinc-300 text-xs italic bg-[#181A20]/50 p-2 rounded-lg border border-[#22242A]">
+                        {a.agency_memo || "메모가 없습니다."}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div className="pt-2 border-t border-[#181A20] flex items-center gap-1.5">{renderActions(a, true)}</div>
               </div>
@@ -273,17 +529,20 @@ export default function ApplicantTable({
               <th className="p-3.5">SNS 계정</th>
               <th className="p-3.5">{mode === "agency" ? "연락처 / 국적" : "국적"}</th>
               <th className="p-3.5">중복 감지</th>
+              {mode === "agency" && <th className="p-3.5">에이전시 메모</th>}
               <th className="p-3.5">선정 상태</th>
-              <th className="p-3.5 text-right">선정 결정 및 취소</th>
+              <th className="p-3.5 text-right">선정 결정 및 발송</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#22242A] text-zinc-300">
-            {filtered.length === 0 ? (
+            {displayedApplicants.length === 0 ? (
               <tr>
-                <td colSpan={6} className="p-8 text-center text-zinc-500">표시할 지원자가 없습니다.</td>
+                <td colSpan={mode === "agency" ? 7 : 6} className="p-8 text-center text-zinc-500">
+                  표시할 지원자가 없습니다.
+                </td>
               </tr>
             ) : (
-              filtered.map((a) => {
+              paginatedApplicants.map((a) => {
                 const dups = duplicates[a.id] || [];
                 const expanded = expandedId === a.id;
                 return (
@@ -295,10 +554,26 @@ export default function ApplicantTable({
                         </button>
                       </td>
                       <td className="p-3.5">
-                        <a href={a.sns_link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline inline-flex items-center gap-1 truncate max-w-[160px]">
-                          <span>{a.sns_link}</span>
-                          <ExternalLink className="w-3 h-3 shrink-0" />
-                        </a>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <a href={a.sns_link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline inline-flex items-center gap-1 truncate max-w-[160px]">
+                            <span>{a.sns_link}</span>
+                            <ExternalLink className="w-3 h-3 shrink-0" />
+                          </a>
+                        </div>
+                        {(a.follower_count !== undefined || a.category) && (
+                          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-zinc-400 flex-wrap">
+                            {a.follower_count !== undefined && (
+                              <span className="px-1.5 py-0.5 rounded bg-[#181A20] border border-[#22242A] text-zinc-300 font-mono text-[10px]">
+                                {formatFollowers(a.follower_count)}
+                              </span>
+                            )}
+                            {a.category && (
+                              <span className="px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-300 text-[10px]">
+                                {a.category}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="p-3.5">
                         {mode === "agency" && <div className="font-mono text-zinc-200">{a.contact}</div>}
@@ -314,6 +589,55 @@ export default function ApplicantTable({
                           <span className="text-[10px] text-zinc-500">정상</span>
                         )}
                       </td>
+                      {mode === "agency" && (
+                        <td className="p-3.5 max-w-[180px]">
+                          {memoEditingId === a.id ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="text"
+                                value={memoDraft}
+                                onChange={(e) => setMemoDraft(e.target.value)}
+                                placeholder="메모 입력"
+                                className="w-full px-2 py-1 rounded bg-[#090A0C] border border-blue-500 text-zinc-200 text-xs focus:outline-none"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleSaveMemo(a.id);
+                                  if (e.key === "Escape") setMemoEditingId(null);
+                                }}
+                              />
+                              <button
+                                type="button"
+                                disabled={savingMemo}
+                                onClick={() => handleSaveMemo(a.id)}
+                                className="p-1 rounded bg-blue-600 hover:bg-blue-500 text-white shrink-0"
+                              >
+                                {savingMemo ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setMemoEditingId(null)}
+                                className="p-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 shrink-0"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMemoEditingId(a.id);
+                                setMemoDraft(a.agency_memo || "");
+                              }}
+                              className="w-full text-left group flex items-center justify-between gap-1 text-zinc-400 hover:text-zinc-200"
+                              title="클릭하여 메모 수정"
+                            >
+                              <span className="truncate text-xs">
+                                {a.agency_memo ? a.agency_memo : <span className="text-zinc-600 italic">메모 없음</span>}
+                              </span>
+                            </button>
+                          )}
+                        </td>
+                      )}
                       <td className="p-3.5"><StatusBadge status={a.status} /></td>
                       <td className="p-3.5 text-right">
                         <div className="inline-flex items-center justify-end gap-1.5">{renderActions(a, false)}</div>
@@ -321,7 +645,7 @@ export default function ApplicantTable({
                     </tr>
                     {expanded && (
                       <tr className="bg-[#0D0E12]">
-                        <td colSpan={6} className="p-3.5">
+                        <td colSpan={mode === "agency" ? 7 : 6} className="p-3.5">
                           <div className="flex items-start justify-between gap-3">
                             {renderDetails(a)}
                             {dups.length > 0 && (
@@ -340,9 +664,130 @@ export default function ApplicantTable({
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-xs text-zinc-400">
+          <span>
+            총 {displayedApplicants.length}명 중 {(page - 1) * PAGE_SIZE + 1} ~{" "}
+            {Math.min(page * PAGE_SIZE, displayedApplicants.length)}명 표시
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="px-3 py-1.5 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 disabled:opacity-40 border border-[#22242A] font-medium transition"
+            >
+              이전
+            </button>
+            <span className="px-3 py-1.5 rounded-xl bg-[#090A0C] border border-[#22242A] font-mono text-zinc-200">
+              {page} / {totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="px-3 py-1.5 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 disabled:opacity-40 border border-[#22242A] font-medium transition"
+            >
+              다음
+            </button>
+          </div>
+        </div>
+      )}
+
       <p className="text-[11px] text-zinc-500 flex items-center gap-1">
         <RotateCcw className="w-3 h-3" /> 이름을 클릭하면 상세 답변을 볼 수 있습니다. 선정 취소 시에도 관리시트 기록은 보존됩니다.
       </p>
+
+      {/* Message Template Modal */}
+      {msgModalApp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-[#131418] border border-[#22242A] rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[#22242A]">
+              <div>
+                <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-blue-400" />
+                  <span>안내 메시지 템플릿</span>
+                </h3>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  {msgModalApp.name}님 ({msgModalApp.contact}) 대상 안내문
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMsgModalApp(null)}
+                className="p-1 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-[#181A20]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-5 space-y-4">
+              {/* Template Type Selector Tabs */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                {(
+                  [
+                    "selected",
+                    "reserved",
+                    "shipping_or_visit",
+                    "guideline",
+                    "reminder",
+                  ] as CampaignMessageType[]
+                ).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => handleTypeChange(t)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
+                      msgType === t
+                        ? "bg-blue-600 text-white"
+                        : "bg-[#090A0C] text-zinc-400 hover:text-zinc-200 border border-[#22242A]"
+                    }`}
+                  >
+                    {CAMPAIGN_MESSAGE_TYPE_LABELS[t]}
+                  </button>
+                ))}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 mb-1.5">
+                  치환된 메시지 내용 (클릭하여 직접 수정 가능)
+                </label>
+                <textarea
+                  rows={8}
+                  value={msgContent}
+                  onChange={(e) => setMsgContent(e.target.value)}
+                  className="w-full p-3 rounded-xl bg-[#090A0C] border border-[#22242A] text-zinc-200 text-xs font-mono leading-relaxed focus:outline-none focus:border-blue-500"
+                />
+                <p className="text-[11px] text-zinc-500 mt-1">
+                  지원자 정보(`{`{이름}`}`, `{`{SNS}`}`, `{`{마감일}`}` 등)가 자동으로 치환되었습니다.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-2 border-t border-[#22242A]">
+                <button
+                  type="button"
+                  onClick={handleSaveTemplate}
+                  disabled={savingTemplate}
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#181A20] hover:bg-[#22242A] text-zinc-300 text-xs font-semibold border border-[#22242A] transition inline-flex items-center justify-center gap-1.5"
+                >
+                  {savingTemplate ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                  <span>{savedTemplate ? "템플릿 저장 완료!" : "이 캠페인의 기본 템플릿으로 저장"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopyMessage}
+                  className="w-full sm:w-auto px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition inline-flex items-center justify-center gap-1.5 shadow-md"
+                >
+                  {copiedMsg ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedMsg ? "클립보드에 복사됨!" : "클립보드 복사"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

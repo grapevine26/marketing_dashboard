@@ -8,14 +8,18 @@ import {
   createSnsContent,
   updateSnsContent,
   deleteSnsContent,
+  deleteSnsAccount,
+  saveSnsMediaAttachment,
+  deleteSnsMediaAttachment,
   saveSnsPlan,
   getSnsAccountById,
   getSnsIntakeResponse,
   getSnsIntakeTemplate,
   getPptTemplateById,
   SnsContentPatch,
+  regenerateSnsToken,
 } from "@/lib/db";
-import { SnsAccount, SnsContent, SnsPlan, PreSurveyQuestion } from "@/lib/db/types";
+import { SnsAccount, SnsContent, SnsPlan, PreSurveyQuestion, SnsMediaAttachment, SnsTokenType } from "@/lib/db/types";
 import { generateSnsCaptionDraft } from "@/lib/ai/snsCaptionAssist";
 import { generateSnsPlanDraft } from "@/lib/ai/snsPlanAssist";
 import { labelAnswers } from "@/lib/ai/config";
@@ -63,6 +67,19 @@ export async function updateSnsAccountAction(
     return acc;
   });
   if (res.ok) revalidateAccount(accountId);
+  return res;
+}
+
+export async function deleteSnsAccountAction(accountId: string): Promise<ActionResult<boolean>> {
+  const existing = await getSnsAccountById(accountId);
+  if (!existing) return fail("계정을 찾을 수 없습니다.");
+
+  const res = await runAction(async () => {
+    const deleted = await deleteSnsAccount(accountId);
+    if (!deleted) throw new Error("계정을 찾을 수 없습니다.");
+    return true;
+  });
+  if (res.ok) revalidateAccount();
   return res;
 }
 
@@ -122,6 +139,38 @@ export async function deleteSnsContentAction(contentId: string, accountId: strin
     if (!deleted) throw new Error("not found");
     return null;
   });
+  if (res.ok) revalidateAccount(accountId);
+  return res;
+}
+
+export async function uploadSnsMediaAction(formData: FormData): Promise<ActionResult<SnsMediaAttachment>> {
+  const contentId = formData.get("contentId") as string;
+  const accountId = formData.get("accountId") as string;
+  const file = formData.get("file") as File | null;
+
+  if (!contentId || !accountId) return fail("잘못된 요청입니다.");
+  if (!file || !(file instanceof File) || file.size === 0) return fail("업로드할 파일을 선택해주세요.");
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const res = await runAction(() =>
+    saveSnsMediaAttachment(contentId, {
+      name: file.name,
+      buffer,
+      mime_type: file.type || "application/octet-stream",
+      size: file.size,
+    })
+  );
+  if (res.ok) revalidateAccount(accountId);
+  return res;
+}
+
+export async function deleteSnsMediaAction(
+  contentId: string,
+  attachmentId: string,
+  accountId: string
+): Promise<ActionResult<boolean>> {
+  if (!contentId || !attachmentId || !accountId) return fail("잘못된 요청입니다.");
+  const res = await runAction(() => deleteSnsMediaAttachment(contentId, attachmentId));
   if (res.ok) revalidateAccount(accountId);
   return res;
 }
@@ -199,4 +248,22 @@ export async function generateSnsAiPlanAction(data: {
     const fallback = Object.values(values).every((v) => v.startsWith("AI 제안 실패"));
     return { values, fallback };
   });
+}
+
+export async function regenerateSnsTokenAction(
+  accountId: string,
+  tokenType: SnsTokenType
+): Promise<ActionResult<SnsAccount>> {
+  const account = await getSnsAccountById(accountId);
+  if (!account) return fail("SNS 계정을 찾을 수 없습니다.");
+
+  const res = await runAction(async () => {
+    return await regenerateSnsToken(accountId, tokenType);
+  });
+  if (res.ok) {
+    revalidateAccount(accountId);
+    revalidatePath(`/sns-intake/${res.data.intake_token}`);
+    revalidatePath(`/sns-approval/${res.data.approval_token}`);
+  }
+  return res;
 }

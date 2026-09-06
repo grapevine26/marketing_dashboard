@@ -113,12 +113,12 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen flex flex-col md:flex-row font-sans antialiased transition-colors duration-200">
       {/* Mobile Top Header */}
-      <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-[#16171B]/95 backdrop-blur-md border-b border-[#22242A]">
+      <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-sidebar/95 backdrop-blur-md border-b border-border">
         <Link href="/" className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center font-bold text-white text-xs shadow-md shadow-purple-500/20">
             M
           </div>
-          <span className="font-bold text-zinc-100 text-sm tracking-tight">마케팅 올인원</span>
+          <span className="font-bold text-text text-sm tracking-tight">마케팅 올인원</span>
         </Link>
 
         <div className="flex items-center gap-2">
@@ -126,7 +126,7 @@ export default function DashboardLayout({
             type="button"
             aria-label="메뉴 열기"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-xl bg-[#191B20] border border-[#22242A] text-zinc-300 hover:text-white active:scale-95 transition"
+            className="p-2 rounded-xl bg-surface border border-border text-text-sub hover:text-text active:scale-95 transition"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -143,7 +143,7 @@ export default function DashboardLayout({
 
       {/* Sidebar Drawer */}
       <aside
-        className={`fixed md:sticky top-0 bottom-0 left-0 z-50 w-72 md:w-64 border-r border-[#22242A] bg-[#16171B] flex flex-col p-4 space-y-5 shrink-0 transition-transform duration-300 ease-in-out md:translate-x-0 ${
+        className={`fixed md:sticky top-0 bottom-0 left-0 z-50 w-72 md:w-64 border-r border-border bg-sidebar flex flex-col p-4 space-y-5 shrink-0 transition-transform duration-300 ease-in-out md:translate-x-0 ${
           mobileMenuOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"
         } h-screen overflow-y-auto`}
       >
@@ -154,7 +154,7 @@ export default function DashboardLayout({
               M
             </div>
             <div>
-              <span className="font-bold text-zinc-100 text-sm tracking-tight">마케팅 올인원</span>
+              <span className="font-bold text-text text-sm tracking-tight">마케팅 올인원</span>
             </div>
           </Link>
 
@@ -162,7 +162,7 @@ export default function DashboardLayout({
           <button
             type="button"
             onClick={closeMenu}
-            className="md:hidden p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#21232B]"
+            className="md:hidden p-1.5 rounded-lg text-text-muted hover:text-text hover:bg-surface2"
           >
             <X className="w-5 h-5" />
           </button>
@@ -172,7 +172,7 @@ export default function DashboardLayout({
         <nav className="flex-1 space-y-5">
           {navItems.map((group, gIdx) => (
             <div key={gIdx} className="space-y-1">
-              <div className="px-3 pb-1 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+              <div className="px-3 pb-1 text-[10px] font-bold text-text-muted uppercase tracking-wider">
                 {group.group}
               </div>
               {group.items.map((item, iIdx) => {
@@ -186,7 +186,7 @@ export default function DashboardLayout({
                     className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
                       active
                         ? "bg-purple-600/15 border border-purple-500/30 text-purple-400 shadow-sm"
-                        : "text-zinc-300 hover:text-white hover:bg-[#21232B]"
+                        : "text-text-sub hover:text-text hover:bg-surface2"
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -202,7 +202,7 @@ export default function DashboardLayout({
         </nav>
 
         {/* Theme Switcher Toggle at Bottom */}
-        <div className="pt-3 border-t border-[#22242A]">
+        <div className="pt-3 border-t border-border">
           <ThemeToggleButton />
         </div>
       </aside>

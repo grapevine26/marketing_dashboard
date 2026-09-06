@@ -78,17 +78,17 @@ export default function CalendarOverviewClient({
       )}
 
       {/* 1. Urgent */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-[#131418] border border-[#22242A] space-y-4 shadow-xl">
+      <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-border space-y-4 shadow-xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-amber-400" />
-            <h2 className="text-base font-bold text-zinc-100">임박 및 지연 일정 (D-3 ~ 지연)</h2>
+            <h2 className="text-base font-bold text-text">임박 및 지연 일정 (D-3 ~ 지연)</h2>
           </div>
-          <span className="text-xs text-zinc-400 font-medium font-mono tabular-nums">총 {urgentItems.length}건</span>
+          <span className="text-xs text-text-muted font-medium font-mono tabular-nums">총 {urgentItems.length}건</span>
         </div>
 
         {urgentItems.length === 0 ? (
-          <div className="p-8 text-center text-zinc-500 text-xs border border-dashed border-[#22242A] rounded-2xl bg-[#090A0C]">
+          <div className="p-8 text-center text-text-muted text-xs border border-dashed border-border rounded-2xl bg-bg">
             임박하거나 지연된 항목이 없습니다.
           </div>
         ) : (
@@ -102,7 +102,7 @@ export default function CalendarOverviewClient({
                     ? "bg-red-500/10 border-red-500/30 hover:border-red-500/60"
                     : item.daysDiff === 0
                     ? "bg-amber-500/10 border-amber-500/40 hover:border-amber-500/70"
-                    : "bg-[#090A0C] border-[#22242A] hover:border-zinc-700"
+                    : "bg-bg border-border hover:border-border"
                 }`}
               >
                 <div className="space-y-1">
@@ -112,14 +112,14 @@ export default function CalendarOverviewClient({
                       {ddayLabel(item.daysDiff)}
                     </span>
                   </div>
-                  <h3 className="text-xs font-bold text-zinc-100 group-hover:text-blue-400 transition truncate">{item.title}</h3>
-                  <div className="text-[11px] text-zinc-400 truncate">
+                  <h3 className="text-xs font-bold text-text group-hover:text-blue-400 transition truncate">{item.title}</h3>
+                  <div className="text-[11px] text-text-sub truncate">
                     {item.brandName} {item.extraInfo && `• ${item.extraInfo}`}
                   </div>
                 </div>
-                <div className="text-[10px] text-zinc-500 font-mono flex items-center justify-between pt-1 border-t border-[#22242A]">
+                <div className="text-[10px] text-text-muted font-mono flex items-center justify-between pt-1 border-t border-border">
                   <span>{item.dateStr}</span>
-                  <span className="text-zinc-400 group-hover:underline">상세보기 →</span>
+                  <span className="text-text-sub group-hover:underline">상세보기 →</span>
                 </div>
               </Link>
             ))}
@@ -128,36 +128,36 @@ export default function CalendarOverviewClient({
       </div>
 
       {/* 2. Month calendar */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-[#131418] border border-[#22242A] space-y-4 shadow-xl">
+      <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-border space-y-4 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <CalendarIcon className="w-5 h-5 text-indigo-400" />
-            <h2 className="text-base font-bold text-zinc-100">{year}년 {month}월 전체 마케팅 통합 일정</h2>
-            <span className="text-xs text-zinc-500 font-mono tabular-nums">({monthItems.length}건)</span>
+            <h2 className="text-base font-bold text-text">{year}년 {month}월 전체 마케팅 통합 일정</h2>
+            <span className="text-xs text-text-muted font-mono tabular-nums">({monthItems.length}건)</span>
           </div>
 
-          <div className="flex items-center gap-1 bg-[#090A0C] p-1 rounded-xl border border-[#22242A]">
-            <Link href={`/?month=${prevMonth}`} className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#181A20] transition" aria-label="이전 달">
+          <div className="flex items-center gap-1 bg-bg p-1 rounded-xl border border-border">
+            <Link href={`/?month=${prevMonth}`} className="p-1.5 rounded-lg text-text-muted hover:text-text hover:bg-surface2 transition" aria-label="이전 달">
               <ChevronLeft className="w-4 h-4" />
             </Link>
-            <span className="text-xs font-bold text-zinc-200 px-2 font-mono">{currentMonth}</span>
-            <Link href={`/?month=${nextMonth}`} className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#181A20] transition" aria-label="다음 달">
+            <span className="text-xs font-bold text-text px-2 font-mono">{currentMonth}</span>
+            <Link href={`/?month=${nextMonth}`} className="p-1.5 rounded-lg text-text-muted hover:text-text hover:bg-surface2 transition" aria-label="다음 달">
               <ChevronRight className="w-4 h-4" />
             </Link>
             {currentMonth !== todayMonth && (
-              <Link href="/" className="ml-1 px-2 py-1 rounded-lg text-[11px] text-indigo-300 hover:bg-[#181A20]">오늘</Link>
+              <Link href="/" className="ml-1 px-2 py-1 rounded-lg text-[11px] text-indigo-300 hover:bg-surface2">오늘</Link>
             )}
           </div>
         </div>
 
-        <div className="border border-[#22242A] rounded-2xl overflow-hidden bg-[#090A0C]">
-          <div className="grid grid-cols-7 text-center text-xs font-bold text-zinc-400 border-b border-[#22242A] bg-[#131418] py-2.5">
+        <div className="border border-border rounded-2xl overflow-hidden bg-bg">
+          <div className="grid grid-cols-7 text-center text-xs font-bold text-text-muted border-b border-border bg-surface py-2.5">
             <div className="text-red-400">일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div className="text-blue-400">토</div>
           </div>
 
-          <div className="grid grid-cols-7 divide-x divide-y divide-[#22242A]">
+          <div className="grid grid-cols-7 divide-x divide-y divide-border">
             {Array.from({ length: leadingBlanks }).map((_, idx) => (
-              <div key={`blank-${idx}`} className="h-24 sm:h-28 bg-[#090A0C]/40" />
+              <div key={`blank-${idx}`} className="h-24 sm:h-28 bg-bg/40" />
             ))}
 
             {cells.map((cell) => {
@@ -168,11 +168,11 @@ export default function CalendarOverviewClient({
                   key={cell.dateStr}
                   onClick={() => setSelectedDay(cell.dateStr)}
                   className={`h-24 sm:h-28 p-1.5 sm:p-2 flex flex-col justify-between cursor-pointer transition ${
-                    isSelected ? "bg-indigo-950/30 ring-2 ring-inset ring-indigo-500/50" : cell.isToday ? "bg-indigo-950/15" : "hover:bg-[#181A20]"
+                    isSelected ? "bg-indigo-950/30 ring-2 ring-inset ring-indigo-500/50" : cell.isToday ? "bg-indigo-950/15" : "hover:bg-surface2"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className={`text-xs font-mono font-bold ${cell.isToday ? "text-indigo-300 underline underline-offset-2" : "text-zinc-300"}`}>
+                    <span className={`text-xs font-mono font-bold ${cell.isToday ? "text-indigo-300 underline underline-offset-2" : "text-text-sub"}`}>
                       {cell.dayNum}
                     </span>
                     {items.length > 0 && (
@@ -188,7 +188,7 @@ export default function CalendarOverviewClient({
                           key={item.id}
                           href={item.linkUrl}
                           onClick={(e) => e.stopPropagation()}
-                          className={`block truncate text-[10px] px-1.5 py-0.5 rounded border border-[#22242A] text-zinc-200 font-medium hover:border-indigo-500/50 ${tone}`}
+                          className={`block truncate text-[10px] px-1.5 py-0.5 rounded border border-border text-text font-medium hover:border-indigo-500/50 ${tone}`}
                           title={item.title}
                         >
                           {item.title}
@@ -196,7 +196,7 @@ export default function CalendarOverviewClient({
                       );
                     })}
                     {items.length > MAX_PER_CELL && (
-                      <div className="text-[9px] text-zinc-500 font-mono pl-1">+{items.length - MAX_PER_CELL}건 더보기</div>
+                      <div className="text-[9px] text-text-muted font-mono pl-1">+{items.length - MAX_PER_CELL}건 더보기</div>
                     )}
                   </div>
                 </div>
@@ -205,7 +205,7 @@ export default function CalendarOverviewClient({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-[10px] text-zinc-500">
+        <div className="flex flex-wrap items-center gap-2 text-[10px] text-text-muted">
           <span>범례:</span>
           {(Object.keys(SOURCE_BADGE) as UnifiedCalendarItem["source"][]).map((s) => <SourceBadge key={s} source={s} />)}
         </div>
@@ -214,33 +214,33 @@ export default function CalendarOverviewClient({
       {/* Day modal */}
       {selectedDay && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4" onClick={() => setSelectedDay(null)}>
-          <div className="w-full max-w-lg bg-[#131418] border border-[#22242A] rounded-3xl p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col font-sans" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between pb-2 border-b border-[#22242A]">
+          <div className="w-full max-w-lg bg-surface border border-border rounded-3xl p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col font-sans" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between pb-2 border-b border-border">
               <div>
-                <h3 className="text-base font-bold text-zinc-100 font-mono">{selectedDay} 전체 일정</h3>
-                <p className="text-xs text-zinc-400">해당 날짜에 예정된 마케팅 업무 목록입니다.</p>
+                <h3 className="text-base font-bold text-text font-mono">{selectedDay} 전체 일정</h3>
+                <p className="text-xs text-text-muted">해당 날짜에 예정된 마케팅 업무 목록입니다.</p>
               </div>
-              <button type="button" onClick={() => setSelectedDay(null)} className="text-zinc-400 hover:text-white p-1" aria-label="닫기">
+              <button type="button" onClick={() => setSelectedDay(null)} className="text-text-muted hover:text-text p-1" aria-label="닫기">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
               {selectedDayItems.length === 0 ? (
-                <div className="p-8 text-center text-zinc-500 text-xs">이 날짜에 등록된 일정이 없습니다.</div>
+                <div className="p-8 text-center text-text-muted text-xs">이 날짜에 등록된 일정이 없습니다.</div>
               ) : (
                 selectedDayItems.map((item) => (
-                  <Link key={item.id} href={item.linkUrl} className="p-3.5 rounded-2xl bg-[#090A0C] border border-[#22242A] hover:border-indigo-500/40 transition flex items-center justify-between gap-3 group block">
+                  <Link key={item.id} href={item.linkUrl} className="p-3.5 rounded-2xl bg-bg border border-border hover:border-indigo-500/40 transition flex items-center justify-between gap-3 group block">
                     <div className="space-y-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <SourceBadge source={item.source} />
-                        <span className="text-xs font-bold text-zinc-100 truncate group-hover:text-indigo-400">{item.title}</span>
+                        <span className="text-xs font-bold text-text truncate group-hover:text-indigo-400">{item.title}</span>
                       </div>
-                      <div className="text-[11px] text-zinc-400">
+                      <div className="text-[11px] text-text-muted">
                         {item.brandName} {item.extraInfo && `• ${item.extraInfo}`} · <span className="font-mono">{ddayLabel(item.daysDiff)}</span>
                       </div>
                     </div>
-                    <ExternalLink className="w-4 h-4 text-zinc-500 group-hover:text-indigo-400 shrink-0" />
+                    <ExternalLink className="w-4 h-4 text-text-muted group-hover:text-indigo-400 shrink-0" />
                   </Link>
                 ))
               )}

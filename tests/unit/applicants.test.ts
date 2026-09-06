@@ -48,4 +48,24 @@ describe("지원자 CSV", () => {
     expect(masked).not.toContain("010-0000-0000");
     expect(masked).not.toContain("연락처");
   });
+
+  it("팔로워 수, 카테고리, 에이전시 메모가 CSV에 올바르게 포함되고 비공개 시 메모가 제외된다", () => {
+    const list = [
+      app({
+        id: "1",
+        follower_count: 52000,
+        category: "뷰티/스킨케어",
+        agency_memo: "원고료 10만원 협의 필요",
+      }),
+    ];
+    const full = applicantsToCSV(list);
+    expect(full).toContain('"52000"');
+    expect(full).toContain('"뷰티/스킨케어"');
+    expect(full).toContain('"원고료 10만원 협의 필요"');
+
+    const masked = applicantsToCSV(list, [], { includeContact: false });
+    expect(masked).toContain('"52000"');
+    expect(masked).toContain('"뷰티/스킨케어"');
+    expect(masked).not.toContain("원고료 10만원 협의 필요");
+  });
 });

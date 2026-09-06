@@ -3,6 +3,19 @@
 @theme {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", "Apple SD Gothic Neo", Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* 시맨틱 디자인 토큰 (CSS 변수 연동) */
+  --color-bg: var(--bg-page);
+  --color-surface: var(--bg-card);
+  --color-surface2: var(--bg-subcard);
+  --color-sidebar: var(--bg-sidebar);
+  --color-border: var(--border-color);
+  --color-text: var(--text-main);
+  --color-text-sub: var(--text-sub);
+  --color-text-muted: var(--text-muted);
+  --color-textMuted: var(--text-muted);
+  --color-accent: #FF6A3D;
+  --color-accent2: #35D0BA;
 }
 
 :root {

@@ -16,6 +16,11 @@ import {
   saveFormConfig,
   createEvent,
   addDirectEventInvitee,
+  getCampaignById,
+  deleteCampaign,
+  deleteSnsAccount,
+  updateCampaignMessageTemplates,
+  updateApplicantAgencyMemo,
   ValidationError,
   mutateDb,
 } from "@/lib/db";
@@ -227,5 +232,86 @@ describe("행사", () => {
     // 캐시 객체가 변이되었을 수 있으므로 파일에서 다시 읽는다
     (globalThis as unknown as { _marketingDbCache?: unknown })._marketingDbCache = undefined;
     expect((await readDb()).campaigns.length).toBe(before);
+  });
+});
+
+describe("Phase 1: 캠페인/SNS 삭제 및 메모/템플릿", () => {
+  it("deleteCampaign은 캠페인 및 지원자, 관리시트, 폼설정, 행사를 연쇄 삭제한다", async () => {
+    const { camp, app } = await seedCampaign();
+    await updateApplicantStatus(app.id, "selected", "agency");
+    const ev = await createEvent({ campaign_id: camp.id, name: "팝업", event_at: null, venue: null, memo: null });
+    await addDirectEventInvitee({ event_id: ev.id, name: "초대자", sns_url: null, contact: null, memo: null });
+
+    const beforeDb = await readDb();
+    expect(beforeDb.campaigns.some((c) => c.id === camp.id)).toBe(true);
+    expect(beforeDb.applicants.some((a) => a.campaign_id === camp.id)).toBe(true);
+    expect(beforeDb.seeding_records.some((s) => s.campaign_id === camp.id)).toBe(true);
+    expect(beforeDb.events.some((e) => e.campaign_id === camp.id)).toBe(true);
+
+    const deleted = await deleteCampaign(camp.id);
+    expect(deleted).toBe(true);
+
+    const afterDb = await readDb();
+    expect(afterDb.campaigns.some((c) => c.id === camp.id)).toBe(false);
+    expect(afterDb.applicants.some((a) => a.campaign_id === camp.id)).toBe(false);
+    expect(afterDb.seeding_records.some((s) => s.campaign_id === camp.id)).toBe(false);
+    expect(afterDb.form_configs.some((f) => f.campaign_id === camp.id)).toBe(false);
+    expect(afterDb.events.some((e) => e.campaign_id === camp.id)).toBe(false);
+    expect(afterDb.event_invitees.some((i) => i.event_id === ev.id)).toBe(false);
+  });
+
+  it("deleteSnsAccount는 SNS 계정과 콘텐츠, 기획안, 사전설문 응답을 연쇄 삭제한다", async () => {
+    const acc = await createSnsAccount({
+      company_name: "삭제테스트브랜드",
+      platform: "instagram",
+      handle: "delete_test",
+      starts_on: null,
+      ends_on: null,
+    });
+    await createSnsContent({
+      account_id: acc.id,
+      title: "콘텐츠 1",
+      scheduled_on: null,
+      assignee: null,
+      caption: null,
+      hashtags: null,
+      media_note: null,
+    });
+
+    const beforeDb = await readDb();
+    expect(beforeDb.sns_accounts.some((a) => a.id === acc.id)).toBe(true);
+    expect(beforeDb.sns_contents.some((c) => c.account_id === acc.id)).toBe(true);
+
+    const deleted = await deleteSnsAccount(acc.id);
+    expect(deleted).toBe(true);
+
+    const afterDb = await readDb();
+    expect(afterDb.sns_accounts.some((a) => a.id === acc.id)).toBe(false);
+    expect(afterDb.sns_contents.some((c) => c.account_id === acc.id)).toBe(false);
+    expect(afterDb.sns_plans.some((p) => p.account_id === acc.id)).toBe(false);
+    expect(afterDb.sns_intake_responses.some((r) => r.account_id === acc.id)).toBe(false);
+  });
+
+  it("updateCampaignMessageTemplates는 템플릿 문구를 저장하고 갱신한다", async () => {
+    const { camp } = await seedCampaign();
+    const tmpls = {
+      selected: "축하합니다 {{이름}}님!",
+      guideline: "가이드라인입니다: {{가이드링크}}",
+    };
+    const updated = await updateCampaignMessageTemplates(camp.id, tmpls);
+    expect(updated?.message_templates?.selected).toBe("축하합니다 {{이름}}님!");
+    expect(updated?.message_templates?.guideline).toBe("가이드라인입니다: {{가이드링크}}");
+
+    const fetched = await getCampaignById(camp.id);
+    expect(fetched?.message_templates?.selected).toBe("축하합니다 {{이름}}님!");
+  });
+
+  it("updateApplicantAgencyMemo는 에이전시 관리 메모를 저장하고 수정한다", async () => {
+    const { app } = await seedCampaign();
+    const updated = await updateApplicantAgencyMemo(app.id, "중요 인플루언서: 협의 완료");
+    expect(updated?.agency_memo).toBe("중요 인플루언서: 협의 완료");
+
+    const cleared = await updateApplicantAgencyMemo(app.id, null);
+    expect(cleared?.agency_memo).toBeUndefined();
   });
 });
