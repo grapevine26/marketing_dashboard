@@ -1,6 +1,16 @@
-import fs from "fs";
 import path from "path";
-import os from "os";
+import {
+  readDoc,
+  writeDoc,
+  putFile,
+  findFileKeyByPrefix,
+  deleteFilesByPrefixes,
+  writeBackupIfDue,
+  listBackups as listStorageBackups,
+  isBlobBackend,
+  getDbFilePath,
+  ConcurrentWriteError,
+} from "./storage";
 import {
   Campaign,
   CampaignStatus,
@@ -54,31 +64,11 @@ export class ValidationError extends Error {
   }
 }
 
-function getDbFilePath(): string {
-  if (process.env.DB_FILE) return path.resolve(process.env.DB_FILE);
-  if (process.env.VERCEL) {
-    return path.join(os.tmpdir(), "marketing_db.json");
-  }
-  return path.join(process.cwd(), ".data", "db.json");
-}
+export { getUploadsDirPath, getBackupDirPath } from "./storage";
 
-export function getUploadsDirPath(): string {
-  if (process.env.UPLOADS_DIR) return path.resolve(process.env.UPLOADS_DIR);
-  if (process.env.DB_FILE) {
-    return path.join(path.dirname(path.resolve(process.env.DB_FILE)), "uploads");
-  }
-  if (process.env.VERCEL) {
-    return path.join(os.tmpdir(), "marketing_uploads");
-  }
-  return path.join(process.cwd(), ".data", "uploads");
-}
-
-function ensureUploadsDir(): string {
-  const dir = getUploadsDirPath();
-  if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) {
-    fs.mkdirSync(/*turbopackIgnore: true*/ dir, { recursive: true });
-  }
-  return dir;
+/** 백업 목록. 복원 스크립트와 설정 화면에서 쓴다. */
+export async function listBackups() {
+  return listStorageBackups();
 }
 
 interface DatabaseSchema {
@@ -103,9 +93,12 @@ interface DatabaseSchema {
 }
 
 interface CacheEntry {
+  /** 백엔드 식별자. 파일이면 경로, Blob 이면 "blob". */
   filePath: string;
   data: DatabaseSchema;
-  mtimeMs: number;
+  /** 조건부 쓰기에 쓰는 버전 (Blob 은 ETag, 파일은 mtime). */
+  version: string | null;
+  readAt: number;
 }
 
 declare global {
@@ -128,17 +121,6 @@ const BUILTIN_TEMPLATES: Record<string, { kind: PptTemplate["kind"]; name: strin
   [BUILTIN_SNS_TEMPLATE_ID]: { kind: "sns", name: "기본 SNS 공식 채널 운영 제안서 템플릿", placeholders: BUILTIN_SNS_PLACEHOLDERS },
   [BUILTIN_REPORT_TEMPLATE_ID]: { kind: "report", name: "기본 시딩 결과보고서 템플릿", placeholders: BUILTIN_REPORT_PLACEHOLDERS },
 };
-
-function ensureDataDir(filePath: string) {
-  try {
-    const dir = path.dirname(filePath);
-    if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) {
-      fs.mkdirSync(/*turbopackIgnore: true*/ dir, { recursive: true });
-    }
-  } catch (err) {
-    console.warn("Could not create data directory, using in-memory mode:", err);
-  }
-}
 
 function nowIso() {
   return new Date().toISOString();
@@ -522,93 +504,73 @@ function migrateDb(db: DatabaseSchema) {
 const BACKUP_INTERVAL_MS = 10 * 60 * 1000;
 const BACKUP_KEEP = 48;
 
-export function getBackupDirPath(): string {
-  if (process.env.DB_BACKUP_DIR) return path.resolve(process.env.DB_BACKUP_DIR);
-  return path.join(path.dirname(getDbFilePath()), "backups");
-}
+/**
+ * 캐시 정책.
+ * - 한 번의 페이지 렌더에서 getter 가 여러 번 불려도 저장소를 한 번만 읽도록 아주 짧게 캐시한다.
+ * - 쓰기가 일어나면 캐시를 방금 쓴 내용으로 즉시 갱신하므로, 같은 요청 안에서 바로 다시 읽어도 최신이다.
+ * - 인스턴스가 여러 개여도 최대 이 시간만큼만 늦게 반영된다. (예전처럼 영구히 갈리지 않는다.)
+ */
+const CACHE_TTL_MS = 1000;
 
-function rotateBackup(filePath: string) {
-  try {
-    if (!fs.existsSync(/*turbopackIgnore: true*/ filePath)) return;
-    const dir = getBackupDirPath();
-    if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) fs.mkdirSync(/*turbopackIgnore: true*/ dir, { recursive: true });
-    const files = fs.readdirSync(/*turbopackIgnore: true*/ dir).filter((f) => /^db-\d{8}-\d{6}\.json$/.test(f)).sort();
-    const latest = files[files.length - 1];
-    if (latest) {
-      const latestMtime = fs.statSync(/*turbopackIgnore: true*/ path.join(dir, latest)).mtimeMs;
-      if (Date.now() - latestMtime < BACKUP_INTERVAL_MS) return;
-    }
-    const d = new Date();
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-    fs.copyFileSync(/*turbopackIgnore: true*/ filePath, path.join(dir, `db-${stamp}.json`));
-    const all = [...files, `db-${stamp}.json`].sort();
-    for (const old of all.slice(0, Math.max(0, all.length - BACKUP_KEEP))) {
-      try { fs.unlinkSync(/*turbopackIgnore: true*/ path.join(dir, old)); } catch { /* ignore */ }
-    }
-  } catch (err) {
-    console.warn("DB backup skipped:", err);
+/** 저장소에서 문서를 읽어 파싱한다. 없으면 초기 데이터를 만들어 저장한다. */
+async function loadDoc(): Promise<{ data: DatabaseSchema; version: string | null }> {
+  const snap = await readDoc();
+  if (snap) {
+    const parsed = JSON.parse(snap.text) as DatabaseSchema;
+    migrateDb(parsed);
+    return { data: parsed, version: snap.version };
   }
+  const initial = getInitialData();
+  const version = await persist(initial, null);
+  return { data: initial, version };
 }
 
-export function listBackups(): { file: string; size: number; created_at: string }[] {
-  const dir = getBackupDirPath();
-  if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) return [];
-  return fs.readdirSync(/*turbopackIgnore: true*/ dir)
-    .filter((f) => /^db-\d{8}-\d{6}\.json$/.test(f))
-    .sort()
-    .reverse()
-    .map((f) => {
-      const st = fs.statSync(/*turbopackIgnore: true*/ path.join(dir, f));
-      return { file: f, size: st.size, created_at: st.mtime.toISOString() };
-    });
+function cacheKey(): string {
+  return isBlobBackend() ? "blob" : getDbFilePath();
 }
 
-async function persist(data: DatabaseSchema): Promise<void> {
-  const filePath = getDbFilePath();
-  ensureDataDir(filePath);
-  let mtimeMs = Date.now();
-  try {
-    rotateBackup(filePath);
-    const tmp = `${filePath}.${process.pid}.tmp`;
-    fs.writeFileSync(/*turbopackIgnore: true*/ tmp, JSON.stringify(data, null, 2), "utf-8");
-    fs.renameSync(/*turbopackIgnore: true*/ tmp, filePath);
-    mtimeMs = fs.statSync(/*turbopackIgnore: true*/ filePath).mtimeMs;
-  } catch (err) {
-    console.warn("Could not persist DB to disk (running in-memory):", err);
-  }
-  globalThis._marketingDbCache = { filePath, data, mtimeMs };
+function putCache(data: DatabaseSchema, version: string | null) {
+  globalThis._marketingDbCache = { filePath: cacheKey(), data, version, readAt: Date.now() };
 }
 
 export async function readDb(): Promise<DatabaseSchema> {
-  const filePath = getDbFilePath();
   const cached = globalThis._marketingDbCache;
-
-  try {
-    if (fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
-      const mtimeMs = fs.statSync(/*turbopackIgnore: true*/ filePath).mtimeMs;
-      if (cached && cached.filePath === filePath && cached.mtimeMs === mtimeMs) {
-        return cached.data;
-      }
-      const parsed = JSON.parse(fs.readFileSync(/*turbopackIgnore: true*/ filePath, "utf-8")) as DatabaseSchema;
-      migrateDb(parsed);
-      globalThis._marketingDbCache = { filePath, data: parsed, mtimeMs };
-      return parsed;
-    }
-  } catch (err) {
-    console.warn("Could not read DB file, fallback to cache or initial:", err);
-  }
-
-  if (cached && cached.filePath === filePath) {
+  if (cached && cached.filePath === cacheKey() && Date.now() - cached.readAt < CACHE_TTL_MS) {
     return cached.data;
   }
-
-  const initial = getInitialData();
-  await persist(initial);
-  return initial;
+  try {
+    const { data, version } = await loadDoc();
+    putCache(data, version);
+    return data;
+  } catch (err) {
+    console.warn("Could not read DB, falling back to cache or initial:", err);
+    if (cached && cached.filePath === cacheKey()) return cached.data;
+    return getInitialData();
+  }
 }
 
-/** 쓰기 트랜잭션. 직렬화되어 동시에 하나만 실행된다. */
+/**
+ * 문서를 저장한다. expectedVersion 을 주면 그 사이 다른 곳에서 바뀌지 않았을 때만 쓴다.
+ * 백업은 실패해도 저장 자체는 막지 않는다.
+ */
+async function persist(data: DatabaseSchema, expectedVersion: string | null = null): Promise<string | null> {
+  const text = JSON.stringify(data, null, 2);
+  const version = await writeDoc(text, expectedVersion);
+  putCache(data, version);
+  try {
+    await writeBackupIfDue(text, BACKUP_INTERVAL_MS, BACKUP_KEEP);
+  } catch (err) {
+    console.warn("DB backup skipped:", err);
+  }
+  return version;
+}
+
+/**
+ * 쓰기 트랜잭션.
+ * - 같은 인스턴스 안에서는 잠금으로 직렬화한다.
+ * - 인스턴스가 여러 개인 배포에서는 ETag 낙관적 잠금으로 막는다. 그 사이 남이 저장했으면
+ *   최신 문서를 다시 읽어 변경을 다시 적용한다. (덮어써서 남의 작업을 날리지 않는다.)
+ */
 export async function mutateDb<T>(fn: (db: DatabaseSchema) => T | Promise<T>): Promise<T> {
   const prev = globalThis._marketingDbLock ?? Promise.resolve();
   let release!: () => void;
@@ -618,10 +580,24 @@ export async function mutateDb<T>(fn: (db: DatabaseSchema) => T | Promise<T>): P
   globalThis._marketingDbLock = prev.then(() => mine);
   await prev;
   try {
-    const db = await readDb();
-    const result = await fn(db);
-    await persist(db);
-    return result;
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const { data, version } = await loadDoc();
+      const result = await fn(data);
+      try {
+        await persist(data, version);
+        return result;
+      } catch (err) {
+        if (err instanceof ConcurrentWriteError) {
+          lastError = err;
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw lastError instanceof Error
+      ? new Error("다른 사용자의 저장과 계속 충돌했습니다. 잠시 후 다시 시도해주세요.")
+      : lastError;
   } finally {
     release();
   }
@@ -1885,9 +1861,9 @@ export async function regenerateSnsToken(
 }
 
 export async function deleteSnsAccount(id: string): Promise<boolean> {
-  return mutateDb((db) => {
+  const removedMedia = await mutateDb<string[] | null>((db) => {
     const idx = db.sns_accounts.findIndex((a) => a.id === id);
-    if (idx < 0) return false;
+    if (idx < 0) return null;
     const target = db.sns_accounts[idx];
     appendAuditLog(db, {
       account_id: id,
@@ -1899,31 +1875,20 @@ export async function deleteSnsAccount(id: string): Promise<boolean> {
     });
     db.sns_accounts.splice(idx, 1);
 
-    const removedContents = db.sns_contents.filter((c) => c.account_id === id);
-    const uploadsDir = getUploadsDirPath();
-    if (fs.existsSync(/*turbopackIgnore: true*/ uploadsDir)) {
-      try {
-        const files = fs.readdirSync(/*turbopackIgnore: true*/ uploadsDir);
-        for (const c of removedContents) {
-          if (c.media_attachments) {
-            for (const att of c.media_attachments) {
-              for (const file of files) {
-                if (file.startsWith(att.id)) {
-                  try { fs.unlinkSync(path.join(/*turbopackIgnore: true*/ uploadsDir, file)); } catch {}
-                }
-              }
-            }
-          }
-        }
-      } catch {}
-    }
+    const orphanedMedia = db.sns_contents
+      .filter((c) => c.account_id === id)
+      .flatMap((c) => c.media_attachments?.map((att) => att.id) ?? []);
 
     db.sns_contents = db.sns_contents.filter((c) => c.account_id !== id);
     db.sns_plans = db.sns_plans.filter((p) => p.account_id !== id);
     db.sns_intake_responses = db.sns_intake_responses.filter((r) => r.account_id !== id);
 
-    return true;
+    return orphanedMedia;
   });
+
+  if (removedMedia === null) return false;
+  await purgeMedia(removedMedia);
+  return true;
 }
 
 export async function getSnsIntakeTemplate(): Promise<SnsIntakeTemplate> {
@@ -2123,27 +2088,29 @@ export async function updateSnsContent(id: string, patch: SnsContentPatch): Prom
 }
 
 export async function deleteSnsContent(id: string): Promise<boolean> {
-  return mutateDb((db) => {
+  const removedMedia = await mutateDb<string[] | null>((db) => {
     const idx = db.sns_contents.findIndex((c) => c.id === id);
-    if (idx < 0) return false;
+    if (idx < 0) return null;
     const [removed] = db.sns_contents.splice(idx, 1);
-    if (removed.media_attachments && removed.media_attachments.length > 0) {
-      const uploadsDir = getUploadsDirPath();
-      if (fs.existsSync(/*turbopackIgnore: true*/ uploadsDir)) {
-        try {
-          const files = fs.readdirSync(/*turbopackIgnore: true*/ uploadsDir);
-          for (const att of removed.media_attachments) {
-            for (const file of files) {
-              if (file.startsWith(att.id)) {
-                try { fs.unlinkSync(path.join(/*turbopackIgnore: true*/ uploadsDir, file)); } catch {}
-              }
-            }
-          }
-        } catch {}
-      }
-    }
-    return true;
+    return removed.media_attachments?.map((att) => att.id) ?? [];
   });
+
+  if (removedMedia === null) return false;
+  await purgeMedia(removedMedia);
+  return true;
+}
+
+/**
+ * 저장소에서 첨부 파일을 지운다.
+ * DB 커밋이 끝난 뒤에 부른다. 파일 삭제가 실패해도 DB는 이미 정합하므로 경고만 남긴다.
+ */
+async function purgeMedia(attachmentIds: string[]): Promise<void> {
+  if (attachmentIds.length === 0) return;
+  try {
+    await deleteFilesByPrefixes(attachmentIds);
+  } catch (err) {
+    console.warn("[storage] 첨부 파일 삭제 실패 (DB는 정상 반영됨):", err);
+  }
 }
 
 /** 파일 시그니처(매직 바이트) 검사. 브라우저가 준 MIME과 실제 내용이 일치하는지 본다. */
@@ -2203,13 +2170,11 @@ export async function saveSnsMediaAttachment(
     throw new ValidationError("파일 내용이 확장자와 다릅니다. 실제 이미지/영상 파일만 업로드할 수 있습니다.");
   }
 
-  const uploadsDir = ensureUploadsDir();
   const attachmentId = crypto.randomUUID();
   const safeName = sanitizeFileName(file.name) || `attachment_${attachmentId}${ext}`;
   const storedFilename = `${attachmentId}${ext}`;
-  const targetPath = path.join(/*turbopackIgnore: true*/ uploadsDir, storedFilename);
 
-  fs.writeFileSync(/*turbopackIgnore: true*/ targetPath, file.buffer);
+  await putFile(storedFilename, file.buffer, mime);
 
   const attachment: SnsMediaAttachment = {
     id: attachmentId,
@@ -2223,7 +2188,8 @@ export async function saveSnsMediaAttachment(
   return mutateDb((db) => {
     const content = db.sns_contents.find((c) => c.id === contentId);
     if (!content) {
-      try { fs.unlinkSync(/*turbopackIgnore: true*/ targetPath); } catch {}
+      // 저장은 이미 끝났으니 고아 파일을 치운다. 실패해도 업로드 오류를 가리지 않는다.
+      void purgeMedia([attachmentId]);
       throw new ValidationError("콘텐츠를 찾을 수 없습니다.");
     }
     if (!content.media_attachments) {
@@ -2248,7 +2214,7 @@ export async function deleteSnsMediaAttachment(
   contentId: string,
   attachmentId: string
 ): Promise<boolean> {
-  return mutateDb((db) => {
+  const removed = await mutateDb<boolean>((db) => {
     const content = db.sns_contents.find((c) => c.id === contentId);
     if (!content || !content.media_attachments) return false;
 
@@ -2256,20 +2222,6 @@ export async function deleteSnsMediaAttachment(
     if (idx < 0) return false;
 
     const [deleted] = content.media_attachments.splice(idx, 1);
-
-    const uploadsDir = getUploadsDirPath();
-    if (fs.existsSync(/*turbopackIgnore: true*/ uploadsDir)) {
-      try {
-        const files = fs.readdirSync(/*turbopackIgnore: true*/ uploadsDir);
-        for (const file of files) {
-          if (file.startsWith(attachmentId)) {
-            try { fs.unlinkSync(path.join(/*turbopackIgnore: true*/ uploadsDir, file)); } catch {}
-          }
-        }
-      } catch (err) {
-        console.warn("Failed to delete media file from disk:", err);
-      }
-    }
 
     appendAuditLog(db, {
       account_id: content.account_id,
@@ -2282,30 +2234,22 @@ export async function deleteSnsMediaAttachment(
 
     return true;
   });
+
+  if (!removed) return false;
+  await purgeMedia([attachmentId]);
+  return true;
 }
 
 export async function getSnsMediaAttachmentById(
   attachmentId: string
-): Promise<{ attachment: SnsMediaAttachment; filePath: string; accountId: string } | null> {
+): Promise<{ attachment: SnsMediaAttachment; storageKey: string; accountId: string } | null> {
   const db = await readDb();
   for (const content of db.sns_contents) {
-    if (content.media_attachments) {
-      const att = content.media_attachments.find((m) => m.id === attachmentId);
-      if (att) {
-        const uploadsDir = getUploadsDirPath();
-        if (fs.existsSync(/*turbopackIgnore: true*/ uploadsDir)) {
-          const files = fs.readdirSync(/*turbopackIgnore: true*/ uploadsDir);
-          const foundFile = files.find((f) => f.startsWith(attachmentId));
-          if (foundFile) {
-            return {
-              attachment: att,
-              filePath: path.join(/*turbopackIgnore: true*/ uploadsDir, foundFile),
-              accountId: content.account_id,
-            };
-          }
-        }
-      }
-    }
+    const att = content.media_attachments?.find((m) => m.id === attachmentId);
+    if (!att) continue;
+    const storageKey = await findFileKeyByPrefix(attachmentId);
+    if (!storageKey) return null;
+    return { attachment: att, storageKey, accountId: content.account_id };
   }
   return null;
 }

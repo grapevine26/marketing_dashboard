@@ -75,7 +75,7 @@ describe("DB 백업", () => {
     await createCampaign({ name: "b2", company_name: "b", campaign_type: "shipping" });
     const dir = getBackupDirPath();
     expect(fs.existsSync(dir)).toBe(true);
-    const backups = listBackups();
+    const backups = await listBackups();
     expect(backups.length).toBeGreaterThanOrEqual(1);
     expect(backups[0].file).toMatch(/^db-\d{8}-\d{6}\.json$/);
     const parsed = JSON.parse(fs.readFileSync(path.join(dir, backups[0].file), "utf-8"));
