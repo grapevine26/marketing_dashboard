@@ -7,6 +7,7 @@ import {
   getAllSnsContents,
   getApplicantsByCampaignId,
 } from "@/lib/db";
+import { CAMPAIGN_STATUS_LABELS, type CampaignType } from "@/lib/db/types";
 import { daysUntilDeadline, isoToKstDateString } from "@/lib/seeding/dday";
 
 export type OverviewSource = "seeding" | "event" | "event_checklist" | "sns";
@@ -152,4 +153,74 @@ export async function collectOverviewItems(todayKst: string): Promise<OverviewDa
 
   items.sort((a, b) => a.daysDiff - b.daysDiff || a.dateStr.localeCompare(b.dateStr));
   return { items, failedSources };
+}
+
+export interface HomeCampaignSummary {
+  id: string;
+  name: string;
+  companyName: string;
+  campaignType: CampaignType;
+  statusLabel: string;
+  applicantCount: number;
+  selectedCount: number;
+}
+
+export interface HomeSummary {
+  activeCampaignCount: number;
+  newApplicantsThisMonth: number;
+  totalSelectedCount: number;
+  /** 최근 생성된 진행중(모집중~보고서 작성) 캠페인 최대 3개. 홈 화면 카드 목록용. */
+  activeCampaigns: HomeCampaignSummary[];
+}
+
+/**
+ * 홈 화면 상단 요약 통계 + 진행중인 캠페인 카드 목록.
+ * 캠페인이 삭제되어도 조용히 제외되며, 지원자 조회 실패는 해당 캠페인만 0으로 집계한다.
+ */
+export async function collectHomeSummary(todayKst: string): Promise<HomeSummary> {
+  const campaigns = await getCampaigns();
+  const currentYm = todayKst.slice(0, 7);
+
+  const perCampaign = await Promise.all(
+    campaigns.map(async (campaign) => {
+      try {
+        const applicants = await getApplicantsByCampaignId(campaign.id);
+        return { campaign, applicants };
+      } catch {
+        return { campaign, applicants: [] };
+      }
+    })
+  );
+
+  let newApplicantsThisMonth = 0;
+  let totalSelectedCount = 0;
+  for (const { applicants } of perCampaign) {
+    for (const a of applicants) {
+      if (a.applied_at?.startsWith(currentYm)) newApplicantsThisMonth++;
+      if (a.status === "selected") totalSelectedCount++;
+    }
+  }
+
+  const isActive = (status: string) => status !== "draft" && status !== "completed";
+
+  const activeCampaigns: HomeCampaignSummary[] = perCampaign
+    .filter(({ campaign }) => isActive(campaign.status))
+    .sort((a, b) => b.campaign.created_at.localeCompare(a.campaign.created_at))
+    .slice(0, 3)
+    .map(({ campaign, applicants }) => ({
+      id: campaign.id,
+      name: campaign.name,
+      companyName: campaign.company_name,
+      campaignType: campaign.campaign_type,
+      statusLabel: CAMPAIGN_STATUS_LABELS[campaign.status],
+      applicantCount: applicants.length,
+      selectedCount: applicants.filter((a) => a.status === "selected").length,
+    }));
+
+  return {
+    activeCampaignCount: campaigns.filter((c) => isActive(c.status)).length,
+    newApplicantsThisMonth,
+    totalSelectedCount,
+    activeCampaigns,
+  };
 }
