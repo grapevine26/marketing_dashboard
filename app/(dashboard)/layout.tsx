@@ -71,7 +71,7 @@ export default function DashboardLayout({
           color: "text-text-sub",
         },
         {
-          name: "SNS 사전설문 기본틀",
+          name: "SNS 사전설문 기본 템플릿",
           href: "/settings/sns-intake",
           icon: Sliders,
           color: "text-accent2",

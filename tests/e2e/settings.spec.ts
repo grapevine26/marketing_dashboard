@@ -15,10 +15,10 @@ test.describe("설정 화면", () => {
     await expect(page.locator("input[placeholder*='핵심 특징은 무엇인가요']").first()).toHaveValue(`${original} (E2E)`);
   });
 
-  test("SNS 사전설문 질문틀: 질문을 비우면 저장이 거부된다", async ({ page }) => {
+  test("SNS 사전설문 기본 템플릿: 질문을 비우면 저장이 거부된다", async ({ page }) => {
     await page.goto("/settings/sns-intake");
-    await page.getByRole("button", { name: "질문 추가" }).click();
-    await page.getByRole("button", { name: "저장하기" }).click();
+    await page.getByRole("button", { name: "새 질문 문항 추가" }).click();
+    await page.getByRole("button", { name: "템플릿 저장하기" }).click();
     await expect(page.getByText(/질문 내용을\(를\) 입력해주세요/)).toBeVisible();
   });
 

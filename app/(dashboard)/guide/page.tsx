@@ -524,7 +524,7 @@ export default function GuidePage() {
             <p className="text-xs text-text-2 leading-relaxed">
               계정을 등록하면 사전설문 링크와 시안 승인 링크가 함께 발급됩니다. 사전설문 링크를 광고주에게 보내 톤앤매너와 금기
               키워드를 받고, 회신은 계정 화면의 사전설문 응답 탭에서 질문 문구와 함께 확인합니다. 공통 질문은
-              <strong> [설정 → SNS 사전설문 기본틀]</strong>에서 정합니다.
+              <strong> [설정 → SNS 사전설문 기본 템플릿]</strong>에서 정합니다.
             </p>
           </div>
 
@@ -633,7 +633,7 @@ export default function GuidePage() {
             href="/settings/sns-intake"
             className="p-5 rounded-2xl bg-surface border border-border hover:border-accent2/40 transition space-y-2 group"
           >
-            <div className="text-xs font-bold text-accent2 group-hover:underline">SNS 사전설문 기본틀 →</div>
+            <div className="text-xs font-bold text-accent2 group-hover:underline">SNS 사전설문 기본 템플릿 →</div>
             <p className="text-xs text-text-sub leading-relaxed">
               SNS 계정의 광고주 사전설문에 공통으로 나갈 질문을 정합니다. 질문을 비워 두면 저장되지 않습니다.
             </p>

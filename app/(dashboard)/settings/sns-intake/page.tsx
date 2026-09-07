@@ -1,6 +1,6 @@
 import { getSnsIntakeTemplate } from "@/lib/db";
 import SnsIntakeSettingsClient from "./SnsIntakeSettingsClient";
-import { Sliders, Camera } from "lucide-react";
+import { Sliders } from "lucide-react";
 
 export const revalidate = 0;
 
@@ -12,10 +12,10 @@ export default async function SnsIntakeSettingsPage() {
       <div className="space-y-1">
         <h1 className="text-xl sm:text-2xl font-bold text-text tracking-tight flex items-center gap-2">
           <Sliders className="w-6 h-6 text-accent2" />
-          <span>SNS 사전설문 기본 질문틀 관리</span>
+          <span>SNS 사전설문 기본 템플릿 설정</span>
         </h1>
         <p className="text-xs sm:text-sm text-text-sub">
-          모든 SNS 대행 계정의 광고주 사전설문에 공통으로 적용되는 기본 질문 항목을 수정합니다.
+          신규 SNS 계정 등록 시 모든 광고주에게 기본 제공되는 사전설문 질문 항목과 가이드라인을 관리합니다.
         </p>
       </div>
 
