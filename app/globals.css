@@ -74,6 +74,26 @@ html.light,
   --accent-warn: #b45309;
   /* 흰 배경에서는 이보다 밝게 하면 읽히지 않아 같은 값을 쓴다. */
   --accent-warn-soft: #b45309;
+
+  /*
+    카테고리·상태 색은 -400/-300 단계만 글자에 쓴다 (배경·테두리는 -500/-600).
+    그 밝은 단계들은 다크 배경 기준이라 흰 배경에서 대비가 2~3:1 밖에 안 나온다.
+    라이트에서만 -700 단계로 덮어써서 4.5:1 이상을 확보한다. 클래스는 그대로 둔다.
+  */
+  --color-blue-400: #1d4ed8;
+  --color-blue-300: #1d4ed8;
+  --color-indigo-400: #4338ca;
+  --color-indigo-300: #4338ca;
+  --color-purple-400: #7e22ce;
+  --color-purple-300: #7e22ce;
+  --color-violet-400: #6d28d9;
+  --color-emerald-400: #047857;
+  --color-emerald-300: #047857;
+  --color-rose-400: #be123c;
+  --color-rose-300: #be123c;
+  --color-red-400: #b91c1c;
+  --color-red-300: #b91c1c;
+  --color-cyan-400: #0e7490;
   color-scheme: light;
 }
 

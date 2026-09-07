@@ -64,10 +64,10 @@ export default async function ReportDetailPage({
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
           { label: "총 지원자", value: `${metrics.totalApplicants}명`, cls: "text-text" },
-          { label: "최종선정 (예비)", value: `${metrics.selectedCount}명 (${metrics.reservedCount})`, cls: "text-emerald-400" },
-          { label: "업로드 완료", value: `${metrics.completedUploads}건`, cls: "text-purple-400" },
-          { label: "총 조회수", value: `${metrics.totalViews.toLocaleString()}회`, cls: "text-blue-400" },
-          { label: "인게이지먼트 (비율)", value: `${metrics.totalEngagement.toLocaleString()} (${metrics.avgEngagementRate}%)`, cls: "text-warn" },
+          { label: "최종선정 (예비)", value: `${metrics.selectedCount}명 (${metrics.reservedCount})`, cls: "text-text" },
+          { label: "업로드 완료", value: `${metrics.completedUploads}건`, cls: "text-text" },
+          { label: "총 조회수", value: `${metrics.totalViews.toLocaleString()}회`, cls: "text-text" },
+          { label: "인게이지먼트 (비율)", value: `${metrics.totalEngagement.toLocaleString()} (${metrics.avgEngagementRate}%)`, cls: "text-text" },
         ].map((m) => (
           <div key={m.label} className="p-4 rounded-2xl bg-surface border border-border">
             <div className="text-xs text-text-sub">{m.label}</div>

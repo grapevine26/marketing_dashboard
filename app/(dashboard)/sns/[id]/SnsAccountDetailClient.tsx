@@ -616,9 +616,9 @@ export default function SnsAccountDetailClient({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono tabular-nums">
           {[
             { label: "게시 건수", value: `${monthPosted.length}건`, cls: "text-text" },
-            { label: "조회수", value: `${sum(monthPosted, "view_count").toLocaleString()}회`, cls: "text-accent2" },
-            { label: "좋아요", value: `${sum(monthPosted, "like_count").toLocaleString()}개`, cls: "text-blue-400" },
-            { label: "댓글수", value: `${sum(monthPosted, "comment_count").toLocaleString()}개`, cls: "text-indigo-400" },
+            { label: "조회수", value: `${sum(monthPosted, "view_count").toLocaleString()}회`, cls: "text-text" },
+            { label: "좋아요", value: `${sum(monthPosted, "like_count").toLocaleString()}개`, cls: "text-text" },
+            { label: "댓글수", value: `${sum(monthPosted, "comment_count").toLocaleString()}개`, cls: "text-text" },
           ].map((k) => (
             <div key={k.label} className="p-3.5 rounded-2xl bg-bg border border-border">
               <div className="text-[11px] text-text-muted font-sans">{perfMonth} {k.label}</div>

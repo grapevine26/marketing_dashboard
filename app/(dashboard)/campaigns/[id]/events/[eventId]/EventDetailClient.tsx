@@ -436,8 +436,8 @@ export default function EventDetailClient({
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: "총 초청 인원", value: invitees.length, cls: "text-text" },
-          { label: "참석 확정 (RSVP)", value: attendingCount, cls: "text-blue-400" },
-          { label: "현장 참석 체크인", value: attendedCount, cls: "text-emerald-400" },
+          { label: "참석 확정 (RSVP)", value: attendingCount, cls: "text-text" },
+          { label: "현장 참석 체크인", value: attendedCount, cls: "text-text" },
         ].map((k) => (
           <div key={k.label} className="p-4 rounded-2xl bg-surface border border-border text-center sm:text-left">
             <div className="text-[11px] text-text-muted font-medium">{k.label}</div>

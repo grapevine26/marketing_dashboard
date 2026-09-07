@@ -128,13 +128,13 @@ export default async function CampaignDetailPage({
           <div className="text-right">
             <span className="text-xs text-text-muted block">지원자 / 최종선정</span>
             <span className="text-sm font-bold text-text font-mono tabular-nums">
-              {applicants.length}명 / <strong className="text-blue-400">{selectedCount}명</strong>
+              {applicants.length}명 / <strong className="text-text">{selectedCount}명</strong>
             </span>
           </div>
           <div className="h-8 w-px bg-border" />
           <div className="text-right">
             <span className="text-xs text-text-muted block">업로드 완주</span>
-            <span className="text-sm font-bold text-emerald-400 font-mono tabular-nums">{completedUploads}건</span>
+            <span className="text-sm font-bold text-text font-mono tabular-nums">{completedUploads}건</span>
           </div>
           <div className="h-8 w-px bg-border" />
           <CampaignStatusSelect campaignId={campaign.id} initialStatus={campaign.status} />
@@ -144,7 +144,7 @@ export default async function CampaignDetailPage({
       <TokenShareBox campaign={campaign} />
 
       {/* Event Section Entry */}
-      <div className="p-5 rounded-3xl bg-gradient-to-r from-indigo-950/30 to-surface border border-indigo-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg">
+      <div className="p-5 rounded-3xl bg-surface border border-indigo-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
           <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0">
             <PartyPopper className="w-5 h-5" />
@@ -152,7 +152,7 @@ export default async function CampaignDetailPage({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base font-bold text-text">캠페인 연계 인플루언서 행사</h2>
-              <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-bold">
+              <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[10px] font-bold">
                 {events.length}개 행사
               </span>
             </div>

@@ -135,10 +135,10 @@ export default function SeedingSheetTable({
           <div className="flex items-center gap-2">
             <a
               href={`${csvHref}&format=xlsx`}
-              className="w-full sm:w-auto text-center justify-center px-3.5 py-2.5 sm:py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-semibold inline-flex items-center gap-1.5 transition border border-emerald-500/30 active:scale-95"
+              className="w-full sm:w-auto text-center justify-center px-3.5 py-2.5 sm:py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-medium inline-flex items-center gap-1.5 transition border border-border active:scale-95"
               title="마이크로소프트 엑셀 서식 적용 파일 다운로드"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+              <FileSpreadsheet className="w-3.5 h-3.5 text-text-sub" />
               <span>Excel 다운로드</span>
             </a>
             <a
@@ -256,15 +256,15 @@ export default function SeedingSheetTable({
         <table className="w-full text-left text-xs">
           <thead className="bg-bg text-text-sub border-b border-border">
             <tr>
-              <th className="p-3.5">인플루언서</th>
-              <th className="p-3.5">SNS 계정</th>
-              {!isReadOnly && <th className="p-3.5">{isShipping ? "배송지" : "방문 일정 / 인원"}</th>}
-              <th className="p-3.5">진행 단계</th>
-              <th className="p-3.5">업로드 마감일</th>
-              <th className="p-3.5">D-day</th>
-              <th className="p-3.5">포스팅 URL</th>
-              <th className="p-3.5">조회수 / 인게이지먼트</th>
-              <th className="p-3.5">메모</th>
+              <th className="p-3.5 whitespace-nowrap">인플루언서</th>
+              <th className="p-3.5 whitespace-nowrap">SNS 계정</th>
+              {!isReadOnly && <th className="p-3.5 whitespace-nowrap">{isShipping ? "배송지" : "방문 일정 / 인원"}</th>}
+              <th className="p-3.5 whitespace-nowrap">진행 단계</th>
+              <th className="p-3.5 whitespace-nowrap">업로드 마감일</th>
+              <th className="p-3.5 whitespace-nowrap">D-day</th>
+              <th className="p-3.5 whitespace-nowrap">포스팅 URL</th>
+              <th className="p-3.5 whitespace-nowrap">조회수 / 인게이지먼트</th>
+              <th className="p-3.5 whitespace-nowrap">메모</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border text-text-2">
@@ -277,7 +277,7 @@ export default function SeedingSheetTable({
             ) : (
               displayedRecords.map(({ applicant: app, seeding: r }) => (
                 <tr key={r.id} className="hover:bg-surface2 transition">
-                  <td className="p-3.5 font-bold text-text">{app.name}</td>
+                  <td className="p-3.5 font-bold text-text whitespace-nowrap min-w-[112px]">{app.name}</td>
                   <td className="p-3.5">
                     <a href={app.sns_link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline inline-flex items-center gap-1 truncate max-w-[130px]">
                       <span>{app.sns_link}</span>
@@ -400,7 +400,7 @@ export default function SeedingSheetTable({
       )}
 
       {!isReadOnly && (
-        <p className="text-[11px] text-text-muted">입력칸에서 포커스가 빠져나가면 자동 저장됩니다. 단계는 {isShipping ? "배송형" : "방문형"} 기준으로만 표시됩니다.</p>
+        <p className="text-[11px] text-text-muted">입력칸에서 포커스가 빠져나가면 자동 저장됩니다. 단계는 {isShipping ? "배송형" : "방문형"} 기준으로만 표시됩니다. 화면이 좁으면 표를 좌우로 밀어서 나머지 칸을 볼 수 있습니다.</p>
       )}
     </div>
   );

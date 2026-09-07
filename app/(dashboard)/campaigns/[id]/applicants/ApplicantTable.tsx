@@ -229,12 +229,16 @@ export default function ApplicantTable({
 
   const count = (s: ApplicantStatus) => applicants.filter((a) => a.status === s).length;
 
+  /* 필터는 상태를 고르는 도구일 뿐이라 색으로 구분하지 않는다. 선택된 것만 진하게. */
+  const activeChip = "bg-text text-bg border border-text";
+  const idleChip = "bg-bg text-text-sub hover:text-text hover:bg-surface2 border border-border";
+
   const filterButtons: { key: "all" | ApplicantStatus; label: string; active: string; idle: string }[] = [
-    { key: "all", label: `전체 (${applicants.length})`, active: "bg-zinc-100 text-zinc-900", idle: "bg-bg text-text-sub hover:text-text border border-border" },
-    { key: "selected", label: `최종선정 (${count("selected")})`, active: "bg-blue-600 text-white", idle: "bg-bg text-blue-400 hover:bg-blue-500/10 border border-blue-500/20" },
-    { key: "reserved", label: `예비선정 (${count("reserved")})`, active: "bg-amber-600 text-white", idle: "bg-bg text-warn hover:bg-amber-500/10 border border-amber-500/20" },
-    { key: "applied", label: `대기 (${count("applied")})`, active: "bg-zinc-700 text-white", idle: "bg-bg text-text-sub hover:bg-surface3 border border-border" },
-    { key: "rejected", label: `미선정 (${count("rejected")})`, active: "bg-rose-700 text-white", idle: "bg-bg text-rose-300 hover:bg-rose-500/10 border border-rose-500/20" },
+    { key: "all", label: `전체 (${applicants.length})`, active: activeChip, idle: idleChip },
+    { key: "selected", label: `최종선정 (${count("selected")})`, active: activeChip, idle: idleChip },
+    { key: "reserved", label: `예비선정 (${count("reserved")})`, active: activeChip, idle: idleChip },
+    { key: "applied", label: `대기 (${count("applied")})`, active: activeChip, idle: idleChip },
+    { key: "rejected", label: `미선정 (${count("rejected")})`, active: activeChip, idle: idleChip },
   ];
 
   const renderActions = (a: Applicant, compact: boolean) => {
@@ -243,8 +247,9 @@ export default function ApplicantTable({
       ? "flex-1 py-2 rounded-xl text-xs font-semibold transition disabled:opacity-50"
       : "px-2.5 py-1 rounded-lg text-xs font-semibold transition active:scale-95 disabled:opacity-50 inline-flex items-center gap-1";
     const primary = `${base} bg-blue-600 hover:bg-blue-500 text-white shadow-sm`;
-    const secondary = `${base} bg-surface2 hover:bg-amber-500/20 text-text-2 hover:text-warn-soft border border-border`;
-    const danger = `${base} bg-rose-600/15 hover:bg-rose-600/25 border border-rose-500/30 text-rose-300`;
+    /* 선정 상태 변경은 전부 되돌릴 수 있다. 빨강(위험)은 실제 삭제에만 쓰고 여기서는 무채색으로 둔다. */
+    const secondary = `${base} bg-surface2 hover:bg-surface3 text-text-2 border border-border`;
+    const danger = `${base} bg-surface2 hover:bg-surface3 text-text-sub border border-border`;
     const neutral = `${base} bg-surface2 hover:bg-surface3 text-text-2 border border-border`;
 
     const btn = (label: string, next: ApplicantStatus, cls: string, title?: string) => (
@@ -387,10 +392,10 @@ export default function ApplicantTable({
         <div className="flex items-center gap-2">
           <a
             href={`${csvHref}&format=xlsx`}
-            className="w-full sm:w-auto text-center justify-center px-3.5 py-2.5 sm:py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-semibold inline-flex items-center gap-1.5 transition border border-emerald-500/30 active:scale-95"
+            className="w-full sm:w-auto text-center justify-center px-3.5 py-2.5 sm:py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-medium inline-flex items-center gap-1.5 transition border border-border active:scale-95"
             title="마이크로소프트 엑셀 서식 적용 파일 다운로드"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+            <FileSpreadsheet className="w-3.5 h-3.5 text-text-sub" />
             <span>Excel 다운로드</span>
           </a>
           <a
