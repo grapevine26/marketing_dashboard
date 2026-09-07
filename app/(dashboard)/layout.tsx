@@ -57,7 +57,7 @@ export default function DashboardLayout({
           name: "SNS 채널 운영",
           href: "/sns",
           icon: Camera,
-          color: "text-accent2",
+          color: "text-sky-500",
         },
       ],
     },
@@ -74,7 +74,7 @@ export default function DashboardLayout({
           name: "SNS 사전설문 기본틀",
           href: "/settings/sns-intake",
           icon: Sliders,
-          color: "text-accent2",
+          color: "text-sky-500",
         },
         {
           name: "공유 PPT 템플릿 보관함",

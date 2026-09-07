@@ -22,7 +22,7 @@ const themeInitScript = `
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" className="dark" data-theme="dark" suppressHydrationWarning>
-      <body className="min-h-screen antialiased flex flex-col selection:bg-purple-600 selection:text-white font-sans">
+      <body className="min-h-screen antialiased flex flex-col selection:bg-accent selection:text-white font-sans">
         <Script id="theme-init" strategy="beforeInteractive">{themeInitScript}</Script>
         <ThemeProvider>{children}</ThemeProvider>
       </body>

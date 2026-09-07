@@ -23,7 +23,7 @@ const SOURCE_BADGE: Record<UnifiedCalendarItem["source"], { label: string; cls: 
   seeding: { label: "시딩", cls: "bg-blue-500/15 text-blue-400 border-blue-500/30", Icon: FolderKanban },
   event: { label: "행사", cls: "bg-indigo-500/15 text-indigo-400 border-indigo-500/30", Icon: PartyPopper },
   event_checklist: { label: "행사준비", cls: "bg-purple-500/15 text-purple-400 border-purple-500/30", Icon: Clock },
-  sns: { label: "SNS", cls: "bg-accent2/15 text-accent2 border-accent2/30", Icon: Camera },
+  sns: { label: "SNS", cls: "bg-sky-500/15 text-sky-400 border-sky-500/30", Icon: Camera },
 };
 
 function SourceBadge({ source }: { source: UnifiedCalendarItem["source"] }) {
