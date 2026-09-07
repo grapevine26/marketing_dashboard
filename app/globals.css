@@ -25,6 +25,7 @@
   --color-accent: var(--accent-brand);
   --color-accent2: var(--accent-sns);
   --color-warn: var(--accent-warn);
+  --color-warn-soft: var(--accent-warn-soft);
 }
 
 /* 다크 (기본, Warm Charcoal) */
@@ -47,6 +48,8 @@ html.dark,
   --accent-brand: #ff6a3d;
   --accent-sns: #f4479b;
   --accent-warn: #fbbf24;
+  /* 앰버 틴트 박스 안의 글자는 한 단계 밝게 (원래 amber-300). */
+  --accent-warn-soft: #fcd34d;
   color-scheme: dark;
 }
 
@@ -69,6 +72,8 @@ html.light,
   --accent-brand: #d4451c;
   --accent-sns: #c2185b;
   --accent-warn: #b45309;
+  /* 흰 배경에서는 이보다 밝게 하면 읽히지 않아 같은 값을 쓴다. */
+  --accent-warn-soft: #b45309;
   color-scheme: light;
 }
 

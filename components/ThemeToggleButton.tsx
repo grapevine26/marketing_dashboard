@@ -21,7 +21,7 @@ export default function ThemeToggleButton() {
           onClick={() => theme !== "dark" && toggleTheme()}
           className={`py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
             theme === "dark"
-              ? "bg-surface2 text-amber-300 shadow-sm border border-border"
+              ? "bg-surface2 text-warn-soft shadow-sm border border-border"
               : "text-text-muted hover:text-text-sub"
           }`}
         >

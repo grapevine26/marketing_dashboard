@@ -108,7 +108,7 @@ export default function CalendarOverviewClient({
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <SourceBadge source={item.source} />
-                    <span className={`text-xs font-bold font-mono tabular-nums ${item.daysDiff < 0 ? "text-red-400" : item.daysDiff === 0 ? "text-warn font-extrabold" : "text-warn"}`}>
+                    <span className={`text-xs font-bold font-mono tabular-nums ${item.daysDiff < 0 ? "text-red-400" : item.daysDiff === 0 ? "text-warn font-extrabold" : "text-warn-soft"}`}>
                       {ddayLabel(item.daysDiff)}
                     </span>
                   </div>

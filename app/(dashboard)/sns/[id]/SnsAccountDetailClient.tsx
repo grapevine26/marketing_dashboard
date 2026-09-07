@@ -566,7 +566,7 @@ export default function SnsAccountDetailClient({
               </p>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-warn leading-relaxed space-y-1">
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-warn-soft leading-relaxed space-y-1">
               <p className="font-semibold text-warn">⚠️ 이전 링크 즉시 404 차단 안내</p>
               <p className="text-text-2">
                 재발급 즉시 이전에 공유되었던 기존 링크는 유효하지 않은 주소가 되어 외부 접근이 차단됩니다. 광고주에게 새로운 링크를 다시 전달해야 합니다.
@@ -722,9 +722,9 @@ export default function SnsAccountDetailClient({
                   </div>
 
                   {c.client_comment && (
-                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn text-xs">
+                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn-soft text-xs">
                       <strong>광고주 수정요청:</strong> {c.client_comment}
-                      <span className="text-warn/80 ml-2">→ 수정 후 상태를 &quot;승인대기&quot;로 바꾸면 광고주 화면에 다시 표시됩니다.</span>
+                      <span className="text-warn-soft/80 ml-2">→ 수정 후 상태를 &quot;승인대기&quot;로 바꾸면 광고주 화면에 다시 표시됩니다.</span>
                     </div>
                   )}
 

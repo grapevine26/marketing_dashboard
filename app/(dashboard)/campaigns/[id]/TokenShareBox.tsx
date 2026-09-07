@@ -195,7 +195,7 @@ export default function TokenShareBox({ campaign }: { campaign: Campaign }) {
               </p>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-warn leading-relaxed space-y-1">
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-warn-soft leading-relaxed space-y-1">
               <p className="font-semibold text-warn">⚠️ 이전 링크 즉시 404 차단 안내</p>
               <p className="text-text-sub">
                 재발급 즉시 이전에 공유되었던 기존 링크는 유효하지 않은 주소가 되어 외부 접근이 차단됩니다. 필요시 광고주나 담당자에게 새로운 링크를 다시 전달해야 합니다.

@@ -63,7 +63,7 @@ export default function PptTemplatesClient({ initialTemplates }: { initialTempla
         </p>
 
         {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">{error}</div>}
-        {notice && <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn text-xs font-semibold">{notice}</div>}
+        {notice && <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn-soft text-xs font-semibold">{notice}</div>}
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <input
@@ -136,7 +136,7 @@ export default function PptTemplatesClient({ initialTemplates }: { initialTempla
                       <span className="text-[11px] text-warn">치환 항목 없음</span>
                     ) : (
                       t.placeholders.map((ph) => (
-                        <span key={ph} className="px-2 py-0.5 rounded bg-bg border border-border text-warn/80 font-mono text-[10px]">{`{{${ph}}}`}</span>
+                        <span key={ph} className="px-2 py-0.5 rounded bg-bg border border-border text-warn-soft/80 font-mono text-[10px]">{`{{${ph}}}`}</span>
                       ))
                     )}
                   </div>

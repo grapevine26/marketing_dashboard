@@ -54,7 +54,7 @@ export default async function ReportDetailPage({
         {snapshot ? (
           <ReportDownloads reportId={report.id} templates={templateOptions} defaultTemplateId={BUILTIN_REPORT_TEMPLATE_ID} />
         ) : (
-          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn text-xs flex items-center gap-2">
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn-soft text-xs flex items-center gap-2">
             <AlertTriangle className="w-4 h-4" />
             <span>구버전 보고서라 스냅샷 데이터가 없습니다. 새 보고서를 생성해주세요.</span>
           </div>

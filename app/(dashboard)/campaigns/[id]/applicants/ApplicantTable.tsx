@@ -243,7 +243,7 @@ export default function ApplicantTable({
       ? "flex-1 py-2 rounded-xl text-xs font-semibold transition disabled:opacity-50"
       : "px-2.5 py-1 rounded-lg text-xs font-semibold transition active:scale-95 disabled:opacity-50 inline-flex items-center gap-1";
     const primary = `${base} bg-blue-600 hover:bg-blue-500 text-white shadow-sm`;
-    const secondary = `${base} bg-surface2 hover:bg-amber-500/20 text-text-2 hover:text-warn border border-border`;
+    const secondary = `${base} bg-surface2 hover:bg-amber-500/20 text-text-2 hover:text-warn-soft border border-border`;
     const danger = `${base} bg-rose-600/15 hover:bg-rose-600/25 border border-rose-500/30 text-rose-300`;
     const neutral = `${base} bg-surface2 hover:bg-surface3 text-text-2 border border-border`;
 

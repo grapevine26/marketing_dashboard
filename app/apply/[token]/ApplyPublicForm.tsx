@@ -248,7 +248,7 @@ export default function ApplyPublicForm({
 
       {/* 중복 SNS 경고 및 계속 제출 UI */}
       {duplicateWarning && (
-        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-warn space-y-2">
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-warn-soft space-y-2">
           <div className="flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-warn shrink-0 mt-0.5" />
             <div className="space-y-1">

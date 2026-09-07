@@ -144,7 +144,7 @@ export default function SnsApprovalClient({
             </div>
 
             {c.client_comment && (
-              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn text-xs flex items-start gap-2">
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn-soft text-xs flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <div><strong>이전 수정 요청:</strong> {c.client_comment}</div>
               </div>
