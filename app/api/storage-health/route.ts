@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { describeStorage, readDoc, putFile, readFile, deleteFilesByPrefixes } from "@/lib/db/storage";
+import {
+  describeStorage,
+  readDoc,
+  putFile,
+  readFile,
+  deleteFilesByPrefixes,
+  probeConditionalWrite,
+} from "@/lib/db/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -21,17 +28,38 @@ export async function GET() {
   const env = describeStorage();
   const checks: Record<string, unknown> = {};
 
-  // 1. 문서 읽기
+  // 1. 문서 읽기. 내용은 담지 않고 레코드 개수만 센다.
   try {
     const snap = await readDoc();
-    checks.readDoc = snap
-      ? { ok: true, bytes: snap.text.length, hasVersion: snap.version !== null }
-      : { ok: true, empty: true, note: "아직 저장된 DB 문서가 없습니다. 첫 저장 때 만들어집니다." };
+    if (!snap) {
+      checks.readDoc = { ok: true, empty: true, note: "아직 저장된 DB 문서가 없습니다. 첫 저장 때 만들어집니다." };
+    } else {
+      let counts: Record<string, number> | { parseError: string } ;
+      try {
+        const parsed = JSON.parse(snap.text) as Record<string, unknown>;
+        counts = Object.fromEntries(
+          Object.entries(parsed)
+            .filter(([, v]) => Array.isArray(v))
+            .map(([k, v]) => [k, (v as unknown[]).length])
+        );
+      } catch (err) {
+        counts = { parseError: describeError(err).message };
+      }
+      checks.readDoc = { ok: true, bytes: snap.text.length, hasVersion: snap.version !== null, counts };
+    }
   } catch (err) {
     checks.readDoc = { ok: false, error: describeError(err) };
   }
 
-  // 2. 파일 쓰기 → 읽기 → 삭제 (진단용 임시 키)
+  // 2. 조건부 쓰기(낙관적 잠금). 저장이 실패하는 원인이 대부분 여기다.
+  try {
+    const probe = await probeConditionalWrite();
+    checks.conditionalWrite = probe;
+  } catch (err) {
+    checks.conditionalWrite = { ok: false, error: describeError(err) };
+  }
+
+  // 3. 파일 쓰기 → 읽기 → 삭제 (진단용 임시 키)
   const probeId = `healthcheck-${Date.now()}`;
   try {
     const body = Buffer.from("ok");

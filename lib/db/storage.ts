@@ -178,6 +178,88 @@ export async function writeDoc(text: string, expectedVersion: string | null): Pr
   return String(fs.statSync(/*turbopackIgnore: true*/ filePath).mtimeMs);
 }
 
+/**
+ * 낙관적 잠금(조건부 쓰기)이 이 스토어에서 실제로 되는지 확인한다.
+ *
+ * mutateDb 가 쓰는 경로와 같은 primitive 를 임시 키에 대고 돌려본다.
+ * put 이 준 ETag 를 get 이 그대로 돌려주지 않으면 ifMatch 가 영원히 어긋나고,
+ * 모든 저장이 재시도를 소진한 뒤 실패한다. 그걸 여기서 잡는다.
+ */
+export async function probeConditionalWrite(): Promise<{
+  ok: boolean;
+  steps: Record<string, unknown>;
+}> {
+  const steps: Record<string, unknown> = {};
+
+  if (!isBlobBackend()) {
+    return { ok: true, steps: { skipped: "파일 백엔드에서는 mtime 을 쓴다" } };
+  }
+
+  const { put, get, del, BlobPreconditionFailedError } = await import("@vercel/blob");
+  const key = `probe/conditional-${Date.now()}.json`;
+
+  try {
+    const first = await put(key, JSON.stringify({ n: 1 }), {
+      access: "private",
+      contentType: "application/json",
+      allowOverwrite: true,
+      addRandomSuffix: false,
+    });
+    steps.putEtagPresent = Boolean(first.etag);
+
+    const fetched = await get(key, { access: "private", useCache: false });
+    const readEtag = fetched?.blob.etag ?? null;
+    steps.getEtagPresent = Boolean(readEtag);
+    // 여기가 어긋나면 ifMatch 는 절대 통과하지 못한다.
+    steps.etagsMatch = first.etag === readEtag;
+
+    if (!readEtag) {
+      steps.failedAt = "get 이 ETag 를 주지 않았다";
+      return { ok: false, steps };
+    }
+
+    const second = await put(key, JSON.stringify({ n: 2 }), {
+      access: "private",
+      contentType: "application/json",
+      allowOverwrite: true,
+      addRandomSuffix: false,
+      ifMatch: readEtag,
+    });
+    steps.conditionalWriteAccepted = true;
+    steps.etagChangedAfterWrite = second.etag !== readEtag;
+
+    // 이제 readEtag 는 낡았다. 거부되어야 정상이다.
+    try {
+      await put(key, JSON.stringify({ n: 3 }), {
+        access: "private",
+        contentType: "application/json",
+        allowOverwrite: true,
+        addRandomSuffix: false,
+        ifMatch: readEtag,
+      });
+      steps.staleWriteRejected = false;
+      steps.failedAt = "낡은 ETag 로 쓴 게 통과했다. 동시 저장이 서로를 덮어쓴다.";
+      return { ok: false, steps };
+    } catch (err) {
+      steps.staleWriteRejected = true;
+      steps.staleErrorName = err instanceof Error ? err.name : String(err);
+      steps.mappedToConcurrentWriteError = err instanceof BlobPreconditionFailedError;
+    }
+
+    return { ok: steps.staleWriteRejected === true && steps.etagsMatch === true, steps };
+  } catch (err) {
+    steps.failedAt = "예외";
+    steps.error = err instanceof Error ? { name: err.name, message: err.message } : String(err);
+    return { ok: false, steps };
+  } finally {
+    try {
+      await del(key);
+    } catch {
+      /* 진단용 임시 키 정리 실패는 무시한다 */
+    }
+  }
+}
+
 // ---------- 업로드 파일 (SNS 시안 미디어) ----------
 
 export async function putFile(key: string, buffer: Buffer, contentType: string): Promise<void> {
