@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 test.describe("설정 화면", () => {
   test("사전조사 템플릿: 저장된 값이 채워져 있고 수정 후 새로고침해도 유지된다", async ({ page }) => {
-    await page.goto("/settings/pre-survey");
+    await page.goto("/settings/templates");
     const first = page.locator("input[placeholder*='핵심 특징은 무엇인가요']").first();
     await expect(first).not.toHaveValue("");
     const original = await first.inputValue();
@@ -15,8 +15,17 @@ test.describe("설정 화면", () => {
     await expect(page.locator("input[placeholder*='핵심 특징은 무엇인가요']").first()).toHaveValue(`${original} (E2E)`);
   });
 
-  test("SNS 사전설문 기본 템플릿: 질문을 비우면 저장이 거부된다", async ({ page }) => {
-    await page.goto("/settings/sns-intake");
+  test("SNS 사전설문 템플릿: 탭으로 전환되고 질문을 비우면 저장이 거부된다", async ({ page }) => {
+    // ?tab=sns 로 바로 열리는지 확인 (가이드가 이 주소로 링크한다)
+    await page.goto("/settings/templates?tab=sns");
+    await expect(page.getByText("표준 사전설문 문항")).toBeVisible();
+
+    // 탭 전환도 동작해야 한다
+    await page.getByRole("button", { name: "사전조사 템플릿" }).click();
+    await expect(page.getByText("표준 사전조사 문항")).toBeVisible();
+    await page.getByRole("button", { name: "SNS 사전설문 템플릿" }).click();
+    await expect(page.getByText("표준 사전설문 문항")).toBeVisible();
+
     await page.getByRole("button", { name: "새 질문 문항 추가" }).click();
     await page.getByRole("button", { name: "템플릿 저장하기" }).click();
     await expect(page.getByText(/질문 내용을\(를\) 입력해주세요/)).toBeVisible();

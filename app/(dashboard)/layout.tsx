@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   FolderKanban,
-  Settings,
   Calendar,
   PartyPopper,
   Camera,
@@ -62,22 +61,16 @@ export default function DashboardLayout({
       ],
     },
     {
-      group: "환경설정 & 템플릿",
+      group: "템플릿 설정",
       items: [
         {
-          name: "사전조사 기본 템플릿",
-          href: "/settings/pre-survey",
-          icon: Settings,
+          name: "사전조사 · SNS 사전설문",
+          href: "/settings/templates",
+          icon: Sliders,
           color: "text-text-sub",
         },
         {
-          name: "SNS 사전설문 기본 템플릿",
-          href: "/settings/sns-intake",
-          icon: Sliders,
-          color: "text-accent2",
-        },
-        {
-          name: "공유 PPT 템플릿 보관함",
+          name: "공유 PPT 보관함",
           href: "/settings/ppt-templates",
           icon: Presentation,
           color: "text-text-sub",

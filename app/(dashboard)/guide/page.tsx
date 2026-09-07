@@ -76,7 +76,7 @@ const SEEDING_STAGES = [
 const TROUBLE = [
   {
     q: "PPT 다운로드를 눌렀는데 에러가 납니다.",
-    a: "운영안·제안서 PPT는 적용할 템플릿을 고르고 [운영안 저장]을 누른 뒤에만 받을 수 있습니다. 저장 전이면 저장된 운영안이 없다는 안내가, 템플릿이 없으면 템플릿 안내가 뜹니다. 템플릿은 설정의 공유 PPT 템플릿 보관함에서 종류를 골라 업로드합니다.",
+    a: "운영안·제안서 PPT는 적용할 템플릿을 고르고 [운영안 저장]을 누른 뒤에만 받을 수 있습니다. 저장 전이면 저장된 운영안이 없다는 안내가, 템플릿이 없으면 템플릿 안내가 뜹니다. 템플릿은 템플릿 설정의 공유 PPT 보관함에서 종류를 골라 업로드합니다.",
   },
   {
     q: "AI 버튼을 눌렀더니 AI 제안 실패라고 나옵니다.",
@@ -323,7 +323,7 @@ export default function GuidePage() {
               <p>• 캠페인 허브 상단 <strong>1. 광고주 사전조사 회신 링크</strong>의 [링크 복사]를 눌러 광고주에게 보냅니다.</p>
               <p>• 광고주는 로그인 없이 답변하며, 각 질문의 <strong>[AI 추천받기]</strong>로 초안을 받아 고쳐 쓸 수 있습니다.</p>
               <p>• 회신된 답변은 <strong>[사전조사 관리]</strong> 카드에서 확인하고 직접 수정할 수도 있습니다. 답변이 오면 카드에 회신완료 배지가 붙습니다.</p>
-              <p>• 공통 질문 문항은 <strong>[설정 → 사전조사 기본 템플릿]</strong>에서 미리 정해 둡니다.</p>
+              <p>• 공통 질문 문항은 <strong>[템플릿 설정 → 사전조사 탭]</strong>에서 미리 정해 둡니다.</p>
             </div>
           </div>
 
@@ -442,7 +442,7 @@ export default function GuidePage() {
               <p>• <strong>[현재 데이터로 새 결과보고서 생성]</strong>을 누르면 그 시점의 지원자·관리시트·성과가 <strong>스냅샷으로 저장</strong>됩니다. 이후 수치가 바뀌어도 보고서는 그대로 보존되므로, 최신 내용이 필요하면 보고서를 새로 만드세요.</p>
               <p>• <strong>[총평 편집 &amp; 열기]</strong>에서 총평과 추가 섹션을 쓴 뒤 내려받습니다.</p>
               <p>• <strong>[PDF 보고서 다운로드]</strong>는 한글이 정상 출력되고 성과 막대 차트가 들어갑니다. <strong>[PPTX 슬라이드 다운로드]</strong>는 파워포인트에서 그대로 편집할 수 있고, 표와 차트도 파워포인트 개체로 들어갑니다.</p>
-              <p>• PPTX는 적용할 템플릿을 고를 수 있습니다. 기본 템플릿이 이미 들어 있고, 회사 서식은 <strong>[설정 → 공유 PPT 템플릿 보관함]</strong>에 시딩 결과보고서 종류로 올리면 목록에 나타납니다.</p>
+              <p>• PPTX는 적용할 템플릿을 고를 수 있습니다. 기본 템플릿이 이미 들어 있고, 회사 서식은 <strong>[템플릿 설정 → 공유 PPT 보관함]</strong>에 시딩 결과보고서 종류로 올리면 목록에 나타납니다.</p>
             </div>
           </div>
         </div>
@@ -524,7 +524,7 @@ export default function GuidePage() {
             <p className="text-xs text-text-2 leading-relaxed">
               계정을 등록하면 사전설문 링크와 시안 승인 링크가 함께 발급됩니다. 사전설문 링크를 광고주에게 보내 톤앤매너와 금기
               키워드를 받고, 회신은 계정 화면의 사전설문 응답 탭에서 질문 문구와 함께 확인합니다. 공통 질문은
-              <strong> [설정 → SNS 사전설문 기본 템플릿]</strong>에서 정합니다.
+              <strong> [템플릿 설정 → SNS 사전설문 탭]</strong>에서 정합니다.
             </p>
           </div>
 
@@ -612,30 +612,21 @@ export default function GuidePage() {
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 text-xs font-bold text-text-sub">
             <Settings className="w-4 h-4" />
-            <span>환경설정</span>
+            <span>템플릿 설정</span>
           </div>
           <h2 className="text-xl font-bold text-text">5. 설정과 템플릿</h2>
           <p className="text-xs text-text-sub">여기서 정한 값은 앞으로 만드는 캠페인과 계정에 공통으로 적용됩니다.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link
-            href="/settings/pre-survey"
+            href="/settings/templates"
             className="p-5 rounded-2xl bg-surface border border-border hover:border-blue-500/40 transition space-y-2 group"
           >
-            <div className="text-xs font-bold text-blue-400 group-hover:underline">사전조사 기본 템플릿 →</div>
+            <div className="text-xs font-bold text-blue-400 group-hover:underline">사전조사 · SNS 사전설문 →</div>
             <p className="text-xs text-text-sub leading-relaxed">
-              새 시딩 캠페인의 사전조사에 공통으로 나갈 질문과 예시 문구를 정합니다.
-            </p>
-          </Link>
-
-          <Link
-            href="/settings/sns-intake"
-            className="p-5 rounded-2xl bg-surface border border-border hover:border-accent2/40 transition space-y-2 group"
-          >
-            <div className="text-xs font-bold text-accent2 group-hover:underline">SNS 사전설문 기본 템플릿 →</div>
-            <p className="text-xs text-text-sub leading-relaxed">
-              SNS 계정의 광고주 사전설문에 공통으로 나갈 질문을 정합니다. 질문을 비워 두면 저장되지 않습니다.
+              한 화면에서 탭으로 나뉩니다. 사전조사 탭은 새 시딩 캠페인에, SNS 사전설문 탭은 새 SNS 계정에 공통으로 나갈
+              질문과 예시 문구를 정합니다. 질문을 비워 두면 저장되지 않습니다.
             </p>
           </Link>
 
@@ -643,7 +634,7 @@ export default function GuidePage() {
             href="/settings/ppt-templates"
             className="p-5 rounded-2xl bg-surface border border-border hover:border-amber-500/40 transition space-y-2 group"
           >
-            <div className="text-xs font-bold text-amber-400 group-hover:underline">공유 PPT 템플릿 보관함 →</div>
+            <div className="text-xs font-bold text-amber-400 group-hover:underline">공유 PPT 보관함 →</div>
             <p className="text-xs text-text-sub leading-relaxed">
               회사 서식 .pptx를 올려 두면 운영안과 보고서를 그 서식으로 뽑습니다.
             </p>
