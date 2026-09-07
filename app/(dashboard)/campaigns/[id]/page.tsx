@@ -127,14 +127,14 @@ export default async function CampaignDetailPage({
         <div className="flex items-center gap-4">
           <div className="text-right">
             <span className="text-xs text-text-muted block">지원자 / 최종선정</span>
-            <span className="text-sm font-bold text-text">
+            <span className="text-sm font-bold text-text font-mono tabular-nums">
               {applicants.length}명 / <strong className="text-blue-400">{selectedCount}명</strong>
             </span>
           </div>
           <div className="h-8 w-px bg-border" />
           <div className="text-right">
             <span className="text-xs text-text-muted block">업로드 완주</span>
-            <span className="text-sm font-bold text-emerald-400">{completedUploads}건</span>
+            <span className="text-sm font-bold text-emerald-400 font-mono tabular-nums">{completedUploads}건</span>
           </div>
           <div className="h-8 w-px bg-border" />
           <CampaignStatusSelect campaignId={campaign.id} initialStatus={campaign.status} />

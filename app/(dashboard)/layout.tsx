@@ -57,7 +57,7 @@ export default function DashboardLayout({
           name: "SNS 채널 운영",
           href: "/sns",
           icon: Camera,
-          color: "text-sky-500",
+          color: "text-accent2",
         },
       ],
     },
@@ -74,13 +74,13 @@ export default function DashboardLayout({
           name: "SNS 사전설문 기본틀",
           href: "/settings/sns-intake",
           icon: Sliders,
-          color: "text-sky-500",
+          color: "text-accent2",
         },
         {
           name: "공유 PPT 템플릿 보관함",
           href: "/settings/ppt-templates",
           icon: Presentation,
-          color: "text-amber-500",
+          color: "text-text-sub",
         },
       ],
     },
@@ -91,7 +91,7 @@ export default function DashboardLayout({
           name: "사용법 & 매뉴얼",
           href: "/guide",
           icon: BookOpen,
-          color: "text-emerald-500",
+          color: "text-text-sub",
         },
       ],
     },
@@ -115,7 +115,7 @@ export default function DashboardLayout({
       {/* Mobile Top Header */}
       <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-sidebar/95 backdrop-blur-md border-b border-border">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center font-bold text-white text-xs shadow-md shadow-purple-500/20">
+          <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center font-bold text-white text-xs shadow-sm">
             M
           </div>
           <span className="font-bold text-text text-sm tracking-tight">마케팅 올인원</span>
@@ -150,7 +150,7 @@ export default function DashboardLayout({
         {/* Sidebar Brand Header */}
         <div className="px-2 flex items-center justify-between">
           <Link href="/" onClick={closeMenu} className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-md shadow-purple-500/20">
+            <div className="w-8 h-8 rounded-xl bg-accent flex items-center justify-center font-bold text-white shadow-sm">
               M
             </div>
             <div>
@@ -185,15 +185,15 @@ export default function DashboardLayout({
                     onClick={closeMenu}
                     className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
                       active
-                        ? "bg-purple-600/15 border border-purple-500/30 text-purple-400 shadow-sm"
+                        ? "bg-accent/15 border border-accent/30 text-accent shadow-sm"
                         : "text-text-sub hover:text-text hover:bg-surface2"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <Icon className={`w-4 h-4 ${active ? "text-purple-400" : item.color}`} />
+                      <Icon className={`w-4 h-4 ${active ? "text-accent" : item.color}`} />
                       <span>{item.name}</span>
                     </div>
-                    {active && <ChevronRight className="w-3.5 h-3.5 text-purple-400" />}
+                    {active && <ChevronRight className="w-3.5 h-3.5 text-accent" />}
                   </Link>
                 );
               })}
