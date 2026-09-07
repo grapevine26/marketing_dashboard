@@ -13,14 +13,29 @@ JSON DB를 `os.tmpdir()` 에 두면 A 인스턴스에서 만든 보고서를 B �
 
 ## 백엔드 선택 규칙
 
-`BLOB_READ_WRITE_TOKEN` 환경 변수 하나로 갈린다. 코드 분기는 `isBlobBackend()` 뿐이다.
+`BLOB_STORE_ID` 또는 `BLOB_READ_WRITE_TOKEN` 둘 중 하나라도 있으면 Blob 을 쓴다.
+코드 분기는 `isBlobBackend()` 뿐이다.
 
-| 토큰 | 백엔드 | 쓰는 곳 |
+| 환경 변수 | 백엔드 | 쓰는 곳 |
 | --- | --- | --- |
-| 있음 | Vercel Blob | 배포 |
-| 없음 | 로컬 파일 (`.data/`) | 개발, 테스트 |
+| `BLOB_STORE_ID` 또는 `BLOB_READ_WRITE_TOKEN` | Vercel Blob | 배포 |
+| 둘 다 없음 | 로컬 파일 (`.data/`) | 개발, 테스트 |
 
-토큰 없이 Vercel 위에서 돌면 시작할 때 콘솔에 오류 로그를 크게 남긴다 (`warnIfEphemeral`).
+Vercel 에 스토어를 연결하면 `BLOB_STORE_ID` 가 들어가고, 인증은 자동으로 도는
+OIDC 토큰(`VERCEL_OIDC_TOKEN`)이 맡는다. 읽기·쓰기 토큰은 선택 사항이다.
+그래서 토큰만 보고 판단하면 정상 연결된 프로젝트가 임시 디스크로 떨어진다.
+
+둘 다 없이 Vercel 위에서 돌면 콘솔에 오류 로그를 크게 남긴다 (`warnIfEphemeral`).
+
+## 문제가 생기면
+
+`/api/storage-health` 를 열면 어떤 백엔드를 쓰는지, 어떤 환경 변수가 있는지,
+실제 읽기와 쓰기가 되는지 알려준다. 실패하면 오류 이름과 메시지가 그대로 나온다.
+토큰 값이나 DB 내용은 담지 않는다.
+
+읽기가 실패하면 초기 샘플 데이터로 조용히 대체하지 않고 오류를 낸다.
+샘플을 진짜 데이터처럼 보여주면 그 위에 저장했을 때 실제 데이터를 덮어쓴다.
+직전에 읽어둔 캐시가 있을 때만 그걸로 버틴다.
 
 ## 저장 위치
 

@@ -543,9 +543,15 @@ export async function readDb(): Promise<DatabaseSchema> {
     putCache(data, version);
     return data;
   } catch (err) {
-    console.warn("Could not read DB, falling back to cache or initial:", err);
-    if (cached && cached.filePath === cacheKey()) return cached.data;
-    return getInitialData();
+    // 방금 읽은 값이 있으면 그걸 쓴다. 잠깐의 네트워크 오류로 화면이 깨지지는 않게 한다.
+    if (cached && cached.filePath === cacheKey()) {
+      console.warn("DB 읽기 실패, 직전 캐시로 대체합니다:", err);
+      return cached.data;
+    }
+    // 캐시도 없으면 초기 샘플 데이터를 돌려주면 안 된다.
+    // 사용자의 진짜 데이터인 것처럼 보이고, 그 위에 저장하면 실제 데이터를 덮어쓴다.
+    console.error("DB 읽기 실패, 대체할 캐시가 없습니다:", err);
+    throw err;
   }
 }
 

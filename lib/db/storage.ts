@@ -42,8 +42,16 @@ const DOC_KEY = "db/marketing_db.json";
 const UPLOAD_PREFIX = "uploads/";
 const BACKUP_PREFIX = "backups/";
 
+/**
+ * Blob 스토어가 연결돼 있는가.
+ *
+ * Vercel 에 스토어를 연결하면 BLOB_STORE_ID 가 들어가고, 인증은 자동으로 도는
+ * OIDC 토큰(VERCEL_OIDC_TOKEN)이 맡는다. 읽기·쓰기 토큰은 선택 사항이라 없을 수 있다.
+ * 그래서 둘 중 하나만 있어도 Blob 백엔드로 본다.
+ * (토큰만 보고 판단하면 정상 연결된 프로젝트가 임시 디스크로 떨어진다.)
+ */
 export function isBlobBackend(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
 }
 
 /**
@@ -53,32 +61,53 @@ export function isBlobBackend(): boolean {
 function warnIfEphemeral() {
   if (process.env.VERCEL && !isBlobBackend()) {
     console.error(
-      "[storage] BLOB_READ_WRITE_TOKEN 이 없습니다. 서버리스 임시 디스크에 저장되어 " +
-        "인스턴스마다 데이터가 갈리고 곧 사라집니다. Vercel 프로젝트에 Blob 스토어를 연결하세요."
+      "[storage] Blob 스토어가 연결돼 있지 않습니다 (BLOB_STORE_ID / BLOB_READ_WRITE_TOKEN 둘 다 없음). " +
+        "서버리스 임시 디스크에 저장되어 인스턴스마다 데이터가 갈리고 곧 사라집니다. " +
+        "Vercel 프로젝트에 Blob 스토어를 연결하세요."
     );
   }
+}
+
+/** 진단용. 값은 절대 담지 않는다. 어떤 변수가 있는지만 본다. */
+export function describeStorage(): {
+  backend: "blob" | "file";
+  onVercel: boolean;
+  hasStoreId: boolean;
+  hasReadWriteToken: boolean;
+  hasOidcToken: boolean;
+  localPath: string | null;
+} {
+  const blob = isBlobBackend();
+  return {
+    backend: blob ? "blob" : "file",
+    onVercel: Boolean(process.env.VERCEL),
+    hasStoreId: Boolean(process.env.BLOB_STORE_ID),
+    hasReadWriteToken: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+    hasOidcToken: Boolean(process.env.VERCEL_OIDC_TOKEN),
+    localPath: blob ? null : getDbFilePath(),
+  };
 }
 
 // ---------- 파일시스템 백엔드 경로 (기존 동작 유지) ----------
 
 export function getDbFilePath(): string {
   if (process.env.DB_FILE) return path.resolve(process.env.DB_FILE);
-  if (process.env.VERCEL) return path.join(os.tmpdir(), "marketing_db.json");
-  return path.join(process.cwd(), ".data", "db.json");
+  if (process.env.VERCEL) return path.join(/*turbopackIgnore: true*/ os.tmpdir(), "marketing_db.json");
+  return path.join(/*turbopackIgnore: true*/ process.cwd(), ".data", "db.json");
 }
 
 export function getUploadsDirPath(): string {
   if (process.env.UPLOADS_DIR) return path.resolve(process.env.UPLOADS_DIR);
   if (process.env.DB_FILE) {
-    return path.join(path.dirname(path.resolve(process.env.DB_FILE)), "uploads");
+    return path.join(/*turbopackIgnore: true*/ path.dirname(path.resolve(process.env.DB_FILE)), "uploads");
   }
-  if (process.env.VERCEL) return path.join(os.tmpdir(), "marketing_uploads");
-  return path.join(process.cwd(), ".data", "uploads");
+  if (process.env.VERCEL) return path.join(/*turbopackIgnore: true*/ os.tmpdir(), "marketing_uploads");
+  return path.join(/*turbopackIgnore: true*/ process.cwd(), ".data", "uploads");
 }
 
 export function getBackupDirPath(): string {
   if (process.env.DB_BACKUP_DIR) return path.resolve(process.env.DB_BACKUP_DIR);
-  return path.join(path.dirname(getDbFilePath()), "backups");
+  return path.join(/*turbopackIgnore: true*/ path.dirname(getDbFilePath()), "backups");
 }
 
 function ensureDir(dir: string) {
@@ -179,7 +208,7 @@ export async function statFile(key: string): Promise<{ size: number } | null> {
       throw err;
     }
   }
-  const filePath = path.join(getUploadsDirPath(), key);
+  const filePath = path.join(/*turbopackIgnore: true*/ getUploadsDirPath(), key);
   if (!fs.existsSync(/*turbopackIgnore: true*/ filePath)) return null;
   return { size: fs.statSync(/*turbopackIgnore: true*/ filePath).size };
 }
@@ -208,7 +237,7 @@ export async function readFile(key: string, range?: string | null): Promise<File
     }
   }
 
-  const filePath = path.join(getUploadsDirPath(), key);
+  const filePath = path.join(/*turbopackIgnore: true*/ getUploadsDirPath(), key);
   if (!fs.existsSync(/*turbopackIgnore: true*/ filePath)) return null;
   const fileSize = fs.statSync(/*turbopackIgnore: true*/ filePath).size;
 
