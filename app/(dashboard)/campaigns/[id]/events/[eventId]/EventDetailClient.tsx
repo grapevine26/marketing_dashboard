@@ -647,7 +647,7 @@ export default function EventDetailClient({
                 <option key={t.id} value={t.id}>{t.builtin ? "[기본] " : ""}{t.name} (치환 항목 {t.placeholders.length}개)</option>
               ))}
             </select>
-            {templates.length === 0 && <p className="text-[11px] text-amber-400">행사용 PPT 템플릿이 없습니다. 설정 → 공유 PPT 템플릿 보관함에서 업로드하세요.</p>}
+            {templates.length === 0 && <p className="text-[11px] text-warn">행사용 PPT 템플릿이 없습니다. 설정 → 공유 PPT 템플릿 보관함에서 업로드하세요.</p>}
           </div>
 
           <div className="space-y-4 pt-3 border-t border-border">

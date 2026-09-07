@@ -54,7 +54,7 @@ export default async function ReportDetailPage({
         {snapshot ? (
           <ReportDownloads reportId={report.id} templates={templateOptions} defaultTemplateId={BUILTIN_REPORT_TEMPLATE_ID} />
         ) : (
-          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-2">
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn text-xs flex items-center gap-2">
             <AlertTriangle className="w-4 h-4" />
             <span>구버전 보고서라 스냅샷 데이터가 없습니다. 새 보고서를 생성해주세요.</span>
           </div>
@@ -67,7 +67,7 @@ export default async function ReportDetailPage({
           { label: "최종선정 (예비)", value: `${metrics.selectedCount}명 (${metrics.reservedCount})`, cls: "text-emerald-400" },
           { label: "업로드 완료", value: `${metrics.completedUploads}건`, cls: "text-purple-400" },
           { label: "총 조회수", value: `${metrics.totalViews.toLocaleString()}회`, cls: "text-blue-400" },
-          { label: "인게이지먼트 (비율)", value: `${metrics.totalEngagement.toLocaleString()} (${metrics.avgEngagementRate}%)`, cls: "text-amber-400" },
+          { label: "인게이지먼트 (비율)", value: `${metrics.totalEngagement.toLocaleString()} (${metrics.avgEngagementRate}%)`, cls: "text-warn" },
         ].map((m) => (
           <div key={m.label} className="p-4 rounded-2xl bg-surface border border-border">
             <div className="text-xs text-text-sub">{m.label}</div>

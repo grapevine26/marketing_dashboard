@@ -76,7 +76,7 @@ export default function PreSurveyAgencyView({
       </div>
 
       {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">{error}</div>}
-      {notice && <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold">{notice}</div>}
+      {notice && <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn text-xs font-semibold">{notice}</div>}
 
       <form onSubmit={handleSave} className="p-8 rounded-3xl bg-surface border border-border space-y-6 shadow-xl">
         <div className="space-y-5 divide-y divide-border">

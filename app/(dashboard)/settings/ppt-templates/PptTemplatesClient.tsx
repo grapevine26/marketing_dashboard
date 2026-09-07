@@ -54,16 +54,16 @@ export default function PptTemplatesClient({ initialTemplates }: { initialTempla
     <div className="space-y-6">
       <form onSubmit={handleUpload} className="p-6 rounded-3xl bg-surface border border-border space-y-4 shadow-xl">
         <h2 className="text-sm font-bold text-text flex items-center gap-2">
-          <Upload className="w-4 h-4 text-amber-400" />
+          <Upload className="w-4 h-4 text-warn" />
           <span>새 파워포인트 (.pptx) 템플릿 업로드</span>
         </h2>
         <p className="text-xs text-text-sub">
-          슬라이드 텍스트에 <code className="text-amber-400 bg-bg px-1.5 py-0.5 rounded font-mono">{"{{브랜드명}}"}</code> 같은 치환 표시를 넣어 만든 .pptx를 올리면 자동으로 감지됩니다. 디자인은 그대로 보존됩니다.
-          결과보고서 템플릿에서는 <code className="text-amber-400 bg-bg px-1.5 py-0.5 rounded font-mono">{"{{표:인플루언서}}"}</code>, <code className="text-amber-400 bg-bg px-1.5 py-0.5 rounded font-mono">{"{{차트:성과}}"}</code>를 넣은 도형 자리에 표와 차트가 들어갑니다.
+          슬라이드 텍스트에 <code className="text-warn bg-bg px-1.5 py-0.5 rounded font-mono">{"{{브랜드명}}"}</code> 같은 치환 표시를 넣어 만든 .pptx를 올리면 자동으로 감지됩니다. 디자인은 그대로 보존됩니다.
+          결과보고서 템플릿에서는 <code className="text-warn bg-bg px-1.5 py-0.5 rounded font-mono">{"{{표:인플루언서}}"}</code>, <code className="text-warn bg-bg px-1.5 py-0.5 rounded font-mono">{"{{차트:성과}}"}</code>를 넣은 도형 자리에 표와 차트가 들어갑니다.
         </p>
 
         {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">{error}</div>}
-        {notice && <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold">{notice}</div>}
+        {notice && <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn text-xs font-semibold">{notice}</div>}
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <input
@@ -113,7 +113,7 @@ export default function PptTemplatesClient({ initialTemplates }: { initialTempla
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-semibold">
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-warn border border-amber-500/20 text-xs font-semibold">
                       {PPT_TEMPLATE_KIND_LABELS[t.kind]}
                     </span>
                     {t.builtin && (
@@ -133,10 +133,10 @@ export default function PptTemplatesClient({ initialTemplates }: { initialTempla
                   <span className="text-[11px] text-text-muted block font-medium">감지된 치환 항목 ({t.placeholders.length}):</span>
                   <div className="flex flex-wrap gap-1.5">
                     {t.placeholders.length === 0 ? (
-                      <span className="text-[11px] text-amber-400">치환 항목 없음</span>
+                      <span className="text-[11px] text-warn">치환 항목 없음</span>
                     ) : (
                       t.placeholders.map((ph) => (
-                        <span key={ph} className="px-2 py-0.5 rounded bg-bg border border-border text-amber-300/80 font-mono text-[10px]">{`{{${ph}}}`}</span>
+                        <span key={ph} className="px-2 py-0.5 rounded bg-bg border border-border text-warn/80 font-mono text-[10px]">{`{{${ph}}}`}</span>
                       ))
                     )}
                   </div>

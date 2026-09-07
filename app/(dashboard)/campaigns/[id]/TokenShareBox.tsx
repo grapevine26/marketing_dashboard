@@ -158,7 +158,7 @@ export default function TokenShareBox({ campaign }: { campaign: Campaign }) {
                     type="button"
                     onClick={() => setConfirmTarget({ key: item.key, title: item.title })}
                     title="보안 링크 재발급 (이전 링크 즉시 무효화)"
-                    className="px-2.5 py-2 sm:py-1 rounded-lg bg-surface2 hover:bg-amber-500/10 hover:border-amber-500/30 border border-border text-text-muted hover:text-amber-300 text-xs font-medium inline-flex items-center justify-center gap-1 transition active:scale-95"
+                    className="px-2.5 py-2 sm:py-1 rounded-lg bg-surface2 hover:bg-amber-500/10 hover:border-amber-500/30 border border-border text-text-muted hover:text-warn text-xs font-medium inline-flex items-center justify-center gap-1 transition active:scale-95"
                   >
                     <RotateCcw className="w-3 h-3" />
                     <span className="text-[11px]">재발급</span>
@@ -175,7 +175,7 @@ export default function TokenShareBox({ campaign }: { campaign: Campaign }) {
         <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-md bg-surface border border-amber-500/30 rounded-3xl p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5 text-amber-400">
+              <div className="flex items-center gap-2.5 text-warn">
                 <ShieldAlert className="w-5 h-5" />
                 <h3 className="text-sm font-bold text-text">공유 링크 재발급 (보안 회수)</h3>
               </div>
@@ -195,8 +195,8 @@ export default function TokenShareBox({ campaign }: { campaign: Campaign }) {
               </p>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 leading-relaxed space-y-1">
-              <p className="font-semibold text-amber-300">⚠️ 이전 링크 즉시 404 차단 안내</p>
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-warn leading-relaxed space-y-1">
+              <p className="font-semibold text-warn">⚠️ 이전 링크 즉시 404 차단 안내</p>
               <p className="text-text-sub">
                 재발급 즉시 이전에 공유되었던 기존 링크는 유효하지 않은 주소가 되어 외부 접근이 차단됩니다. 필요시 광고주나 담당자에게 새로운 링크를 다시 전달해야 합니다.
               </p>

@@ -144,7 +144,7 @@ export default function SnsApprovalClient({
             </div>
 
             {c.client_comment && (
-              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-start gap-2">
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn text-xs flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <div><strong>이전 수정 요청:</strong> {c.client_comment}</div>
               </div>
@@ -164,7 +164,7 @@ export default function SnsApprovalClient({
                     type="button"
                     disabled={loadingId === c.id}
                     onClick={() => handleReview(c, "request_changes")}
-                    className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-surface2 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold transition disabled:opacity-50 inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="flex-1 sm:flex-none px-4 py-2 rounded-xl bg-surface2 hover:bg-amber-500/20 text-warn border border-amber-500/30 text-xs font-bold transition disabled:opacity-50 inline-flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     {loadingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageSquare className="w-3.5 h-3.5" />}
                     <span>수정 요청</span>

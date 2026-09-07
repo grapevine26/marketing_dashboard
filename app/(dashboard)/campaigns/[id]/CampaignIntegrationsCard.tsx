@@ -73,7 +73,7 @@ export default function CampaignIntegrationsCard({
         );
       case "company":
         return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/20">
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-warn border border-amber-500/20">
             광고주
           </span>
         );

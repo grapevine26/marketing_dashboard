@@ -160,14 +160,14 @@ export default function GuidePage() {
       {/* 시작하기 전에 */}
       <section id="before" className="space-y-4">
         <div className="flex items-center gap-2">
-          <AlertTriangle className="w-5 h-5 text-amber-400" />
+          <AlertTriangle className="w-5 h-5 text-warn" />
           <h2 className="text-lg font-bold text-text">시작하기 전에 꼭 알아둘 4가지</h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-5 rounded-2xl bg-surface border border-amber-500/25 space-y-2">
             <h3 className="text-sm font-bold text-text flex items-center gap-2">
-              <KeyRound className="w-4 h-4 text-amber-400" />
+              <KeyRound className="w-4 h-4 text-warn" />
               <span>로그인이 없습니다</span>
             </h3>
             <p className="text-xs text-text-2 leading-relaxed">
@@ -262,7 +262,7 @@ export default function GuidePage() {
       {/* Quick Start */}
       <section id="quick-start" className="space-y-4 pt-6 border-t border-border">
         <div className="flex items-center gap-2">
-          <Zap className="w-5 h-5 text-amber-400" />
+          <Zap className="w-5 h-5 text-warn" />
           <h2 className="text-lg font-bold text-text">빠른 시작</h2>
         </div>
 
@@ -634,7 +634,7 @@ export default function GuidePage() {
             href="/settings/ppt-templates"
             className="p-5 rounded-2xl bg-surface border border-border hover:border-amber-500/40 transition space-y-2 group"
           >
-            <div className="text-xs font-bold text-amber-400 group-hover:underline">공유 PPT 보관함 →</div>
+            <div className="text-xs font-bold text-warn group-hover:underline">공유 PPT 보관함 →</div>
             <p className="text-xs text-text-sub leading-relaxed">
               회사 서식 .pptx를 올려 두면 운영안과 보고서를 그 서식으로 뽑습니다.
             </p>

@@ -73,7 +73,7 @@ export default async function CampaignDetailPage({
       href: `/campaigns/${campaign.id}/apply-form`,
       icon: FileText,
       badge: (
-        <span className={`text-[11px] font-semibold flex items-center gap-1 ${formConfig?.is_published === false ? "text-amber-400" : "text-blue-400"}`}>
+        <span className={`text-[11px] font-semibold flex items-center gap-1 ${formConfig?.is_published === false ? "text-warn" : "text-blue-400"}`}>
           <Sparkles className="w-3.5 h-3.5" /> {formConfig?.is_published === false ? "접수 중단" : "접수중"}
         </span>
       ),

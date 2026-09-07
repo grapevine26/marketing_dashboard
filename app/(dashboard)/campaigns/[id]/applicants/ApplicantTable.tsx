@@ -54,7 +54,7 @@ export interface ApplicantTableProps {
 
 const STATUS_BADGE: Record<ApplicantStatus, string> = {
   selected: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
-  reserved: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+  reserved: "bg-amber-500/10 text-warn border border-amber-500/20",
   applied: "bg-surface2 text-text-sub border border-border",
   rejected: "bg-rose-500/10 text-rose-300 border border-rose-500/20",
 };
@@ -232,7 +232,7 @@ export default function ApplicantTable({
   const filterButtons: { key: "all" | ApplicantStatus; label: string; active: string; idle: string }[] = [
     { key: "all", label: `전체 (${applicants.length})`, active: "bg-zinc-100 text-zinc-900", idle: "bg-bg text-text-sub hover:text-text border border-border" },
     { key: "selected", label: `최종선정 (${count("selected")})`, active: "bg-blue-600 text-white", idle: "bg-bg text-blue-400 hover:bg-blue-500/10 border border-blue-500/20" },
-    { key: "reserved", label: `예비선정 (${count("reserved")})`, active: "bg-amber-600 text-white", idle: "bg-bg text-amber-400 hover:bg-amber-500/10 border border-amber-500/20" },
+    { key: "reserved", label: `예비선정 (${count("reserved")})`, active: "bg-amber-600 text-white", idle: "bg-bg text-warn hover:bg-amber-500/10 border border-amber-500/20" },
     { key: "applied", label: `대기 (${count("applied")})`, active: "bg-zinc-700 text-white", idle: "bg-bg text-text-sub hover:bg-surface3 border border-border" },
     { key: "rejected", label: `미선정 (${count("rejected")})`, active: "bg-rose-700 text-white", idle: "bg-bg text-rose-300 hover:bg-rose-500/10 border border-rose-500/20" },
   ];
@@ -243,7 +243,7 @@ export default function ApplicantTable({
       ? "flex-1 py-2 rounded-xl text-xs font-semibold transition disabled:opacity-50"
       : "px-2.5 py-1 rounded-lg text-xs font-semibold transition active:scale-95 disabled:opacity-50 inline-flex items-center gap-1";
     const primary = `${base} bg-blue-600 hover:bg-blue-500 text-white shadow-sm`;
-    const secondary = `${base} bg-surface2 hover:bg-amber-500/20 text-text-2 hover:text-amber-300 border border-border`;
+    const secondary = `${base} bg-surface2 hover:bg-amber-500/20 text-text-2 hover:text-warn border border-border`;
     const danger = `${base} bg-rose-600/15 hover:bg-rose-600/25 border border-rose-500/30 text-rose-300`;
     const neutral = `${base} bg-surface2 hover:bg-surface3 text-text-2 border border-border`;
 
@@ -458,7 +458,7 @@ export default function ApplicantTable({
                     </div>
                   )}
                   {dups.length > 0 && (
-                    <div className="text-[11px] text-amber-400 font-semibold flex items-center gap-1 pt-1">
+                    <div className="text-[11px] text-warn font-semibold flex items-center gap-1 pt-1">
                       <AlertTriangle className="w-3 h-3" /> {dups.join(", ")}
                     </div>
                   )}
@@ -584,7 +584,7 @@ export default function ApplicantTable({
                       </td>
                       <td className="p-3.5">
                         {dups.length > 0 ? (
-                          <span title={dups.join("\n")} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-semibold cursor-help">
+                          <span title={dups.join("\n")} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-warn border border-amber-500/20 text-[10px] font-semibold cursor-help">
                             <AlertTriangle className="w-3 h-3" />
                             <span>중복 의심 {dups.length}건</span>
                           </span>
@@ -652,7 +652,7 @@ export default function ApplicantTable({
                           <div className="flex items-start justify-between gap-3">
                             {renderDetails(a)}
                             {dups.length > 0 && (
-                              <div className="text-[11px] text-amber-400 space-y-0.5 shrink-0">
+                              <div className="text-[11px] text-warn space-y-0.5 shrink-0">
                                 {dups.map((d) => <div key={d}>· {d}</div>)}
                               </div>
                             )}

@@ -13,7 +13,7 @@ export default async function PptTemplatesSettingsPage() {
     <div className="space-y-6 max-w-5xl mx-auto font-sans">
       <div className="space-y-1">
         <h1 className="text-xl sm:text-2xl font-bold text-text tracking-tight flex items-center gap-2">
-          <Presentation className="w-6 h-6 text-amber-400" />
+          <Presentation className="w-6 h-6 text-warn" />
           <span>공용 PPT 템플릿 관리</span>
         </h1>
         <p className="text-xs sm:text-sm text-text-sub">

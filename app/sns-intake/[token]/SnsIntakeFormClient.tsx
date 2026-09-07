@@ -92,7 +92,7 @@ export default function SnsIntakeFormClient({
         </div>
       )}
       {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">{error}</div>}
-      {notice && <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold">{notice}</div>}
+      {notice && <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn text-xs font-semibold">{notice}</div>}
 
       <div className="space-y-6">
         {template.questions.map((q, idx) => (

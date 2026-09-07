@@ -114,7 +114,7 @@ export default function SnsPlanEditorClient({
           </h1>
           <p className="text-xs text-text-sub">
             사전설문 응답을 바탕으로 항목별 AI 초안을 만들고, 저장 후 파워포인트(.pptx)로 다운로드합니다.
-            {!hasIntake && <span className="text-amber-400 ml-1">광고주 사전설문 응답이 아직 없어 AI 초안 품질이 낮을 수 있습니다.</span>}
+            {!hasIntake && <span className="text-warn ml-1">광고주 사전설문 응답이 아직 없어 AI 초안 품질이 낮을 수 있습니다.</span>}
           </p>
         </div>
 

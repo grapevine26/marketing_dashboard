@@ -52,7 +52,7 @@ import {
 
 const STATUS_TONE: Record<SnsContentStatus, string> = {
   planning: "text-text-sub",
-  producing: "text-amber-400",
+  producing: "text-warn",
   pending_approval: "text-accent2",
   approved: "text-blue-400",
   posted: "text-emerald-400",
@@ -530,7 +530,7 @@ export default function SnsAccountDetailClient({
                   type="button"
                   onClick={() => setConfirmTokenTarget({ key: l.key, title: l.title })}
                   title="보안 링크 재발급 (이전 링크 즉시 무효화)"
-                  className="px-2.5 py-1.5 rounded-lg bg-surface hover:bg-amber-500/10 hover:border-amber-500/30 border border-border text-text-sub hover:text-amber-300 text-xs font-medium inline-flex items-center justify-center gap-1 transition active:scale-95"
+                  className="px-2.5 py-1.5 rounded-lg bg-surface hover:bg-amber-500/10 hover:border-amber-500/30 border border-border text-text-sub hover:text-warn text-xs font-medium inline-flex items-center justify-center gap-1 transition active:scale-95"
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span className="text-[11px]">재발급</span>
@@ -546,7 +546,7 @@ export default function SnsAccountDetailClient({
         <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-md bg-surface border border-amber-500/30 rounded-3xl p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5 text-amber-400">
+              <div className="flex items-center gap-2.5 text-warn">
                 <ShieldAlert className="w-5 h-5" />
                 <h3 className="text-sm font-bold text-text">SNS 전용 링크 재발급 (보안 회수)</h3>
               </div>
@@ -566,8 +566,8 @@ export default function SnsAccountDetailClient({
               </p>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 leading-relaxed space-y-1">
-              <p className="font-semibold text-amber-300">⚠️ 이전 링크 즉시 404 차단 안내</p>
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-warn leading-relaxed space-y-1">
+              <p className="font-semibold text-warn">⚠️ 이전 링크 즉시 404 차단 안내</p>
               <p className="text-text-2">
                 재발급 즉시 이전에 공유되었던 기존 링크는 유효하지 않은 주소가 되어 외부 접근이 차단됩니다. 광고주에게 새로운 링크를 다시 전달해야 합니다.
               </p>
@@ -722,9 +722,9 @@ export default function SnsAccountDetailClient({
                   </div>
 
                   {c.client_comment && (
-                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
+                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn text-xs">
                       <strong>광고주 수정요청:</strong> {c.client_comment}
-                      <span className="text-amber-500/70 ml-2">→ 수정 후 상태를 &quot;승인대기&quot;로 바꾸면 광고주 화면에 다시 표시됩니다.</span>
+                      <span className="text-warn/80 ml-2">→ 수정 후 상태를 &quot;승인대기&quot;로 바꾸면 광고주 화면에 다시 표시됩니다.</span>
                     </div>
                   )}
 

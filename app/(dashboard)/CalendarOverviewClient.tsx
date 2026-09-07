@@ -81,7 +81,7 @@ export default function CalendarOverviewClient({
       <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-border space-y-4 shadow-xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-amber-400" />
+            <AlertTriangle className="w-5 h-5 text-warn" />
             <h2 className="text-base font-bold text-text">임박 및 지연 일정 (D-3 ~ 지연)</h2>
           </div>
           <span className="text-xs text-text-muted font-medium font-mono tabular-nums">총 {urgentItems.length}건</span>
@@ -108,7 +108,7 @@ export default function CalendarOverviewClient({
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <SourceBadge source={item.source} />
-                    <span className={`text-xs font-bold font-mono tabular-nums ${item.daysDiff < 0 ? "text-red-400" : item.daysDiff === 0 ? "text-amber-400 font-extrabold" : "text-amber-300"}`}>
+                    <span className={`text-xs font-bold font-mono tabular-nums ${item.daysDiff < 0 ? "text-red-400" : item.daysDiff === 0 ? "text-warn font-extrabold" : "text-warn"}`}>
                       {ddayLabel(item.daysDiff)}
                     </span>
                   </div>

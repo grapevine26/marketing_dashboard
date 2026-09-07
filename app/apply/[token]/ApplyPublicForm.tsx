@@ -248,11 +248,11 @@ export default function ApplyPublicForm({
 
       {/* 중복 SNS 경고 및 계속 제출 UI */}
       {duplicateWarning && (
-        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 space-y-2">
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-warn space-y-2">
           <div className="flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <AlertTriangle className="w-4 h-4 text-warn shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="font-semibold text-amber-300">중복 지원 확인 안내</p>
+              <p className="font-semibold text-warn">중복 지원 확인 안내</p>
               <p className="text-text-2 leading-relaxed">{duplicateWarning}</p>
             </div>
           </div>
