@@ -442,7 +442,7 @@ export default function GuidePage() {
               </h3>
             </div>
             <div className="text-xs text-text-2 space-y-1.5 pl-8.5 leading-relaxed">
-              <p>• <strong>[새 결과보고서 생성]</strong>을 누르면 그 시점의 지원자·관리시트·성과가 <strong>스냅샷으로 저장</strong>됩니다. 이후 수치가 바뀌어도 보고서는 그대로 보존되므로, 최신 내용이 필요하면 보고서를 새로 만드세요.</p>
+              <p>• <strong>[현재 데이터로 새 결과보고서 생성]</strong>을 누르면 그 시점의 지원자·관리시트·성과가 <strong>스냅샷으로 저장</strong>됩니다. 이후 수치가 바뀌어도 보고서는 그대로 보존되므로, 최신 내용이 필요하면 보고서를 새로 만드세요.</p>
               <p>• <strong>[총평 편집 &amp; 열기]</strong>에서 총평과 추가 섹션을 쓴 뒤 내려받습니다.</p>
               <p>• <strong>[PDF 보고서 다운로드]</strong>는 한글이 정상 출력되고 성과 막대 차트가 들어갑니다. <strong>[PPTX 슬라이드 다운로드]</strong>는 파워포인트에서 그대로 편집할 수 있고, 표와 차트도 파워포인트 개체로 들어갑니다.</p>
               <p>• PPTX는 적용할 템플릿을 고를 수 있습니다. 기본 템플릿이 이미 들어 있고, 회사 서식은 <strong>[설정 → 공유 PPT 템플릿 보관함]</strong>에 시딩 결과보고서 종류로 올리면 목록에 나타납니다.</p>
@@ -568,7 +568,7 @@ export default function GuidePage() {
         </div>
 
         <p className="text-[11px] text-text-muted leading-relaxed">
-          계정 정보 수정, 운영중과 계약종료 상태 전환, 계정 삭제도 같은 화면에서 합니다. 계정을 삭제하면 콘텐츠·기획안·설문
+          [계정 수정]으로 브랜드명·핸들·플랫폼을 고치고, 운영중과 계약종료 상태 전환과 계정 삭제도 같은 화면에서 합니다. 계정을 삭제하면 콘텐츠·기획안·설문
           응답과 첨부한 시안 파일까지 함께 지워집니다.
         </p>
       </section>
