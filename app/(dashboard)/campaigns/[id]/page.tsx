@@ -124,20 +124,22 @@ export default async function CampaignDetailPage({
           <h1 className="text-2xl font-bold text-text">{campaign.name}</h1>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="text-right">
-            <span className="text-xs text-text-muted block">지원자 / 최종선정</span>
+        <div className="grid grid-cols-2 gap-3 w-full md:w-auto md:flex md:items-center md:gap-4">
+          <div className="text-left md:text-right">
+            <span className="text-xs text-text-muted block whitespace-nowrap">지원자 / 최종선정</span>
             <span className="text-sm font-bold text-text font-mono tabular-nums">
               {applicants.length}명 / <strong className="text-text">{selectedCount}명</strong>
             </span>
           </div>
-          <div className="h-8 w-px bg-border" />
-          <div className="text-right">
-            <span className="text-xs text-text-muted block">업로드 완주</span>
+          <div className="hidden md:block h-8 w-px bg-border" />
+          <div className="text-left md:text-right">
+            <span className="text-xs text-text-muted block whitespace-nowrap">업로드 완주</span>
             <span className="text-sm font-bold text-text font-mono tabular-nums">{completedUploads}건</span>
           </div>
-          <div className="h-8 w-px bg-border" />
+          <div className="hidden md:block h-8 w-px bg-border" />
+          <div className="col-span-2 md:col-auto">
           <CampaignStatusSelect campaignId={campaign.id} initialStatus={campaign.status} />
+          </div>
         </div>
       </div>
 

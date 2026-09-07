@@ -121,11 +121,11 @@ export async function collectOverviewItems(todayKst: string): Promise<OverviewDa
       items.push({
         id: `chk_${chk.id}`,
         source: "event_checklist",
-        title: `${chk.label} · ${parentEvent.name}`,
+        title: chk.label,
         dateStr: chk.due_date,
-        linkUrl: `/campaigns/${parentEvent.campaign_id}/events/${parentEvent.id}`,
+        linkUrl: `/campaigns/${parentEvent.campaign_id}/events/${parentEvent.id}?tab=checklist`,
         brandName: camp?.company_name || parentEvent.name,
-        extraInfo: chk.assignee ? `담당: ${chk.assignee}` : undefined,
+        extraInfo: [parentEvent.name, chk.assignee ? `담당: ${chk.assignee}` : null].filter(Boolean).join(" • "),
         daysDiff: daysUntilDeadline(chk.due_date, todayKst),
       });
     }

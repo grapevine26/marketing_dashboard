@@ -62,6 +62,7 @@ export default function EventDetailClient({
   templates,
   applicants,
   todayKst,
+  initialTab,
 }: {
   campaign: Campaign;
   event: MarketingEvent;
@@ -71,10 +72,11 @@ export default function EventDetailClient({
   templates: TemplateOption[];
   applicants: Applicant[];
   todayKst: string;
+  initialTab: "invitees" | "plan" | "checklist";
 }) {
   const router = useRouter();
   const [event, setEvent] = useState<MarketingEvent>(initialEvent);
-  const [activeTab, setActiveTab] = useState<"invitees" | "plan" | "checklist">("invitees");
+  const [activeTab, setActiveTab] = useState<"invitees" | "plan" | "checklist">(initialTab);
   const [invitees, setInvitees] = useState<EventInvitee[]>(initialInvitees);
   const [checklists, setChecklists] = useState<EventChecklistItem[]>(initialChecklists);
   const [error, setError] = useState<string | null>(null);
@@ -482,16 +484,16 @@ export default function EventDetailClient({
             </div>
           </form>
 
-          <div className="rounded-2xl border border-border overflow-hidden overflow-x-auto">
+          <div className="hidden sm:block rounded-2xl border border-border overflow-hidden overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-bg text-text-sub border-b border-border">
                 <tr>
-                  <th className="p-3.5">이름</th>
-                  <th className="p-3.5">SNS 채널</th>
-                  <th className="p-3.5">연락처</th>
-                  <th className="p-3.5">RSVP 상태 (수동 기록)</th>
-                  <th className="p-3.5 text-center">당일 현장 참석</th>
-                  <th className="p-3.5">메모</th>
+                  <th className="p-3.5 whitespace-nowrap">이름</th>
+                  <th className="p-3.5 whitespace-nowrap">SNS 채널</th>
+                  <th className="p-3.5 whitespace-nowrap">연락처</th>
+                  <th className="p-3.5 whitespace-nowrap">RSVP 상태 (수동 기록)</th>
+                  <th className="p-3.5 text-center whitespace-nowrap">당일 현장 참석</th>
+                  <th className="p-3.5 whitespace-nowrap">메모</th>
                   <th className="p-3.5 text-right">삭제</th>
                 </tr>
               </thead>
@@ -503,7 +505,7 @@ export default function EventDetailClient({
                 ) : (
                   invitees.map((inv) => (
                     <tr key={inv.id} className="hover:bg-surface2 transition">
-                      <td className="p-3.5 font-bold text-text">{inv.name}</td>
+                      <td className="p-3.5 font-bold text-text whitespace-nowrap min-w-[96px]">{inv.name}</td>
                       <td className="p-3.5">
                         {inv.sns_url ? (
                           <a href={inv.sns_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline inline-flex items-center gap-1 truncate max-w-[130px]">
@@ -548,6 +550,63 @@ export default function EventDetailClient({
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* 모바일: 표 대신 카드 (좁은 화면에서 이름이 세로로 쪼개지는 것을 막는다) */}
+          <div className="sm:hidden space-y-3">
+            {invitees.length === 0 ? (
+              <div className="p-6 text-center text-text-muted text-xs border border-dashed border-border rounded-2xl bg-bg">
+                초청된 인플루언서가 없습니다. 위 버튼으로 지원자를 불러오거나 직접 추가해보세요.
+              </div>
+            ) : (
+              invitees.map((inv) => (
+                <div key={inv.id} className="p-4 rounded-2xl bg-bg border border-border space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm text-text">{inv.name}</div>
+                      {inv.sns_url ? (
+                        <a href={inv.sns_url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-blue-400 hover:underline block truncate">
+                          {inv.sns_url}
+                        </a>
+                      ) : null}
+                      {inv.contact && <div className="text-[11px] text-text-sub font-mono">{inv.contact}</div>}
+                    </div>
+                    <button type="button" onClick={() => handleDeleteInvitee(inv.id)} className="p-2 rounded-lg text-text-muted hover:text-red-400 transition shrink-0" title="삭제">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] text-text-muted">RSVP 상태</label>
+                    <select
+                      value={inv.rsvp_status}
+                      onChange={(e) => handleRsvpChange(inv, e.target.value as EventRsvpStatus)}
+                      className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-indigo-500 font-semibold"
+                    >
+                      <option value="pending">미응답 (대기)</option>
+                      <option value="attending">참석 확정 ✓</option>
+                      <option value="not_attending">불참</option>
+                    </select>
+                  </div>
+
+                  <label className="flex items-center justify-between gap-2 py-1 cursor-pointer">
+                    <span className="text-[11px] text-text-muted">당일 현장 참석</span>
+                    <input type="checkbox" checked={inv.attended} onChange={() => handleToggleCheckin(inv)} className="w-5 h-5 accent-indigo-600 rounded" />
+                  </label>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] text-text-muted">메모</label>
+                    <input
+                      type="text"
+                      defaultValue={inv.memo || ""}
+                      placeholder="메모"
+                      onBlur={(e) => handleMemoBlur(inv, e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border text-text-2 text-xs focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           {importModalOpen && (

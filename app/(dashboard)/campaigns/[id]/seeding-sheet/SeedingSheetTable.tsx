@@ -225,9 +225,15 @@ export default function SeedingSheetTable({
                   )}
                 </div>
                 {!isReadOnly && (
-                  <div className="flex items-center gap-1.5 pt-1">
-                    {numberInput(r, "views", "조회수")}
-                    {numberInput(r, "engagement", "반응수")}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <label className="space-y-1">
+                      <span className="block text-[11px] text-text-muted">조회수</span>
+                      {numberInput(r, "views", "조회수")}
+                    </label>
+                    <label className="space-y-1">
+                      <span className="block text-[11px] text-text-muted">반응수</span>
+                      {numberInput(r, "engagement", "반응수")}
+                    </label>
                   </div>
                 )}
                 {isReadOnly ? (
@@ -400,7 +406,7 @@ export default function SeedingSheetTable({
       )}
 
       {!isReadOnly && (
-        <p className="text-[11px] text-text-muted">입력칸에서 포커스가 빠져나가면 자동 저장됩니다. 단계는 {isShipping ? "배송형" : "방문형"} 기준으로만 표시됩니다. 화면이 좁으면 표를 좌우로 밀어서 나머지 칸을 볼 수 있습니다.</p>
+        <p className="text-[11px] text-text-muted">입력칸에서 포커스가 빠져나가면 자동 저장됩니다. 단계는 {isShipping ? "배송형" : "방문형"} 기준으로만 표시됩니다.<span className="hidden sm:inline"> 칸이 잘려 보이면 표를 좌우로 밀어서 나머지를 볼 수 있습니다.</span></p>
       )}
     </div>
   );

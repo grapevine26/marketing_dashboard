@@ -48,23 +48,23 @@ export default async function DashboardOverviewPage({
           <h1 className="text-lg font-bold text-text">오늘의 현황</h1>
           <p className="text-xs text-text-sub mt-0.5">에이전시 전체 캠페인과 SNS 운영 현황을 한눈에 확인합니다.</p>
         </div>
-        <div className="flex items-center gap-6 sm:gap-8 flex-wrap">
-          <div className="text-right">
+        <div className="grid grid-cols-2 gap-4 w-full sm:w-auto sm:flex sm:items-center sm:gap-8">
+          <div className="text-left sm:text-right">
             <span className="block text-[11px] text-text-muted">진행중 캠페인</span>
             <span className="font-mono tabular-nums text-xl font-bold text-text">{summary.activeCampaignCount}</span>
           </div>
           <div className="h-8 w-px bg-border hidden sm:block" />
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <span className="block text-[11px] text-text-muted">이번달 신규 지원자</span>
             <span className="font-mono tabular-nums text-xl font-bold text-text">{summary.newApplicantsThisMonth}</span>
           </div>
           <div className="h-8 w-px bg-border hidden sm:block" />
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <span className="block text-[11px] text-text-muted">누적 최종선정</span>
             <span className="font-mono tabular-nums text-xl font-bold text-text">{summary.totalSelectedCount}</span>
           </div>
           <div className="h-8 w-px bg-border hidden sm:block" />
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <span className="block text-[11px] text-accent font-semibold">이번주 발행 예정</span>
             <span className="font-mono tabular-nums text-xl font-bold text-accent">{contentDueThisWeek}</span>
           </div>

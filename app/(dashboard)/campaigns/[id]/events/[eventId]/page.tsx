@@ -17,10 +17,13 @@ export const revalidate = 0;
 
 export default async function CampaignEventDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string; eventId: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { id, eventId } = await params;
+  const { tab } = await searchParams;
   const [campaign, event] = await Promise.all([getCampaignById(id), getEventById(eventId)]);
 
   if (!campaign || !event || event.campaign_id !== campaign.id) notFound();
@@ -53,6 +56,7 @@ export default async function CampaignEventDetailPage({
         templates={templates.map((t) => ({ id: t.id, name: t.name, placeholders: t.placeholders, builtin: Boolean(t.builtin) }))}
         applicants={applicants}
         todayKst={toKstDateString()}
+        initialTab={tab === "checklist" || tab === "plan" ? tab : "invitees"}
       />
     </div>
   );
