@@ -45,14 +45,14 @@ export default function NewSnsAccountModal() {
     router.push(`/sns/${res.data.id}`);
   };
 
-  const cls = "w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-sky-500";
+  const cls = "w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-accent2";
 
   return (
     <>
       <button
         type="button"
         onClick={() => { setErrorMsg(null); setOpen(true); }}
-        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs sm:text-sm font-semibold shadow-md transition active:scale-95"
+        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent2 hover:bg-accent2/90 text-white text-xs sm:text-sm font-semibold shadow-md transition active:scale-95"
       >
         <Plus className="w-4 h-4" />
         <span>새 계정 등록</span>
@@ -105,7 +105,7 @@ export default function NewSnsAccountModal() {
 
               <div className="pt-3 flex flex-col-reverse sm:flex-row justify-end gap-2">
                 <button type="button" onClick={() => setOpen(false)} className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-medium">취소</button>
-                <button type="submit" disabled={loading} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold shadow-md transition disabled:opacity-50 inline-flex items-center justify-center gap-1.5">
+                <button type="submit" disabled={loading} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-accent2 hover:bg-accent2/90 text-white text-xs font-semibold shadow-md transition disabled:opacity-50 inline-flex items-center justify-center gap-1.5">
                   {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>계정 등록하기</span>
                 </button>

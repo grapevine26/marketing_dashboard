@@ -24,14 +24,14 @@ export default async function SnsIntakePublicPage({
     account.platform === "youtube" ? <Play className="w-6 h-6 text-red-500" />
     : account.platform === "tiktok" ? <Video className="w-6 h-6 text-cyan-400" />
     : account.platform === "instagram" ? <Camera className="w-6 h-6 text-pink-500" />
-    : <Camera className="w-6 h-6 text-sky-400" />;
+    : <Camera className="w-6 h-6 text-accent2" />;
 
   return (
     <div className="min-h-screen bg-bg text-text flex flex-col items-center justify-center p-4 sm:p-6 md:p-10 font-sans">
       <div className="w-full max-w-2xl bg-surface border border-border rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
         <div className="text-center space-y-3 pb-5 border-b border-border">
           <div className="w-14 h-14 rounded-2xl bg-bg border border-border flex items-center justify-center mx-auto shadow-inner">{icon}</div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-bold uppercase tracking-wider">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent2/10 border border-accent2/20 text-accent2 text-xs font-bold uppercase tracking-wider">
             <Sparkles className="w-3 h-3" />
             <span>{account.platform} 공식 채널 운영 대행</span>
           </div>

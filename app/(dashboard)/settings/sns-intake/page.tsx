@@ -11,7 +11,7 @@ export default async function SnsIntakeSettingsPage() {
     <div className="space-y-6 max-w-4xl mx-auto font-sans">
       <div className="space-y-1">
         <h1 className="text-xl sm:text-2xl font-bold text-text tracking-tight flex items-center gap-2">
-          <Sliders className="w-6 h-6 text-sky-400" />
+          <Sliders className="w-6 h-6 text-accent2" />
           <span>SNS 사전설문 기본 질문틀 관리</span>
         </h1>
         <p className="text-xs sm:text-sm text-text-sub">

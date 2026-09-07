@@ -67,7 +67,7 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-text tracking-tight flex items-center gap-2">
-            <Camera className="w-6 h-6 text-sky-400" />
+            <Camera className="w-6 h-6 text-accent2" />
             <span>SNS 공식 채널 대행 운영</span>
           </h1>
           <p className="text-xs sm:text-sm text-text-sub">
@@ -86,7 +86,7 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
             onClick={() => setFilter("active")}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${
               filter === "active"
-                ? "bg-sky-600 text-white shadow-sm"
+                ? "bg-accent2 text-white shadow-sm"
                 : "bg-surface text-text-sub hover:text-text border border-border"
             }`}
           >
@@ -97,7 +97,7 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
             onClick={() => setFilter("all")}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${
               filter === "all"
-                ? "bg-sky-600 text-white shadow-sm"
+                ? "bg-accent2 text-white shadow-sm"
                 : "bg-surface text-text-sub hover:text-text border border-border"
             }`}
           >
@@ -125,7 +125,7 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="브랜드명, 핸들(@...) 검색..."
-            className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-sky-500"
+            className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-accent2"
           />
           <Search className="w-3.5 h-3.5 text-text-muted absolute left-2.5 top-2.5" />
         </div>
@@ -148,11 +148,11 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
           {filteredAccounts.map((acc) => (
             <div
               key={acc.id}
-              className="group relative p-5 rounded-2xl bg-surface border border-border hover:border-sky-500/40 hover:bg-surface2 transition flex flex-col justify-between space-y-4 shadow-md"
+              className="group relative p-5 rounded-2xl bg-surface border border-border hover:border-accent2/40 hover:bg-surface2 transition flex flex-col justify-between space-y-4 shadow-md"
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 text-xs font-semibold uppercase">
+                  <span className="px-2.5 py-0.5 rounded-full bg-accent2/10 text-accent2 border border-accent2/20 text-xs font-semibold uppercase">
                     {acc.platform}
                   </span>
                   <div className="flex items-center gap-2">
@@ -179,10 +179,10 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
                 </div>
 
                 <Link href={`/sns/${acc.id}`} className="block focus:outline-none">
-                  <h2 className="text-base font-bold text-text group-hover:text-sky-400 transition leading-snug">
+                  <h2 className="text-base font-bold text-text group-hover:text-accent2 transition leading-snug">
                     {acc.company_name}
                   </h2>
-                  <p className="text-xs text-sky-400/90 font-mono mt-0.5">
+                  <p className="text-xs text-accent2/90 font-mono mt-0.5">
                     @{acc.handle}
                   </p>
                 </Link>
@@ -196,9 +196,9 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
                 <span>계정 관리 허브</span>
                 <Link
                   href={`/sns/${acc.id}`}
-                  className="flex items-center gap-1 group-hover:text-sky-400 font-semibold transition"
+                  className="flex items-center gap-1 group-hover:text-accent2 font-semibold transition"
                 >
-                  <ArrowRight className="w-4 h-4 text-text-muted group-hover:text-sky-400 group-hover:translate-x-0.5 transition" />
+                  <ArrowRight className="w-4 h-4 text-text-muted group-hover:text-accent2 group-hover:translate-x-0.5 transition" />
                 </Link>
               </div>
             </div>

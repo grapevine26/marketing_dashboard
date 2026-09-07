@@ -109,7 +109,7 @@ export default function SnsPlanEditorClient({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-text flex items-center gap-2">
-            <FileText className="w-5 h-5 text-sky-400" />
+            <FileText className="w-5 h-5 text-accent2" />
             <span>{account.company_name} SNS 공식 채널 운영 제안서</span>
           </h1>
           <p className="text-xs text-text-sub">
@@ -119,11 +119,11 @@ export default function SnsPlanEditorClient({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" disabled={loadingAiAll} onClick={handleAiEmpty} className="px-3.5 py-2 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-semibold inline-flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50">
+          <button type="button" disabled={loadingAiAll} onClick={handleAiEmpty} className="px-3.5 py-2 rounded-xl bg-accent2/10 hover:bg-accent2/20 text-accent2 border border-accent2/30 text-xs font-semibold inline-flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50">
             {loadingAiAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
             <span>빈 항목만 AI로 채우기</span>
           </button>
-          <button type="button" disabled={saving} onClick={handleSave} className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-md transition active:scale-95 disabled:opacity-50">
+          <button type="button" disabled={saving} onClick={handleSave} className="px-4 py-2 rounded-xl bg-accent2 hover:bg-accent2/90 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-md transition active:scale-95 disabled:opacity-50">
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
             <span>운영안 저장{dirty ? " *" : ""}</span>
           </button>
@@ -145,7 +145,7 @@ export default function SnsPlanEditorClient({
         <select
           value={selectedTemplateId || ""}
           onChange={(e) => { setSelectedTemplateId(e.target.value || null); setDirty(true); }}
-          className="w-full sm:w-96 px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-sky-500 font-semibold"
+          className="w-full sm:w-96 px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-accent2 font-semibold"
         >
           <option value="">템플릿 선택 안 함</option>
           {templates.map((t) => (
@@ -159,8 +159,8 @@ export default function SnsPlanEditorClient({
         {placeholders.map((ph) => (
           <div key={ph} className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-sky-400 font-mono">{`{{${ph}}}`}</label>
-              <button type="button" disabled={loadingAiField === ph} onClick={() => handleAiField(ph)} className="px-2 py-0.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/20 text-[10px] font-semibold inline-flex items-center gap-1 disabled:opacity-50">
+              <label className="text-xs font-bold text-accent2 font-mono">{`{{${ph}}}`}</label>
+              <button type="button" disabled={loadingAiField === ph} onClick={() => handleAiField(ph)} className="px-2 py-0.5 rounded-lg bg-accent2/10 hover:bg-accent2/20 text-accent2 border border-accent2/20 text-[10px] font-semibold inline-flex items-center gap-1 disabled:opacity-50">
                 {loadingAiField === ph ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} AI 초안
               </button>
             </div>
@@ -168,7 +168,7 @@ export default function SnsPlanEditorClient({
               rows={LONG_FIELDS.has(ph) ? 4 : 2}
               value={fieldValues[ph] || ""}
               onChange={(e) => setField(ph, e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-sky-500 leading-relaxed"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-accent2 leading-relaxed"
             />
           </div>
         ))}

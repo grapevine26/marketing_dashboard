@@ -53,7 +53,7 @@ import {
 const STATUS_TONE: Record<SnsContentStatus, string> = {
   planning: "text-text-sub",
   producing: "text-amber-400",
-  pending_approval: "text-sky-400",
+  pending_approval: "text-accent2",
   approved: "text-blue-400",
   posted: "text-emerald-400",
 };
@@ -425,14 +425,14 @@ export default function SnsAccountDetailClient({
   };
 
   const platformLabel = (p: SnsPlatform) => p.toUpperCase();
-  const inputCls = "w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-sky-500";
+  const inputCls = "w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-accent2";
 
   const tabBtn = (key: typeof activeTab, icon: React.ReactNode, label: string) => (
     <button
       type="button"
       onClick={() => setActiveTab(key)}
       className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap ${
-        activeTab === key ? "bg-sky-600/15 text-sky-400 border border-sky-500/30" : "text-text-sub hover:text-white"
+        activeTab === key ? "bg-accent2/15 text-accent2 border border-accent2/30" : "text-text-sub hover:text-white"
       }`}
     >
       {icon}
@@ -448,7 +448,7 @@ export default function SnsAccountDetailClient({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 text-xs font-semibold">{platformLabel(account.platform)}</span>
+                <span className="px-2.5 py-0.5 rounded-full bg-accent2/10 text-accent2 border border-accent2/20 text-xs font-semibold">{platformLabel(account.platform)}</span>
                 <button
                   type="button"
                   onClick={handleToggleAccountStatus}
@@ -459,7 +459,7 @@ export default function SnsAccountDetailClient({
                 </button>
               </div>
               <h1 className="text-xl sm:text-2xl font-extrabold text-text">{account.company_name}</h1>
-              <p className="text-xs text-sky-400 font-mono">
+              <p className="text-xs text-accent2 font-mono">
                 @{account.handle} <span className="text-text-muted">· 계약 {account.starts_on || "미정"} ~ {account.ends_on || "미정"}</span>
               </p>
             </div>
@@ -469,10 +469,10 @@ export default function SnsAccountDetailClient({
                 <Pencil className="w-3.5 h-3.5" /> 계정 수정
               </button>
               <Link href={`/sns/${account.id}/plan`} className="px-4 py-2 rounded-xl bg-surface2 hover:bg-surface3 border border-border text-text text-xs font-semibold inline-flex items-center gap-1.5 transition active:scale-95">
-                <FileText className="w-3.5 h-3.5 text-sky-400" />
+                <FileText className="w-3.5 h-3.5 text-accent2" />
                 <span>SNS 운영안 (웹/PPT)</span>
               </Link>
-              <button type="button" onClick={() => openCreate()} className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-md transition active:scale-95">
+              <button type="button" onClick={() => openCreate()} className="px-4 py-2 rounded-xl bg-accent2 hover:bg-accent2/90 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-md transition active:scale-95">
                 <Plus className="w-3.5 h-3.5" />
                 <span>새 콘텐츠 기획</span>
               </button>
@@ -500,7 +500,7 @@ export default function SnsAccountDetailClient({
             </div>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setEditingAccount(false)} className="px-4 py-2 rounded-xl bg-surface2 text-text-2 text-xs">취소</button>
-              <button type="submit" disabled={savingAccount} className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50">
+              <button type="submit" disabled={savingAccount} className="px-4 py-2 rounded-xl bg-accent2 hover:bg-accent2/90 text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50">
                 {savingAccount ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 저장
               </button>
             </div>
@@ -517,13 +517,13 @@ export default function SnsAccountDetailClient({
               <div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-text">{l.title}</span>
-                  <a href={l.path} target="_blank" rel="noopener noreferrer" className="text-text-sub hover:text-sky-400 p-0.5" title="새 창으로 링크 열기"><ExternalLink className="w-3.5 h-3.5" /></a>
+                  <a href={l.path} target="_blank" rel="noopener noreferrer" className="text-text-sub hover:text-accent2 p-0.5" title="새 창으로 링크 열기"><ExternalLink className="w-3.5 h-3.5" /></a>
                 </div>
                 <p className="text-[11px] text-text-muted mt-0.5">{l.desc}</p>
               </div>
               <div className="flex items-center gap-1.5 pt-1">
                 <button type="button" onClick={() => handleCopy(l.key, `${origin}${l.path}`)} className="flex-1 py-1.5 rounded-lg bg-surface hover:bg-surface2 border border-border text-xs font-medium text-text-2 inline-flex items-center justify-center gap-1.5 transition">
-                  {copiedKey === l.key ? <Check className="w-3.5 h-3.5 text-sky-400" /> : <Copy className="w-3.5 h-3.5 text-text-sub" />}
+                  {copiedKey === l.key ? <Check className="w-3.5 h-3.5 text-accent2" /> : <Copy className="w-3.5 h-3.5 text-text-sub" />}
                   <span>{copiedKey === l.key ? "복사완료!" : "링크 복사"}</span>
                 </button>
                 <button
@@ -603,11 +603,11 @@ export default function SnsAccountDetailClient({
       <div className="p-5 rounded-3xl bg-surface border border-border space-y-3 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-sky-400" />
+            <BarChart3 className="w-4 h-4 text-accent2" />
             <h2 className="text-sm font-bold text-text">월별 게시 성과 (게시완료 전환 월 기준)</h2>
           </div>
           <div className="flex items-center gap-2 text-xs">
-            <select value={perfMonth} onChange={(e) => setPerfMonth(e.target.value)} className="px-2.5 py-1.5 rounded-lg bg-bg border border-border text-text text-xs font-mono focus:outline-none focus:border-sky-500">
+            <select value={perfMonth} onChange={(e) => setPerfMonth(e.target.value)} className="px-2.5 py-1.5 rounded-lg bg-bg border border-border text-text text-xs font-mono focus:outline-none focus:border-accent2">
               {availableMonths.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
             <span className="text-text-muted">전체 누적 {postedContents.length}건 · 조회 {sum(postedContents, "view_count").toLocaleString()}</span>
@@ -616,7 +616,7 @@ export default function SnsAccountDetailClient({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono tabular-nums">
           {[
             { label: "게시 건수", value: `${monthPosted.length}건`, cls: "text-text" },
-            { label: "조회수", value: `${sum(monthPosted, "view_count").toLocaleString()}회`, cls: "text-sky-400" },
+            { label: "조회수", value: `${sum(monthPosted, "view_count").toLocaleString()}회`, cls: "text-accent2" },
             { label: "좋아요", value: `${sum(monthPosted, "like_count").toLocaleString()}개`, cls: "text-blue-400" },
             { label: "댓글수", value: `${sum(monthPosted, "comment_count").toLocaleString()}개`, cls: "text-indigo-400" },
           ].map((k) => (
@@ -640,7 +640,7 @@ export default function SnsAccountDetailClient({
         <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-border space-y-4 shadow-xl">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-text flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-sky-400" /> {calYear}년 {calMonth}월 SNS 콘텐츠 발행 스케줄
+              <Calendar className="w-5 h-5 text-accent2" /> {calYear}년 {calMonth}월 SNS 콘텐츠 발행 스케줄
             </h2>
             <div className="flex items-center gap-1 bg-bg p-1 rounded-xl border border-border">
               <button type="button" onClick={() => setCalendarMonth(shiftMonth(calendarMonth, -1))} className="p-1.5 rounded-lg text-text-sub hover:text-text hover:bg-surface2 transition"><ChevronLeft className="w-4 h-4" /></button>
@@ -661,19 +661,19 @@ export default function SnsAccountDetailClient({
                   <div
                     key={cell.dateStr}
                     onClick={() => openCreate(cell.dateStr)}
-                    className={`h-28 sm:h-32 p-1.5 sm:p-2 flex flex-col justify-between hover:bg-surface2 cursor-pointer transition group ${cell.isToday ? "bg-sky-950/20" : ""}`}
+                    className={`h-28 sm:h-32 p-1.5 sm:p-2 flex flex-col justify-between hover:bg-surface2 cursor-pointer transition group ${cell.isToday ? "bg-accent2/10" : ""}`}
                     title="클릭하여 이 날짜에 새 콘텐츠 기획"
                   >
                     <div className="flex items-center justify-between">
-                      <span className={`text-xs font-mono font-bold ${cell.isToday ? "text-sky-400 underline" : "text-text-2"} group-hover:text-sky-400`}>{cell.dayNum}</span>
-                      {items.length > 0 && <span className="w-4 h-4 rounded-full bg-sky-500/20 text-sky-300 text-[10px] font-bold flex items-center justify-center font-mono">{items.length}</span>}
+                      <span className={`text-xs font-mono font-bold ${cell.isToday ? "text-accent2 underline" : "text-text-2"} group-hover:text-accent2`}>{cell.dayNum}</span>
+                      {items.length > 0 && <span className="w-4 h-4 rounded-full bg-accent2/20 text-accent2 text-[10px] font-bold flex items-center justify-center font-mono">{items.length}</span>}
                     </div>
                     <div className="space-y-1 overflow-y-auto max-h-20">
                       {items.map((item) => (
                         <div
                           key={item.id}
                           onClick={(e) => { e.stopPropagation(); openEdit(item); }}
-                          className="p-1 rounded-md bg-surface border border-border text-[10px] space-y-0.5 truncate hover:border-sky-500/40"
+                          className="p-1 rounded-md bg-surface border border-border text-[10px] space-y-0.5 truncate hover:border-accent2/40"
                         >
                           <span className={`text-[9px] font-bold ${STATUS_TONE[item.status]}`}>{SNS_CONTENT_STATUS_LABELS[item.status]}</span>
                           <div className="font-bold text-text truncate">{item.title}</div>
@@ -706,7 +706,7 @@ export default function SnsAccountDetailClient({
                         <select
                           value={c.status}
                           onChange={(e) => handleStatusChange(c, e.target.value as SnsContentStatus)}
-                          className={`px-2.5 py-1 rounded-lg bg-bg border border-border text-xs font-bold focus:outline-none focus:border-sky-500 ${STATUS_TONE[c.status]}`}
+                          className={`px-2.5 py-1 rounded-lg bg-bg border border-border text-xs font-bold focus:outline-none focus:border-accent2 ${STATUS_TONE[c.status]}`}
                         >
                           {SNS_CONTENT_STATUSES.map((s, i) => <option key={s} value={s}>{i + 1}. {SNS_CONTENT_STATUS_LABELS[s]}</option>)}
                         </select>
@@ -731,7 +731,7 @@ export default function SnsAccountDetailClient({
                   <div className="p-4 rounded-2xl bg-bg border border-border space-y-2 text-xs">
                     <span className="text-[11px] font-bold text-text-sub block">캡션 본문:</span>
                     <p className="text-text leading-relaxed whitespace-pre-line">{c.caption || "작성된 캡션이 없습니다."}</p>
-                    {c.hashtags && <p className="text-sky-400 font-medium">{c.hashtags}</p>}
+                    {c.hashtags && <p className="text-accent2 font-medium">{c.hashtags}</p>}
                     {c.media_note && <div className="pt-2 border-t border-surface2 text-text-muted"><strong>내부 제작 메모 (광고주 비노출):</strong> {c.media_note}</div>}
                   </div>
 
@@ -739,7 +739,7 @@ export default function SnsAccountDetailClient({
                     <div className="p-3.5 rounded-2xl bg-bg border border-border space-y-2.5">
                       <div className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-1.5 font-semibold text-text-2">
-                          <ImageIcon className="w-3.5 h-3.5 text-sky-400" />
+                          <ImageIcon className="w-3.5 h-3.5 text-accent2" />
                           <span>시안 첨부 미디어 ({c.media_attachments.length}개)</span>
                         </div>
                         <span className="text-[10px] text-text-muted">클릭하여 원본 미리보기</span>
@@ -750,14 +750,14 @@ export default function SnsAccountDetailClient({
                             key={m.id}
                             type="button"
                             onClick={() => setPreviewMedia(m)}
-                            className="group relative flex flex-col items-start p-2 rounded-xl bg-surface border border-border hover:border-sky-500/50 text-left transition overflow-hidden cursor-pointer"
+                            className="group relative flex flex-col items-start p-2 rounded-xl bg-surface border border-border hover:border-accent2/50 text-left transition overflow-hidden cursor-pointer"
                           >
                             {m.mime_type.startsWith("image/") ? (
                               <div className="w-full h-20 rounded-lg overflow-hidden bg-bg relative">
                                 <img src={mediaSrc(m)} alt={m.name} className="w-full h-full object-cover group-hover:scale-105 transition" />
                               </div>
                             ) : (
-                              <div className="w-full h-20 rounded-lg bg-bg flex flex-col items-center justify-center gap-1 text-sky-400">
+                              <div className="w-full h-20 rounded-lg bg-bg flex flex-col items-center justify-center gap-1 text-accent2">
                                 <VideoIcon className="w-6 h-6" />
                                 <span className="text-[10px] text-text-sub font-mono">동영상</span>
                               </div>
@@ -783,7 +783,7 @@ export default function SnsAccountDetailClient({
                         </button>
                       </div>
                       {c.post_url && (
-                        <a href={c.post_url} target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:underline inline-flex items-center gap-1 shrink-0">
+                        <a href={c.post_url} target="_blank" rel="noopener noreferrer" className="text-accent2 hover:underline inline-flex items-center gap-1 shrink-0">
                           <span>게시물 바로가기</span>
                           <ExternalLink className="w-3 h-3" />
                         </a>
@@ -815,7 +815,7 @@ export default function SnsAccountDetailClient({
             <div className="space-y-4 divide-y divide-border">
               {intakeQuestions.map((q, idx) => (
                 <div key={q.id} className={idx > 0 ? "pt-4 space-y-1.5" : "space-y-1.5"}>
-                  <div className="text-xs font-bold text-sky-400">{idx + 1}. {q.question}</div>
+                  <div className="text-xs font-bold text-accent2">{idx + 1}. {q.question}</div>
                   <div className="p-3.5 rounded-xl bg-bg border border-border text-xs text-text leading-relaxed whitespace-pre-line">
                     {intakeResponse.answers[q.id] || <span className="text-text-faint">(답변 없음)</span>}
                   </div>
@@ -866,7 +866,7 @@ export default function SnsAccountDetailClient({
               <div className="space-y-1.5 pt-2 border-t border-border">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-text-2">캡션 본문 (카피)</label>
-                  <button type="button" disabled={loadingAi} onClick={handleAiCaption} className="px-2.5 py-1 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[11px] font-semibold inline-flex items-center gap-1 active:scale-95 disabled:opacity-50">
+                  <button type="button" disabled={loadingAi} onClick={handleAiCaption} className="px-2.5 py-1 rounded-lg bg-accent2/10 text-accent2 border border-accent2/20 text-[11px] font-semibold inline-flex items-center gap-1 active:scale-95 disabled:opacity-50">
                     {loadingAi ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                     <span>Gemini AI 문안 작성</span>
                   </button>
@@ -883,7 +883,7 @@ export default function SnsAccountDetailClient({
               <div className="space-y-2.5 pt-3 border-t border-border">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-text-2 flex items-center gap-1.5">
-                    <ImageIcon className="w-3.5 h-3.5 text-sky-400" />
+                    <ImageIcon className="w-3.5 h-3.5 text-accent2" />
                     <span>시안 미디어 (이미지 / 영상)</span>
                   </label>
                   <span className="text-[10px] text-text-muted">최대 50MB (JPG, PNG, WebP, GIF, MP4, WebM)</span>
@@ -899,7 +899,7 @@ export default function SnsAccountDetailClient({
                             <img src={mediaSrc(m)} alt={m.name} className="w-full h-full object-cover" />
                           </div>
                         ) : (
-                          <div className="w-full h-16 rounded-lg bg-surface2 flex items-center justify-center text-sky-400">
+                          <div className="w-full h-16 rounded-lg bg-surface2 flex items-center justify-center text-accent2">
                             <VideoIcon className="w-6 h-6" />
                           </div>
                         )}
@@ -923,7 +923,7 @@ export default function SnsAccountDetailClient({
                 {/* Staged files when creating */}
                 {!editingId && selectedFiles.length > 0 && (
                   <div className="space-y-1.5">
-                    <span className="text-[11px] text-sky-400 font-medium">등록 시 자동 업로드될 파일 ({selectedFiles.length}개):</span>
+                    <span className="text-[11px] text-accent2 font-medium">등록 시 자동 업로드될 파일 ({selectedFiles.length}개):</span>
                     <div className="grid grid-cols-2 gap-2">
                       {selectedFiles.map((file, idx) => (
                         <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-bg border border-border text-xs">
@@ -942,7 +942,7 @@ export default function SnsAccountDetailClient({
                 )}
 
                 {/* Upload Button */}
-                <label className="flex flex-col items-center justify-center p-3.5 rounded-2xl border border-dashed border-border hover:border-sky-500/50 bg-bg hover:bg-sky-500/5 cursor-pointer transition">
+                <label className="flex flex-col items-center justify-center p-3.5 rounded-2xl border border-dashed border-border hover:border-accent2/50 bg-bg hover:bg-accent2/5 cursor-pointer transition">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -954,9 +954,9 @@ export default function SnsAccountDetailClient({
                   />
                   <div className="flex items-center gap-2 text-xs text-text-sub">
                     {uploadingMedia ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
+                      <Loader2 className="w-4 h-4 animate-spin text-accent2" />
                     ) : (
-                      <UploadCloud className="w-4 h-4 text-sky-400" />
+                      <UploadCloud className="w-4 h-4 text-accent2" />
                     )}
                     <span>{uploadingMedia ? "미디어 업로드 중..." : "+ 이미지 또는 영상 추가"}</span>
                   </div>
@@ -965,7 +965,7 @@ export default function SnsAccountDetailClient({
 
               <div className="pt-3 flex flex-col-reverse sm:flex-row justify-end gap-2">
                 <button type="button" onClick={() => setModalOpen(false)} className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs">취소</button>
-                <button type="submit" disabled={saving} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold shadow-md disabled:opacity-50">
+                <button type="submit" disabled={saving} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-accent2 hover:bg-accent2/90 text-white text-xs font-semibold shadow-md disabled:opacity-50">
                   {saving ? "저장 중..." : editingId ? "수정 저장" : "기획안 등록"}
                 </button>
               </div>
@@ -1015,7 +1015,7 @@ export default function SnsAccountDetailClient({
               <button
                 type="button"
                 onClick={() => setPreviewMedia(null)}
-                className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold"
+                className="px-4 py-2 rounded-xl bg-accent2 hover:bg-accent2/90 text-white text-xs font-semibold"
               >
                 닫기
               </button>

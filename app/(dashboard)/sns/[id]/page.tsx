@@ -30,7 +30,7 @@ export default async function SnsAccountDetailPage({
   return (
     <div className="space-y-4 max-w-6xl mx-auto font-sans">
       <div className="flex items-center gap-2 text-xs text-text-sub">
-        <Link href="/sns" className="hover:text-sky-400 flex items-center gap-1">
+        <Link href="/sns" className="hover:text-accent2 flex items-center gap-1">
           <ChevronLeft className="w-3.5 h-3.5" />
           <span>SNS 계정 목록</span>
         </Link>

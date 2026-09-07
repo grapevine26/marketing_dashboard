@@ -59,7 +59,7 @@ export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTe
             <Plus className="w-3.5 h-3.5" />
             <span>질문 추가</span>
           </button>
-          <button type="button" disabled={saving} onClick={handleSave} className="px-4 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold inline-flex items-center gap-1 shadow-md transition disabled:opacity-50">
+          <button type="button" disabled={saving} onClick={handleSave} className="px-4 py-1.5 rounded-xl bg-accent2 hover:bg-accent2/90 text-white text-xs font-semibold inline-flex items-center gap-1 shadow-md transition disabled:opacity-50">
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
             <span>저장하기</span>
           </button>
@@ -74,13 +74,13 @@ export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTe
           <div key={q.id} className="p-4 rounded-2xl bg-bg border border-border space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-sky-400">질문 {idx + 1}</span>
+                <span className="text-xs font-bold text-accent2">질문 {idx + 1}</span>
                 <button type="button" onClick={() => move(idx, -1)} disabled={idx === 0} className="p-1 text-text-muted hover:text-text disabled:opacity-30"><ArrowUp className="w-3.5 h-3.5" /></button>
                 <button type="button" onClick={() => move(idx, 1)} disabled={idx === questions.length - 1} className="p-1 text-text-muted hover:text-text disabled:opacity-30"><ArrowDown className="w-3.5 h-3.5" /></button>
               </div>
               <div className="flex items-center gap-3">
                 <label className="text-xs text-text-sub flex items-center gap-1.5 cursor-pointer">
-                  <input type="checkbox" checked={q.required} onChange={(e) => handleUpdate(q.id, { required: e.target.checked })} className="w-3.5 h-3.5 accent-sky-500 rounded" />
+                  <input type="checkbox" checked={q.required} onChange={(e) => handleUpdate(q.id, { required: e.target.checked })} className="w-3.5 h-3.5 accent-accent2 rounded" />
                   <span>필수 입력</span>
                 </label>
                 <button type="button" onClick={() => handleDelete(q.id)} className="text-text-muted hover:text-red-400 p-1 rounded">
@@ -95,14 +95,14 @@ export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTe
                 value={q.question}
                 onChange={(e) => handleUpdate(q.id, { question: e.target.value })}
                 placeholder="질문 내용을 입력하세요"
-                className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-sky-500 font-medium"
+                className="w-full px-3 py-2 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-accent2 font-medium"
               />
               <input
                 type="text"
                 value={q.placeholder || ""}
                 onChange={(e) => handleUpdate(q.id, { placeholder: e.target.value })}
                 placeholder="입력 예시 (Placeholder)"
-                className="w-full px-3 py-1.5 rounded-xl bg-surface border border-border text-text-sub text-xs focus:outline-none focus:border-sky-500"
+                className="w-full px-3 py-1.5 rounded-xl bg-surface border border-border text-text-sub text-xs focus:outline-none focus:border-accent2"
               />
             </div>
           </div>

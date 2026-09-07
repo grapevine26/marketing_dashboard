@@ -216,7 +216,7 @@ export default function GuidePage() {
       {/* 공유 링크 표 */}
       <section id="links" className="space-y-4 pt-6 border-t border-border">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 text-xs font-bold text-sky-400">
+          <div className="inline-flex items-center gap-2 text-xs font-bold text-accent2">
             <Share2 className="w-4 h-4" />
             <span>가장 많이 쓰는 기능</span>
           </div>
@@ -286,7 +286,7 @@ export default function GuidePage() {
           </div>
 
           <div className="p-5 rounded-2xl bg-surface border border-border space-y-2.5">
-            <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center font-extrabold text-sm">3</div>
+            <div className="w-8 h-8 rounded-xl bg-accent2/10 text-accent2 flex items-center justify-center font-extrabold text-sm">3</div>
             <h3 className="text-sm font-bold text-text">SNS 채널을 대행할 때</h3>
             <p className="text-xs text-text-sub leading-relaxed">
               [SNS 채널 운영]에서 계정을 등록하면 사전설문 링크와 시안 승인 링크가 바로 발급됩니다. 캠페인 없이 단독으로 쓸 수
@@ -508,7 +508,7 @@ export default function GuidePage() {
       {/* SECTION 3: SNS */}
       <section id="sns" className="space-y-6 pt-6 border-t border-border">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 text-xs font-bold text-sky-400">
+          <div className="inline-flex items-center gap-2 text-xs font-bold text-accent2">
             <Camera className="w-4 h-4" />
             <span>서브프로젝트 C</span>
           </div>
@@ -520,7 +520,7 @@ export default function GuidePage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
-            <span className="font-bold text-sky-400 text-xs block">1. 계정 등록과 사전설문</span>
+            <span className="font-bold text-accent2 text-xs block">1. 계정 등록과 사전설문</span>
             <p className="text-xs text-text-2 leading-relaxed">
               계정을 등록하면 사전설문 링크와 시안 승인 링크가 함께 발급됩니다. 사전설문 링크를 광고주에게 보내 톤앤매너와 금기
               키워드를 받고, 회신은 계정 화면의 사전설문 응답 탭에서 질문 문구와 함께 확인합니다. 공통 질문은
@@ -529,7 +529,7 @@ export default function GuidePage() {
           </div>
 
           <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
-            <span className="font-bold text-sky-400 text-xs block">2. 콘텐츠 캘린더와 시안</span>
+            <span className="font-bold text-accent2 text-xs block">2. 콘텐츠 캘린더와 시안</span>
             <p className="text-xs text-text-2 leading-relaxed">
               <strong>[새 콘텐츠 기획]</strong>으로 발행 예정일·담당자·캡션·해시태그를 적습니다. 캡션은
               <strong> [Gemini AI 문안 작성]</strong>으로 초안을 받을 수 있습니다. 이미지와 영상 시안은 파일당 50MB까지 첨부하며
@@ -538,7 +538,7 @@ export default function GuidePage() {
           </div>
 
           <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
-            <span className="font-bold text-sky-400 text-xs block">3. 광고주 승인</span>
+            <span className="font-bold text-accent2 text-xs block">3. 광고주 승인</span>
             <p className="text-xs text-text-2 leading-relaxed">
               콘텐츠를 승인대기로 올리고 시안 승인 링크를 보내면, 광고주는 첨부한 시안을 직접 보면서 <strong>[승인]</strong> 또는
               <strong> [수정 요청]</strong>을 누릅니다. 수정 요청에는 코멘트가 필수라 무엇을 고쳐야 하는지 남습니다. 코멘트는 대시보드에
@@ -547,7 +547,7 @@ export default function GuidePage() {
           </div>
 
           <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
-            <span className="font-bold text-sky-400 text-xs block">4. 성과 정리</span>
+            <span className="font-bold text-accent2 text-xs block">4. 성과 정리</span>
             <p className="text-xs text-text-2 leading-relaxed">
               게시완료로 바뀐 콘텐츠에만 조회수·좋아요·댓글을 넣을 수 있습니다. 집계는 게시완료로 바뀐 달을 기준으로 월별로
               묶이며, 월을 골라 보거나 전체 누적을 함께 봅니다.
@@ -556,7 +556,7 @@ export default function GuidePage() {
         </div>
 
         <div className="p-4 rounded-2xl bg-surface border border-border space-y-1.5">
-          <span className="font-bold text-sky-400 text-xs block">SNS 운영안 제안서</span>
+          <span className="font-bold text-accent2 text-xs block">SNS 운영안 제안서</span>
           <p className="text-xs text-text-2 leading-relaxed">
             계정 화면의 <strong>[SNS 운영안 (웹/PPT)]</strong>에서 채널 운영 제안서를 만듭니다. 행사 운영안과 같은 방식으로 템플릿을
             고르고, 항목별 AI 초안이나 [빈 항목만 AI로 채우기]로 채운 뒤 저장하면 PPT로 내려받습니다. 템플릿 없이 웹 화면으로만
@@ -631,9 +631,9 @@ export default function GuidePage() {
 
           <Link
             href="/settings/sns-intake"
-            className="p-5 rounded-2xl bg-surface border border-border hover:border-sky-500/40 transition space-y-2 group"
+            className="p-5 rounded-2xl bg-surface border border-border hover:border-accent2/40 transition space-y-2 group"
           >
-            <div className="text-xs font-bold text-sky-400 group-hover:underline">SNS 사전설문 기본틀 →</div>
+            <div className="text-xs font-bold text-accent2 group-hover:underline">SNS 사전설문 기본틀 →</div>
             <p className="text-xs text-text-sub leading-relaxed">
               SNS 계정의 광고주 사전설문에 공통으로 나갈 질문을 정합니다. 질문을 비워 두면 저장되지 않습니다.
             </p>

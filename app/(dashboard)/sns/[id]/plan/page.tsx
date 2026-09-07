@@ -24,7 +24,7 @@ export default async function SnsPlanPage({
   return (
     <div className="space-y-4 max-w-5xl mx-auto font-sans">
       <div className="flex items-center gap-2 text-xs text-text-sub">
-        <Link href={`/sns/${account.id}`} className="hover:text-sky-400 flex items-center gap-1">
+        <Link href={`/sns/${account.id}`} className="hover:text-accent2 flex items-center gap-1">
           <ChevronLeft className="w-3.5 h-3.5" />
           <span>{account.company_name} 계정 허브</span>
         </Link>
