@@ -112,18 +112,15 @@ export default function GuidePage() {
   return (
     <div className="max-w-5xl mx-auto space-y-10 font-sans pb-16">
       {/* Hero */}
-      <div className="p-8 sm:p-10 rounded-3xl bg-gradient-to-br from-surface via-surface2 to-sidebar border border-border space-y-4 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold">
+      <div className="p-8 sm:p-10 rounded-3xl bg-surface border border-border space-y-4">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-bold">
           <BookOpen className="w-3.5 h-3.5" />
           <span>마케팅 올인원 사용 매뉴얼</span>
         </div>
 
         <h1 className="text-2xl sm:text-4xl font-extrabold text-text tracking-tight leading-tight">
           처음 오셨나요? <br />
-          <span className="bg-gradient-to-r from-blue-400 via-sky-300 to-indigo-400 bg-clip-text text-transparent">
-            마케팅 올인원 대시보드 사용 가이드
-          </span>
+          마케팅 올인원 대시보드 사용 가이드
         </h1>
 
         <p className="text-xs sm:text-sm text-text-2 leading-relaxed max-w-3xl">
