@@ -117,6 +117,19 @@ function ensureDir(dir: string) {
 }
 
 // ---------- 문서 (JSON DB) ----------
+/**
+ * 약한 ETag(`W/"..."`)를 강한 형태로 되돌린다.
+ *
+ * 응답이 압축돼서 오면 Blob 이 약한 ETag 를 준다. 그런데 If-Match 는 강한 비교라
+ * 약한 ETag 는 무엇과도 일치하지 않는다. 그대로 조건에 실으면 저장이 영원히 거부된다.
+ * 작은 파일은 압축되지 않아 강한 ETag 로 와서, 작은 키로 시험하면 멀쩡해 보인다.
+ */
+export function toStrongEtag(etag: string | null | undefined): string | null {
+  if (!etag) return null;
+  return etag.startsWith('W/') ? etag.slice(2) : etag;
+}
+
+
 
 export async function readDoc(): Promise<DocSnapshot | null> {
   warnIfEphemeral();
@@ -128,7 +141,7 @@ export async function readDoc(): Promise<DocSnapshot | null> {
       const res = await get(DOC_KEY, { access: "private", useCache: false });
       if (!res?.stream) return null;
       const text = await new Response(res.stream).text();
-      return { text, version: res.blob.etag ?? null };
+      return { text, version: toStrongEtag(res.blob.etag) };
     } catch (err) {
       if (err instanceof BlobNotFoundError) return null;
       throw err;
@@ -158,7 +171,7 @@ export async function writeDoc(text: string, expectedVersion: string | null): Pr
         addRandomSuffix: false,
         ...(expectedVersion ? { ifMatch: expectedVersion } : {}),
       });
-      return res.etag ?? null;
+      return toStrongEtag(res.etag);
     } catch (err) {
       if (err instanceof BlobPreconditionFailedError) throw new ConcurrentWriteError();
       throw err;
@@ -208,7 +221,9 @@ export async function probeConditionalWrite(): Promise<{
     steps.putEtagPresent = Boolean(first.etag);
 
     const fetched = await get(key, { access: "private", useCache: false });
-    const readEtag = fetched?.blob.etag ?? null;
+    const rawEtag = fetched?.blob.etag ?? null;
+    steps.getEtagWasWeak = Boolean(rawEtag?.startsWith("W/"));
+    const readEtag = toStrongEtag(rawEtag);
     steps.getEtagPresent = Boolean(readEtag);
     // 여기가 어긋나면 ifMatch 는 절대 통과하지 못한다.
     steps.etagsMatch = first.etag === readEtag;

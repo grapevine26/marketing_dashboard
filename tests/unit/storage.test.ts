@@ -11,6 +11,7 @@ import {
   findFileKeyByPrefix,
   deleteFilesByPrefixes,
   isBlobBackend,
+  toStrongEtag,
   getUploadsDirPath,
 } from "@/lib/db/storage";
 import { mutateDb, readDb } from "@/lib/db";
@@ -44,6 +45,24 @@ function makeCampaign(id: string): Campaign {
 describe("저장소 추상화", () => {
   it("테스트는 파일 백엔드로 돈다", () => {
     expect(isBlobBackend()).toBe(false);
+  });
+
+  describe("ETag 정규화", () => {
+    it("약한 ETag 의 W/ 를 떼어낸다", () => {
+      // 압축된 응답에는 약한 ETag 가 온다. If-Match 는 강한 비교라 그대로 쓰면 절대 안 맞는다.
+      expect(toStrongEtag('W/"ae2869638abc"')).toBe('"ae2869638abc"');
+    });
+
+    it("강한 ETag 는 그대로 둔다", () => {
+      expect(toStrongEtag('"ae2869638abc"')).toBe('"ae2869638abc"');
+      expect(toStrongEtag("ae2869638abc")).toBe("ae2869638abc");
+    });
+
+    it("값이 없으면 null 이다", () => {
+      expect(toStrongEtag(null)).toBeNull();
+      expect(toStrongEtag(undefined)).toBeNull();
+      expect(toStrongEtag("")).toBeNull();
+    });
   });
 
   describe("문서 (JSON DB)", () => {
