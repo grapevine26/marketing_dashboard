@@ -263,14 +263,18 @@ export default function SnsAccountDetailClient({
       return { ok: false, error: `"${file.name}" 업로드에 실패했습니다. (${msg})` };
     }
 
-    return confirmSnsMediaUploadAction({
-      contentId,
-      accountId: account.id,
-      attachmentId,
-      storedFilename,
-      name: file.name,
-      mimeType: mime,
-    });
+    try {
+      return await confirmSnsMediaUploadAction({
+        contentId,
+        accountId: account.id,
+        attachmentId,
+        storedFilename,
+        name: file.name,
+        mimeType: mime,
+      });
+    } catch (err) {
+      return { ok: false as const, error: `"${file.name}" 등록에 실패했습니다. (${err instanceof Error ? err.message : String(err)})` };
+    }
   };
 
   /**
@@ -307,6 +311,7 @@ export default function SnsAccountDetailClient({
 
     setUploadingMedia(true);
     setError(null);
+    try {
     for (const file of Array.from(files)) {
       const res = await safeUpload(editingId, file);
       if (!res.ok) {
@@ -321,8 +326,11 @@ export default function SnsAccountDetailClient({
         );
       }
     }
-    setUploadingMedia(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    } finally {
+      // 예외가 새면 업로드 표시가 계속 돌고 파일 선택이 막힌다.
+      setUploadingMedia(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const handleDeleteMedia = async (contentId: string, attachmentId: string) => {

@@ -53,7 +53,11 @@ export default function PptTemplatesClient({
       return { ok: false as const, error: `업로드에 실패했습니다. (${msg})` };
     }
 
-    return confirmPptTemplateUploadAction({ templateId, kind, name: name.trim() });
+    try {
+      return await confirmPptTemplateUploadAction({ templateId, kind, name: name.trim() });
+    } catch (err) {
+      return { ok: false as const, error: `등록에 실패했습니다. (${err instanceof Error ? err.message : String(err)})` };
+    }
   };
 
   const handleUpload = async (e: React.FormEvent) => {
@@ -67,17 +71,24 @@ export default function PptTemplatesClient({
     fd.append("name", name.trim());
     fd.append("kind", kind);
 
-    const res = clientUpload ? await uploadDirect() : await uploadPptTemplateAction(fd);
-    setUploading(false);
-    if (!res.ok) {
-      setError(res.error);
-      return;
+    // finally 로 반드시 잠금을 푼다. 여기서 예외가 새면 버튼이 영구히 비활성으로 남고
+    // 화면에는 아무 설명도 안 뜬다. 새로고침 전까지 아무것도 못 하게 된다.
+    try {
+      const res = clientUpload ? await uploadDirect() : await uploadPptTemplateAction(fd);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setTemplates((prev) => [...prev, res.data.template]);
+      setName("");
+      setFile(null);
+      setFileKey((k) => k + 1);
+      setNotice(res.data.warning || `템플릿이 등록되었습니다. 감지된 치환 항목 ${res.data.template.placeholders.length}개.`);
+    } catch (err) {
+      setError(`업로드 중 오류가 발생했습니다. (${err instanceof Error ? err.message : String(err)})`);
+    } finally {
+      setUploading(false);
     }
-    setTemplates((prev) => [...prev, res.data.template]);
-    setName("");
-    setFile(null);
-    setFileKey((k) => k + 1);
-    setNotice(res.data.warning || `템플릿이 등록되었습니다. 감지된 치환 항목 ${res.data.template.placeholders.length}개.`);
   };
 
   const handleDelete = async (t: PptTemplate) => {
