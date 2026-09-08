@@ -25,7 +25,7 @@ function describeError(err: unknown) {
   return { name: "Unknown", message: String(err) };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const env = describeStorage();
   const checks: Record<string, unknown> = {};
 
@@ -60,11 +60,16 @@ export async function GET() {
     checks.conditionalWrite = { ok: false, error: describeError(err) };
   }
 
-  // 2-b. 같은 검사를 진짜 DB 문서에 대고 한 번 더. 내용은 바뀌지 않는다.
-  try {
-    checks.conditionalWriteOnRealDoc = await probeDocConditionalWrite();
-  } catch (err) {
-    checks.conditionalWriteOnRealDoc = { ok: false, error: describeError(err) };
+  // 2-b. 같은 검사를 진짜 DB 문서에 대고 한 번 더.
+  // 내용은 바뀌지 않지만 쓰기는 쓰기다. 요청할 때만 돈다: ?probeWrite=1
+  if (new URL(request.url).searchParams.get("probeWrite") === "1") {
+    try {
+      checks.conditionalWriteOnRealDoc = await probeDocConditionalWrite();
+    } catch (err) {
+      checks.conditionalWriteOnRealDoc = { ok: false, error: describeError(err) };
+    }
+  } else {
+    checks.conditionalWriteOnRealDoc = { skipped: "?probeWrite=1 을 붙이면 실제 문서에 대고 검사한다" };
   }
 
   // 3. 파일 쓰기 → 읽기 → 삭제 (진단용 임시 키)
