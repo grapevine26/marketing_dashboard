@@ -7,6 +7,7 @@ import {
   deleteFilesByPrefixes,
   probeConditionalWrite,
   probeDocConditionalWrite,
+  listBackups,
 } from "@/lib/db/storage";
 
 export const dynamic = "force-dynamic";
@@ -70,6 +71,19 @@ export async function GET(request: Request) {
     }
   } else {
     checks.conditionalWriteOnRealDoc = { skipped: "?probeWrite=1 을 붙이면 실제 문서에 대고 검사한다" };
+  }
+
+  // 2-c. 백업이 실제로 쌓이고 있는지. 정작 필요할 때 처음 확인하는 상황을 피한다.
+  try {
+    const backups = await listBackups();
+    checks.backups = {
+      ok: true,
+      count: backups.length,
+      latest: backups[0]?.created_at ?? null,
+      note: backups.length === 0 ? "아직 없습니다. 저장 시 10분 간격으로 생깁니다." : undefined,
+    };
+  } catch (err) {
+    checks.backups = { ok: false, error: describeError(err) };
   }
 
   // 3. 파일 쓰기 → 읽기 → 삭제 (진단용 임시 키)
