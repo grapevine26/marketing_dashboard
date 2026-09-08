@@ -17,6 +17,8 @@ import {
 import {
   ALLOWED_SNS_MEDIA_MIME_TYPES,
   MAX_SNS_MEDIA_BYTES,
+  MAX_PPT_TEMPLATE_BYTES,
+  buildTemplatePathname,
   Campaign,
   CampaignStatus,
   PreSurveyTemplate,
@@ -1428,15 +1430,39 @@ export async function getPptTemplateById(id: string): Promise<PptTemplate | null
   return db.ppt_templates.find((t) => t.id === id) || null;
 }
 
-/** 템플릿의 실제 pptx 바이너리. 내장 템플릿은 코드에서 생성, 업로드 템플릿은 base64에서 복원. 없으면 null. */
+/** 템플릿의 실제 pptx 바이너리. 내장 템플릿은 코드에서 생성한다. 없으면 null. */
 export async function getPptTemplateBuffer(template: PptTemplate): Promise<Buffer | null> {
   if (template.builtin) {
     return generateDefaultPptBuffer(template.kind);
   }
+  if (template.file_key) {
+    const res = await readFile(template.file_key, null, "templates");
+    if (!res) return null;
+    return Buffer.from(await new Response(res.stream).arrayBuffer());
+  }
+  // 파일을 문서 안에 base64 로 넣던 시절의 데이터. 계속 읽을 수 있어야 한다.
   if (template.file_data) {
     return Buffer.from(template.file_data, "base64");
   }
   return null;
+}
+
+const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
+function templateStorageKey(templateId: string): string {
+  return `${templateId}.pptx`;
+}
+
+/** pptx 인지 앞부분만 보고 판단한다. zip 컨테이너라 PK 로 시작한다. */
+function looksLikePptx(head: Buffer): boolean {
+  return head.length >= 4 && head.toString("latin1", 0, 2) === "PK";
+}
+
+function validatePptTemplateMeta(kindRaw: PptTemplate["kind"], nameRaw: string) {
+  return {
+    kind: oneOf(kindRaw, ["event", "sns", "report"] as const, "템플릿 종류"),
+    name: requireText(nameRaw, "템플릿 이름", 200),
+  };
 }
 
 export async function savePptTemplate(data: {
@@ -1445,20 +1471,24 @@ export async function savePptTemplate(data: {
   file_buffer: Buffer;
   placeholders: string[];
 }): Promise<PptTemplate> {
-  const kind = oneOf(data.kind, ["event", "sns", "report"] as const, "템플릿 종류");
-  const name = requireText(data.name, "템플릿 이름", 200);
-  if (!data.file_buffer || data.file_buffer.length < 4 || data.file_buffer.toString("latin1", 0, 2) !== "PK") {
+  const { kind, name } = validatePptTemplateMeta(data.kind, data.name);
+  if (!data.file_buffer || !looksLikePptx(data.file_buffer)) {
     throw new ValidationError("올바른 .pptx 파일이 아닙니다.");
   }
-  if (data.file_buffer.length > 15 * 1024 * 1024) {
+  if (data.file_buffer.length > MAX_PPT_TEMPLATE_BYTES) {
     throw new ValidationError("템플릿 파일은 15MB 이하만 업로드할 수 있습니다.");
   }
+
+  const id = crypto.randomUUID();
+  const fileKey = templateStorageKey(id);
+  await putFile(fileKey, data.file_buffer, PPTX_MIME, "templates");
+
   return mutateDb((db) => {
     const newTemplate: PptTemplate = {
-      id: crypto.randomUUID(),
+      id,
       kind,
       name,
-      file_data: data.file_buffer.toString("base64"),
+      file_key: fileKey,
       placeholders: data.placeholders,
       uploaded_at: nowIso(),
     };
@@ -1467,8 +1497,100 @@ export async function savePptTemplate(data: {
   });
 }
 
-export async function deletePptTemplate(id: string): Promise<boolean> {
+/**
+ * 브라우저가 저장소에 pptx 를 직접 올리기 전에 서버가 자리를 잡아준다.
+ * Vercel 함수의 4.5MB 본문 한도 때문에 파일이 서버를 거치면 안 된다.
+ */
+export async function preparePptTemplateUpload(
+  kind: PptTemplate["kind"],
+  name: string
+): Promise<{ templateId: string; fileKey: string; pathname: string }> {
+  validatePptTemplateMeta(kind, name);
+  const templateId = crypto.randomUUID();
+  return {
+    templateId,
+    fileKey: templateStorageKey(templateId),
+    pathname: buildTemplatePathname(templateId),
+  };
+}
+
+/**
+ * 브라우저가 올린 pptx 를 템플릿으로 등록한다.
+ * 파일이 서버를 거치지 않았으므로 실물과 앞부분 바이트를 여기서 확인한다.
+ */
+export async function recordUploadedPptTemplate(input: {
+  templateId: string;
+  kind: PptTemplate["kind"];
+  name: string;
+  placeholders: string[];
+}): Promise<PptTemplate> {
+  const { kind, name } = validatePptTemplateMeta(input.kind, input.name);
+  if (!/^[0-9a-f-]{36}$/i.test(input.templateId)) {
+    throw new ValidationError("잘못된 업로드 요청입니다.");
+  }
+
+  const fileKey = templateStorageKey(input.templateId);
+  const stat = await statFile(fileKey, "templates");
+  if (!stat) {
+    throw new ValidationError("업로드된 파일을 찾을 수 없습니다. 다시 시도해주세요.");
+  }
+  if (stat.size > MAX_PPT_TEMPLATE_BYTES || stat.size <= 0) {
+    await purgeTemplateFile(input.templateId);
+    throw new ValidationError("템플릿 파일은 15MB 이하만 업로드할 수 있습니다.");
+  }
+
+  const head = await readFile(fileKey, "bytes=0-11", "templates");
+  if (!head) {
+    await purgeTemplateFile(input.templateId);
+    throw new ValidationError("업로드된 파일을 읽을 수 없습니다. 다시 시도해주세요.");
+  }
+  if (!looksLikePptx(Buffer.from(await new Response(head.stream).arrayBuffer()))) {
+    await purgeTemplateFile(input.templateId);
+    throw new ValidationError("올바른 .pptx 파일이 아닙니다.");
+  }
+
   return mutateDb((db) => {
+    const newTemplate: PptTemplate = {
+      id: input.templateId,
+      kind,
+      name,
+      file_key: fileKey,
+      placeholders: input.placeholders,
+      uploaded_at: nowIso(),
+    };
+    db.ppt_templates.push(newTemplate);
+    return newTemplate;
+  });
+}
+
+/**
+ * 아직 등록되지 않은, 방금 올라온 템플릿 파일을 읽는다.
+ * 치환 항목({{...}})을 뽑으려면 파일 전체가 필요해서 여기서만 통째로 읽는다.
+ * 함수 안에서 저장소를 읽는 것이므로 요청 본문 한도와는 무관하다.
+ */
+export async function readUploadedPptTemplateBuffer(templateId: string): Promise<Buffer | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(templateId)) return null;
+  const res = await readFile(templateStorageKey(templateId), null, "templates");
+  if (!res) return null;
+  return Buffer.from(await new Response(res.stream).arrayBuffer());
+}
+
+/** 등록되지 않은 채 남은 업로드 파일을 치운다. */
+export async function discardUploadedPptTemplate(templateId: string): Promise<void> {
+  await purgeTemplateFile(templateId);
+}
+
+/** 템플릿 파일 삭제. DB 커밋이 끝난 뒤에 부른다. 실패해도 DB 는 이미 정합하다. */
+async function purgeTemplateFile(templateId: string): Promise<void> {
+  try {
+    await deleteFilesByPrefixes([templateId], "templates");
+  } catch (err) {
+    console.warn("[storage] 템플릿 파일 삭제 실패 (DB는 정상 반영됨):", err);
+  }
+}
+
+export async function deletePptTemplate(id: string): Promise<boolean> {
+  const removed = await mutateDb((db) => {
     const idx = db.ppt_templates.findIndex((t) => t.id === id);
     if (idx < 0) return false;
     if (db.ppt_templates[idx].builtin) {
@@ -1477,6 +1599,10 @@ export async function deletePptTemplate(id: string): Promise<boolean> {
     db.ppt_templates.splice(idx, 1);
     return true;
   });
+
+  if (!removed) return false;
+  await purgeTemplateFile(id);
+  return true;
 }
 
 // ---------- 3. Events (Subproject B) ----------

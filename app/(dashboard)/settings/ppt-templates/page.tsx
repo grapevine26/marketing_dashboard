@@ -1,12 +1,14 @@
 import { getPptTemplates } from "@/lib/db";
 import PptTemplatesClient from "./PptTemplatesClient";
+import { isBlobBackend } from "@/lib/db/storage";
 import { Presentation } from "lucide-react";
 
 export const revalidate = 0;
 
 export default async function PptTemplatesSettingsPage() {
   const templates = await getPptTemplates();
-  // base64 파일 본문은 클라이언트에 내려보내지 않는다 (수 MB가 될 수 있음)
+  // 파일 본문은 클라이언트에 내려보내지 않는다.
+  // 새 템플릿은 file_key 만 갖지만, 예전에 base64 로 저장된 것이 남아 있을 수 있다.
   const light = templates.map((t) => ({ ...t, file_data: undefined }));
 
   return (
@@ -21,7 +23,7 @@ export default async function PptTemplatesSettingsPage() {
         </p>
       </div>
 
-      <PptTemplatesClient initialTemplates={light} />
+      <PptTemplatesClient initialTemplates={light} clientUpload={isBlobBackend()} />
     </div>
   );
 }

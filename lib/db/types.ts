@@ -14,9 +14,18 @@ export const MAX_SNS_MEDIA_BYTES = 50 * 1024 * 1024;
 /** 업로드 파일의 저장소 접두사. 서버와 브라우저가 같은 경로를 만들어야 한다. */
 export const UPLOAD_PREFIX = "uploads/";
 
+/** PPT 템플릿 파일의 저장소 접두사. 템플릿 바이너리는 DB 문서에 넣지 않는다. */
+export const TEMPLATE_PREFIX = "templates/";
+
 export function buildUploadPathname(attachmentId: string, ext: string): string {
   return `${UPLOAD_PREFIX}${attachmentId}${ext}`;
 }
+
+export function buildTemplatePathname(templateId: string): string {
+  return `${TEMPLATE_PREFIX}${templateId}.pptx`;
+}
+
+export const MAX_PPT_TEMPLATE_BYTES = 15 * 1024 * 1024;
 
 // Subproject A: Seeding Types
 export type CampaignType = "shipping" | "visit";
@@ -280,7 +289,15 @@ export interface PptTemplate {
   kind: PptTemplateKind;
   name: string;
   storage_path?: string;
-  /** 업로드된 파일(base64). 내장 기본 템플릿(builtin)은 코드에서 매번 생성하므로 비어 있다. */
+  /**
+   * 저장소에 있는 pptx 의 키.
+   * 파일은 DB 문서 밖에 둔다. 문서 안에 넣으면 모든 저장이 매번 그 파일까지 읽고 다시 쓴다.
+   */
+  file_key?: string;
+  /**
+   * @deprecated 예전에는 파일을 base64 로 문서에 넣었다. 옛 데이터를 읽기 위해서만 남긴다.
+   * 새로 올리는 템플릿은 file_key 를 쓴다.
+   */
   file_data?: string;
   builtin?: boolean;
   placeholders: string[];

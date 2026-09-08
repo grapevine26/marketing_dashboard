@@ -1,11 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { PptTemplate, PptTemplateKind, PPT_TEMPLATE_KIND_LABELS } from "@/lib/db/types";
-import { uploadPptTemplateAction, deletePptTemplateAction } from "./actions";
+import {
+  PptTemplate,
+  PptTemplateKind,
+  PPT_TEMPLATE_KIND_LABELS,
+  MAX_PPT_TEMPLATE_BYTES,
+  buildTemplatePathname,
+} from "@/lib/db/types";
+import { uploadPptTemplateAction, confirmPptTemplateUploadAction, deletePptTemplateAction } from "./actions";
 import { Upload, Trash2, Loader2, Lock } from "lucide-react";
 
-export default function PptTemplatesClient({ initialTemplates }: { initialTemplates: PptTemplate[] }) {
+const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
+export default function PptTemplatesClient({
+  initialTemplates,
+  clientUpload,
+}: {
+  initialTemplates: PptTemplate[];
+  /**
+   * Blob 저장소가 붙어 있으면 pptx 를 브라우저에서 저장소로 바로 보낸다.
+   * Vercel 함수는 요청 본문을 4.5MB 로 자르는데, 이미지가 든 pptx 는 그보다 쉽게 커진다.
+   */
+  clientUpload: boolean;
+}) {
   const [templates, setTemplates] = useState<PptTemplate[]>(initialTemplates);
   const [name, setName] = useState("");
   const [kind, setKind] = useState<PptTemplateKind>("event");
@@ -14,6 +32,29 @@ export default function PptTemplatesClient({ initialTemplates }: { initialTempla
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  /** 파일을 브라우저에서 저장소로 바로 보낸 뒤, 서버에는 등록만 요청한다. */
+  const uploadDirect = async () => {
+    if (!file) return { ok: false as const, error: "파일을 선택해주세요." };
+    if (file.size > MAX_PPT_TEMPLATE_BYTES) {
+      return { ok: false as const, error: "템플릿 파일은 15MB 이하만 업로드할 수 있습니다." };
+    }
+
+    const templateId = crypto.randomUUID();
+    try {
+      const { upload } = await import("@vercel/blob/client");
+      await upload(buildTemplatePathname(templateId), file, {
+        access: "private",
+        handleUploadUrl: "/api/ppt-templates/upload",
+        contentType: PPTX_MIME,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { ok: false as const, error: `업로드에 실패했습니다. (${msg})` };
+    }
+
+    return confirmPptTemplateUploadAction({ templateId, kind, name: name.trim() });
+  };
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +67,7 @@ export default function PptTemplatesClient({ initialTemplates }: { initialTempla
     fd.append("name", name.trim());
     fd.append("kind", kind);
 
-    const res = await uploadPptTemplateAction(fd);
+    const res = clientUpload ? await uploadDirect() : await uploadPptTemplateAction(fd);
     setUploading(false);
     if (!res.ok) {
       setError(res.error);

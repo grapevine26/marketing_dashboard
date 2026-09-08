@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
-import { UPLOAD_PREFIX as SHARED_UPLOAD_PREFIX } from "./types";
+import { UPLOAD_PREFIX as SHARED_UPLOAD_PREFIX, TEMPLATE_PREFIX as SHARED_TEMPLATE_PREFIX } from "./types";
 
 /**
  * 저장소 추상화.
@@ -41,6 +41,24 @@ export interface FileRead {
 
 const DOC_KEY = "db/marketing_db.json";
 const UPLOAD_PREFIX = SHARED_UPLOAD_PREFIX;
+const TEMPLATE_PREFIX = SHARED_TEMPLATE_PREFIX;
+
+/**
+ * 저장소 안의 갈래.
+ * - uploads: SNS 시안 미디어
+ * - templates: 업로드된 PPT 템플릿 (예전에는 DB 문서에 base64 로 넣었다)
+ */
+export type FileScope = "uploads" | "templates";
+
+function prefixOf(scope: FileScope): string {
+  return scope === "templates" ? TEMPLATE_PREFIX : UPLOAD_PREFIX;
+}
+
+function dirOf(scope: FileScope): string {
+  return scope === "templates"
+    ? path.join(/*turbopackIgnore: true*/ path.dirname(getUploadsDirPath()), "templates")
+    : getUploadsDirPath();
+}
 const BACKUP_PREFIX = "backups/";
 
 /**
@@ -349,10 +367,15 @@ export function uploadPathname(key: string): string {
   return `${UPLOAD_PREFIX}${key}`;
 }
 
-export async function putFile(key: string, buffer: Buffer, contentType: string): Promise<void> {
+export async function putFile(
+  key: string,
+  buffer: Buffer,
+  contentType: string,
+  scope: FileScope = "uploads"
+): Promise<void> {
   if (isBlobBackend()) {
     const { put } = await import("@vercel/blob");
-    await put(`${UPLOAD_PREFIX}${key}`, buffer, {
+    await put(`${prefixOf(scope)}${key}`, buffer, {
       access: "private",
       contentType,
       allowOverwrite: true,
@@ -360,34 +383,38 @@ export async function putFile(key: string, buffer: Buffer, contentType: string):
     });
     return;
   }
-  const dir = getUploadsDirPath();
+  const dir = dirOf(scope);
   ensureDir(dir);
   fs.writeFileSync(/*turbopackIgnore: true*/ path.join(dir, key), buffer);
 }
 
 /** 본문을 받지 않고 크기만 본다. Range 검증(416 판별)에 쓴다. */
-export async function statFile(key: string): Promise<{ size: number } | null> {
+export async function statFile(key: string, scope: FileScope = "uploads"): Promise<{ size: number } | null> {
   if (isBlobBackend()) {
     const { head, BlobNotFoundError } = await import("@vercel/blob");
     try {
-      const res = await head(`${UPLOAD_PREFIX}${key}`);
+      const res = await head(`${prefixOf(scope)}${key}`);
       return res ? { size: res.size } : null;
     } catch (err) {
       if (err instanceof BlobNotFoundError) return null;
       throw err;
     }
   }
-  const filePath = path.join(/*turbopackIgnore: true*/ getUploadsDirPath(), key);
+  const filePath = path.join(/*turbopackIgnore: true*/ dirOf(scope), key);
   if (!fs.existsSync(/*turbopackIgnore: true*/ filePath)) return null;
   return { size: fs.statSync(/*turbopackIgnore: true*/ filePath).size };
 }
 
 /** range 를 주면 부분 응답(206)을 돌려준다. 영상 탐색에 쓴다. */
-export async function readFile(key: string, range?: string | null): Promise<FileRead | null> {
+export async function readFile(
+  key: string,
+  range?: string | null,
+  scope: FileScope = "uploads"
+): Promise<FileRead | null> {
   if (isBlobBackend()) {
     const { get, BlobNotFoundError } = await import("@vercel/blob");
     try {
-      const res = await get(`${UPLOAD_PREFIX}${key}`, {
+      const res = await get(`${prefixOf(scope)}${key}`, {
         access: "private",
         ...(range ? { headers: { Range: range } } : {}),
       });
@@ -406,7 +433,7 @@ export async function readFile(key: string, range?: string | null): Promise<File
     }
   }
 
-  const filePath = path.join(/*turbopackIgnore: true*/ getUploadsDirPath(), key);
+  const filePath = path.join(/*turbopackIgnore: true*/ dirOf(scope), key);
   if (!fs.existsSync(/*turbopackIgnore: true*/ filePath)) return null;
   const fileSize = fs.statSync(/*turbopackIgnore: true*/ filePath).size;
 
@@ -437,33 +464,33 @@ export async function readFile(key: string, range?: string | null): Promise<File
 }
 
 /** attachmentId 로 시작하는 실제 저장 키를 찾는다 (확장자를 모르기 때문). */
-export async function findFileKeyByPrefix(prefix: string): Promise<string | null> {
+export async function findFileKeyByPrefix(prefix: string, scope: FileScope = "uploads"): Promise<string | null> {
   if (isBlobBackend()) {
     const { list } = await import("@vercel/blob");
-    const res = await list({ prefix: `${UPLOAD_PREFIX}${prefix}`, limit: 1 });
+    const res = await list({ prefix: `${prefixOf(scope)}${prefix}`, limit: 1 });
     const found = res.blobs[0];
-    return found ? found.pathname.slice(UPLOAD_PREFIX.length) : null;
+    return found ? found.pathname.slice(prefixOf(scope).length) : null;
   }
-  const dir = getUploadsDirPath();
+  const dir = dirOf(scope);
   if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) return null;
   return fs.readdirSync(/*turbopackIgnore: true*/ dir).find((f) => f.startsWith(prefix)) ?? null;
 }
 
-export async function deleteFilesByPrefixes(prefixes: string[]): Promise<void> {
+export async function deleteFilesByPrefixes(prefixes: string[], scope: FileScope = "uploads"): Promise<void> {
   if (prefixes.length === 0) return;
 
   if (isBlobBackend()) {
     const { list, del } = await import("@vercel/blob");
     const targets: string[] = [];
     for (const prefix of prefixes) {
-      const res = await list({ prefix: `${UPLOAD_PREFIX}${prefix}` });
+      const res = await list({ prefix: `${prefixOf(scope)}${prefix}` });
       targets.push(...res.blobs.map((b) => b.url));
     }
     if (targets.length > 0) await del(targets);
     return;
   }
 
-  const dir = getUploadsDirPath();
+  const dir = dirOf(scope);
   if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) return;
   const files = fs.readdirSync(/*turbopackIgnore: true*/ dir);
   for (const prefix of prefixes) {
