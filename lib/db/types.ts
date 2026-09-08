@@ -1,3 +1,23 @@
+/** SNS 시안 미디어로 허용하는 형식과 저장 확장자. 서버와 브라우저가 같은 값을 봐야 한다. */
+export const ALLOWED_SNS_MEDIA_MIME_TYPES: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/gif": ".gif",
+  "video/mp4": ".mp4",
+  "video/webm": ".webm",
+  "video/quicktime": ".mov",
+};
+
+export const MAX_SNS_MEDIA_BYTES = 50 * 1024 * 1024;
+
+/** 업로드 파일의 저장소 접두사. 서버와 브라우저가 같은 경로를 만들어야 한다. */
+export const UPLOAD_PREFIX = "uploads/";
+
+export function buildUploadPathname(attachmentId: string, ext: string): string {
+  return `${UPLOAD_PREFIX}${attachmentId}${ext}`;
+}
+
 // Subproject A: Seeding Types
 export type CampaignType = "shipping" | "visit";
 export type CampaignStatus = "draft" | "recruiting" | "selecting" | "seeding" | "reporting" | "completed";

@@ -10,6 +10,7 @@ import {
   deleteSnsContent,
   deleteSnsAccount,
   saveSnsMediaAttachment,
+  recordUploadedSnsMedia,
   deleteSnsMediaAttachment,
   saveSnsPlan,
   getSnsAccountById,
@@ -161,6 +162,35 @@ export async function uploadSnsMediaAction(formData: FormData): Promise<ActionRe
     })
   );
   if (res.ok) revalidateAccount(accountId);
+  return res;
+}
+
+/**
+ * 브라우저가 Blob 에 직접 올린 파일을 DB 에 기록한다.
+ *
+ * 파일이 서버를 거치지 않았으므로, 여기서 실물이 올라왔는지와 내용이 형식과 맞는지 확인한다.
+ * 어긋나면 올라온 파일을 지운다.
+ */
+export async function confirmSnsMediaUploadAction(input: {
+  contentId: string;
+  accountId: string;
+  attachmentId: string;
+  storedFilename: string;
+  name: string;
+  mimeType: string;
+}): Promise<ActionResult<SnsMediaAttachment>> {
+  if (!input.contentId || !input.accountId || !input.attachmentId || !input.storedFilename) {
+    return fail("잘못된 요청입니다.");
+  }
+  const res = await runAction(() =>
+    recordUploadedSnsMedia(input.contentId, {
+      attachmentId: input.attachmentId,
+      storedFilename: input.storedFilename,
+      name: input.name,
+      mime_type: input.mimeType,
+    })
+  );
+  if (res.ok) revalidateAccount(input.accountId);
   return res;
 }
 

@@ -13,12 +13,16 @@ import {
   PreSurveyQuestion,
   SNS_CONTENT_STATUSES,
   SNS_CONTENT_STATUS_LABELS,
+  ALLOWED_SNS_MEDIA_MIME_TYPES,
+  MAX_SNS_MEDIA_BYTES,
+  buildUploadPathname,
 } from "@/lib/db/types";
 import {
   createSnsContentAction,
   updateSnsContentAction,
   deleteSnsContentAction,
   uploadSnsMediaAction,
+  confirmSnsMediaUploadAction,
   deleteSnsMediaAction,
   generateSnsAiCaptionAction,
   updateSnsAccountAction,
@@ -75,6 +79,7 @@ export default function SnsAccountDetailClient({
   intakeResponse,
   intakeQuestions,
   todayKst,
+  clientUpload,
 }: {
   account: SnsAccount;
   initialContents: SnsContent[];
@@ -82,6 +87,12 @@ export default function SnsAccountDetailClient({
   intakeQuestions: PreSurveyQuestion[];
   /** 서버에서 KST로 계산한 오늘 (YYYY-MM-DD) */
   todayKst: string;
+  /**
+   * Blob 저장소가 붙어 있으면 파일을 브라우저에서 저장소로 바로 보낸다.
+   * Vercel 함수는 요청 본문을 4.5MB 로 자르기 때문에, 서버를 거치면 그보다 큰 건 못 올린다.
+   * 로컬 개발에는 Blob 이 없으므로 예전처럼 서버 액션으로 올린다.
+   */
+  clientUpload: boolean;
 }) {
   const router = useRouter();
   const [account, setAccount] = useState<SnsAccount>(initialAccount);
@@ -223,11 +234,54 @@ export default function SnsAccountDetailClient({
   /** 미디어 URL에는 계정 승인 토큰을 붙여야 서버가 응답한다 (/api/media 는 토큰 필수). */
   const mediaSrc = (m: SnsMediaAttachment) => `${m.url}?token=${encodeURIComponent(account.approval_token)}`;
 
+  type UploadOutcome = { ok: true; data: SnsMediaAttachment } | { ok: false; error: string };
+
+  /** 파일을 브라우저에서 Blob 으로 바로 보낸 뒤, 서버에는 기록만 요청한다. */
+  const uploadDirect = async (contentId: string, file: File): Promise<UploadOutcome> => {
+    const mime = (file.type || "").toLowerCase();
+    const ext = ALLOWED_SNS_MEDIA_MIME_TYPES[mime];
+    if (!ext) {
+      return { ok: false, error: `"${file.name}" 은(는) 지원하지 않는 형식입니다. (JPG, PNG, WebP, GIF, MP4, WebM, MOV)` };
+    }
+    if (file.size > MAX_SNS_MEDIA_BYTES) {
+      return { ok: false, error: `"${file.name}" 이(가) 50MB를 넘습니다.` };
+    }
+
+    const attachmentId = crypto.randomUUID();
+    const storedFilename = `${attachmentId}${ext}`;
+
+    try {
+      const { upload } = await import("@vercel/blob/client");
+      await upload(buildUploadPathname(attachmentId, ext), file, {
+        access: "private",
+        handleUploadUrl: "/api/media/upload",
+        contentType: mime,
+        clientPayload: JSON.stringify({ contentId, mime }),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { ok: false, error: `"${file.name}" 업로드에 실패했습니다. (${msg})` };
+    }
+
+    return confirmSnsMediaUploadAction({
+      contentId,
+      accountId: account.id,
+      attachmentId,
+      storedFilename,
+      name: file.name,
+      mimeType: mime,
+    });
+  };
+
   /**
    * 서버 액션이 413(본문 한도 초과) 등으로 예외를 던지면 클라이언트에서는 throw 로 나타난다.
    * 조용히 실패하지 않도록 사람이 읽을 수 있는 메시지로 바꾼다.
    */
-  const safeUpload = async (fd: FormData, file: File): Promise<{ ok: true; data: SnsMediaAttachment } | { ok: false; error: string }> => {
+  const uploadViaServer = async (contentId: string, file: File): Promise<UploadOutcome> => {
+    const fd = new FormData();
+    fd.append("contentId", contentId);
+    fd.append("accountId", account.id);
+    fd.append("file", file);
     try {
       return await uploadSnsMediaAction(fd);
     } catch (err) {
@@ -237,6 +291,9 @@ export default function SnsAccountDetailClient({
       return { ok: false, error: tooLarge ? `"${file.name}" (${mb}MB)이(가) 서버 업로드 한도를 넘었습니다. 50MB 이하로 줄여주세요.` : `"${file.name}" 업로드 중 오류가 발생했습니다.` };
     }
   };
+
+  const safeUpload = (contentId: string, file: File): Promise<UploadOutcome> =>
+    clientUpload ? uploadDirect(contentId, file) : uploadViaServer(contentId, file);
 
   const handleSelectFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -251,11 +308,7 @@ export default function SnsAccountDetailClient({
     setUploadingMedia(true);
     setError(null);
     for (const file of Array.from(files)) {
-      const fd = new FormData();
-      fd.append("contentId", editingId);
-      fd.append("accountId", account.id);
-      fd.append("file", file);
-      const res = await safeUpload(fd, file);
+      const res = await safeUpload(editingId, file);
       if (!res.ok) {
         setError(res.error);
       } else {
@@ -341,11 +394,7 @@ export default function SnsAccountDetailClient({
       let createdContent = res.data;
       if (selectedFiles.length > 0) {
         for (const file of selectedFiles) {
-          const fd = new FormData();
-          fd.append("contentId", createdContent.id);
-          fd.append("accountId", account.id);
-          fd.append("file", file);
-          const upRes = await safeUpload(fd, file);
+          const upRes = await safeUpload(createdContent.id, file);
           if (!upRes.ok) {
             setError(`"${file.name}" 첨부 실패: ${upRes.error}`);
           } else {

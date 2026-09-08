@@ -4,6 +4,9 @@ import {
   writeDoc,
   putFile,
   findFileKeyByPrefix,
+  statFile,
+  readFile,
+  uploadPathname,
   deleteFilesByPrefixes,
   writeBackupIfDue,
   listBackups as listStorageBackups,
@@ -12,6 +15,8 @@ import {
   ConcurrentWriteError,
 } from "./storage";
 import {
+  ALLOWED_SNS_MEDIA_MIME_TYPES,
+  MAX_SNS_MEDIA_BYTES,
   Campaign,
   CampaignStatus,
   PreSurveyTemplate,
@@ -2151,18 +2156,124 @@ export function matchesMediaSignature(buf: Buffer, mime: string): boolean {
   }
 }
 
-export const ALLOWED_SNS_MEDIA_MIME_TYPES: Record<string, string> = {
-  "image/jpeg": ".jpg",
-  "image/png": ".png",
-  "image/webp": ".webp",
-  "image/gif": ".gif",
-  "video/mp4": ".mp4",
-  "video/webm": ".webm",
-  "video/quicktime": ".mov",
-};
+export { ALLOWED_SNS_MEDIA_MIME_TYPES, MAX_SNS_MEDIA_BYTES } from "./types";
 
 function sanitizeFileName(name: string): string {
   return path.basename(name).replace(/[^a-zA-Z0-9._\-\uAC00-\uD7A3]/g, "_");
+}
+
+/** 업로드 전 공통 검증. 형식과 크기만 본다. 내용 검사는 바이트가 있어야 하므로 따로 한다. */
+function validateSnsMediaMeta(mimeRaw: string, size: number): { mime: string; ext: string } {
+  const mime = mimeRaw?.toLowerCase() || "";
+  const ext = ALLOWED_SNS_MEDIA_MIME_TYPES[mime];
+  if (!ext) {
+    throw new ValidationError("지원하지 않는 파일 형식입니다. (JPG, PNG, WebP, GIF, MP4, WebM, MOV 지원)");
+  }
+  if (size > MAX_SNS_MEDIA_BYTES) {
+    throw new ValidationError("파일 크기는 50MB 이하만 업로드할 수 있습니다.");
+  }
+  if (size <= 0) {
+    throw new ValidationError("빈 파일은 업로드할 수 없습니다.");
+  }
+  return { mime, ext };
+}
+
+/**
+ * 브라우저가 Blob 에 직접 올리기 전에 서버가 자리를 잡아준다.
+ *
+ * Vercel 함수는 요청 본문을 4.5MB 로 자르기 때문에, 파일이 서버를 거치면 그보다 큰 건 못 올린다.
+ * 그래서 파일은 브라우저에서 저장소로 바로 보내고, 서버는 어디에 어떤 이름으로 받을지만 정한다.
+ */
+export async function prepareSnsMediaUpload(
+  contentId: string,
+  fileName: string,
+  mimeType: string,
+  size: number
+): Promise<{ attachmentId: string; storedFilename: string; pathname: string; safeName: string; mime: string }> {
+  const { mime, ext } = validateSnsMediaMeta(mimeType, size);
+
+  const db = await readDb();
+  if (!db.sns_contents.some((c) => c.id === contentId)) {
+    throw new ValidationError("콘텐츠를 찾을 수 없습니다.");
+  }
+
+  const attachmentId = crypto.randomUUID();
+  const storedFilename = `${attachmentId}${ext}`;
+  return {
+    attachmentId,
+    storedFilename,
+    pathname: uploadPathname(storedFilename),
+    safeName: sanitizeFileName(fileName) || `attachment_${attachmentId}${ext}`,
+    mime,
+  };
+}
+
+/**
+ * 브라우저가 업로드를 끝낸 뒤 DB에 첨부를 기록한다.
+ *
+ * 파일이 서버를 거치지 않았으므로 여기서 실물을 확인한다. 실제로 올라왔는지, 크기가 맞는지,
+ * 앞부분 바이트가 주장한 형식과 맞는지 본다. 하나라도 어긋나면 올라온 파일을 지운다.
+ */
+export async function recordUploadedSnsMedia(
+  contentId: string,
+  input: { attachmentId: string; storedFilename: string; name: string; mime_type: string }
+): Promise<SnsMediaAttachment> {
+  const { mime } = validateSnsMediaMeta(input.mime_type, 1);
+
+  if (!/^[0-9a-f-]{36}\.[a-z0-9]{3,4}$/i.test(input.storedFilename)) {
+    throw new ValidationError("잘못된 업로드 요청입니다.");
+  }
+
+  const stat = await statFile(input.storedFilename);
+  if (!stat) {
+    throw new ValidationError("업로드된 파일을 찾을 수 없습니다. 다시 시도해주세요.");
+  }
+  if (stat.size > MAX_SNS_MEDIA_BYTES || stat.size <= 0) {
+    await purgeMedia([input.attachmentId]);
+    throw new ValidationError("파일 크기는 50MB 이하만 업로드할 수 있습니다.");
+  }
+
+  // 내용 검사. 앞 12바이트만 읽으면 되므로 큰 파일이어도 부담이 없다.
+  const head = await readFile(input.storedFilename, "bytes=0-11");
+  if (!head) {
+    await purgeMedia([input.attachmentId]);
+    throw new ValidationError("업로드된 파일을 읽을 수 없습니다. 다시 시도해주세요.");
+  }
+  const headBytes = Buffer.from(await new Response(head.stream).arrayBuffer());
+  if (!matchesMediaSignature(headBytes, mime)) {
+    await purgeMedia([input.attachmentId]);
+    throw new ValidationError("파일 내용이 확장자와 다릅니다. 실제 이미지/영상 파일만 업로드할 수 있습니다.");
+  }
+
+  const attachment: SnsMediaAttachment = {
+    id: input.attachmentId,
+    name: sanitizeFileName(input.name) || input.storedFilename,
+    url: `/api/media/${input.attachmentId}`,
+    mime_type: mime,
+    size: stat.size,
+    uploaded_at: nowIso(),
+  };
+
+  return mutateDb((db) => {
+    const content = db.sns_contents.find((c) => c.id === contentId);
+    if (!content) {
+      void purgeMedia([input.attachmentId]);
+      throw new ValidationError("콘텐츠를 찾을 수 없습니다.");
+    }
+    content.media_attachments = content.media_attachments ?? [];
+    content.media_attachments.push(attachment);
+
+    appendAuditLog(db, {
+      account_id: content.account_id,
+      entity_type: "sns_content",
+      entity_id: content.id,
+      action: "sns.add_media",
+      actor_type: "agency",
+      summary: `[${content.title}] 시안 미디어 첨부: ${attachment.name} (${(attachment.size / (1024 * 1024)).toFixed(1)}MB)`,
+    });
+
+    return attachment;
+  });
 }
 
 export async function saveSnsMediaAttachment(
@@ -2174,17 +2285,9 @@ export async function saveSnsMediaAttachment(
     size: number;
   }
 ): Promise<SnsMediaAttachment> {
-  const mime = file.mime_type?.toLowerCase() || "";
-  const ext = ALLOWED_SNS_MEDIA_MIME_TYPES[mime];
-  if (!ext) {
-    throw new ValidationError("지원하지 않는 파일 형식입니다. (JPG, PNG, WebP, GIF, MP4, WebM, MOV 지원)");
-  }
-  const MAX_SIZE = 50 * 1024 * 1024; // 50MB
-  if (file.size > MAX_SIZE || file.buffer.length > MAX_SIZE) {
+  const { mime, ext } = validateSnsMediaMeta(file.mime_type, file.size);
+  if (!file.buffer || file.buffer.length === 0 || file.buffer.length > MAX_SNS_MEDIA_BYTES) {
     throw new ValidationError("파일 크기는 50MB 이하만 업로드할 수 있습니다.");
-  }
-  if (!file.buffer || file.buffer.length === 0) {
-    throw new ValidationError("빈 파일은 업로드할 수 없습니다.");
   }
   // 브라우저가 보낸 MIME(file.type)은 확장자만 보고 정하므로, 실제 파일 시그니처와 맞는지 확인한다.
   if (!matchesMediaSignature(file.buffer, mime)) {

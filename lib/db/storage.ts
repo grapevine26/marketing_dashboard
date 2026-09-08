@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { UPLOAD_PREFIX as SHARED_UPLOAD_PREFIX } from "./types";
 
 /**
  * 저장소 추상화.
@@ -39,7 +40,7 @@ export interface FileRead {
 }
 
 const DOC_KEY = "db/marketing_db.json";
-const UPLOAD_PREFIX = "uploads/";
+const UPLOAD_PREFIX = SHARED_UPLOAD_PREFIX;
 const BACKUP_PREFIX = "backups/";
 
 /**
@@ -339,6 +340,14 @@ export async function probeDocConditionalWrite(): Promise<{
 }
 
 // ---------- 업로드 파일 (SNS 시안 미디어) ----------
+
+/**
+ * 업로드 키의 실제 저장 경로. 브라우저가 Blob 에 직접 올릴 때 이 경로를 써야
+ * readFile / findFileKeyByPrefix 가 같은 파일을 찾는다.
+ */
+export function uploadPathname(key: string): string {
+  return `${UPLOAD_PREFIX}${key}`;
+}
 
 export async function putFile(key: string, buffer: Buffer, contentType: string): Promise<void> {
   if (isBlobBackend()) {

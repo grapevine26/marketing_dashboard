@@ -9,6 +9,7 @@ import { toKstDateString } from "@/lib/seeding/dday";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import SnsAccountDetailClient from "./SnsAccountDetailClient";
+import { isBlobBackend } from "@/lib/db/storage";
 
 export const revalidate = 0;
 
@@ -44,6 +45,7 @@ export default async function SnsAccountDetailPage({
         intakeResponse={intakeResponse}
         intakeQuestions={intakeTemplate.questions}
         todayKst={toKstDateString()}
+        clientUpload={isBlobBackend()}
       />
     </div>
   );
