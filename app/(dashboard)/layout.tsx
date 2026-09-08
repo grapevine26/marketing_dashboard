@@ -16,6 +16,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import ThemeToggleButton from "@/components/ThemeToggleButton";
+import RefreshOnFocus from "@/components/RefreshOnFocus";
 
 export default function DashboardLayout({
   children,
@@ -105,6 +106,9 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row font-sans antialiased transition-colors duration-200">
+      {/* 탭으로 돌아오면 화면을 최신으로 다시 불러온다. 화면에는 아무것도 그리지 않는다. */}
+      <RefreshOnFocus />
+
       {/* Mobile Top Header */}
       <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-sidebar/95 backdrop-blur-md border-b border-border">
         <Link href="/" className="flex items-center gap-2.5">
