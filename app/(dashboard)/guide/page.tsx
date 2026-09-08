@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { SHIPPING_STAGES, VISIT_STAGES } from "@/lib/seeding/stages";
 
-export const revalidate = 0;
 
 /** 공유 링크 한눈에 보기 표 데이터 */
 const SHARE_LINKS = [

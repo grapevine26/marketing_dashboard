@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getReportById, getPptTemplateById, getPptTemplateBuffer, ValidationError, BUILTIN_REPORT_TEMPLATE_ID } from "@/lib/db";
 import { generateReportPPTX } from "@/lib/reports/pptx";
+import { fileDownloadResponse } from "@/lib/http/fileResponse";
 
 function textResponse(message: string, status: number) {
   return new NextResponse(message, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
@@ -28,13 +29,7 @@ export async function GET(
   try {
     const pptxBuffer = await generateReportPPTX(report, templateBuffer);
     const filename = encodeURIComponent(`${report.title}.pptx`);
-    return new NextResponse(new Uint8Array(pptxBuffer), {
-      headers: {
-        "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        "Content-Disposition": `attachment; filename*=UTF-8''${filename}`,
-        "Cache-Control": "no-store",
-      },
-    });
+    return fileDownloadResponse(pptxBuffer, "application/vnd.openxmlformats-officedocument.presentationml.presentation", filename);
   } catch (error) {
     if (error instanceof ValidationError) return textResponse(error.message, 400);
     console.error("PPTX generation failed:", error);

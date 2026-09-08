@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSnsAccountById, getSnsPlan, getPptTemplateById, getPptTemplateBuffer } from "@/lib/db";
 import { fillTemplate } from "@/lib/ppt/engine";
+import { fileDownloadResponse } from "@/lib/http/fileResponse";
 
 const TEMPLATE_ERROR = "템플릿 파일을 불러오지 못했습니다. 다시 업로드해주세요.";
 
@@ -29,13 +30,7 @@ export async function GET(
   try {
     const outputBuffer = await fillTemplate(templateBuffer, plan.field_values);
     const filename = encodeURIComponent(`${account.company_name}_SNS운영제안서.pptx`);
-    return new NextResponse(new Uint8Array(outputBuffer), {
-      headers: {
-        "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        "Content-Disposition": `attachment; filename*=UTF-8''${filename}`,
-        "Cache-Control": "no-store",
-      },
-    });
+    return fileDownloadResponse(outputBuffer, "application/vnd.openxmlformats-officedocument.presentationml.presentation", filename);
   } catch (err) {
     console.error("SNS PPT export failed:", err);
     return textResponse(TEMPLATE_ERROR, 500);

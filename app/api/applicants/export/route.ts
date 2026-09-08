@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCampaignById, getCampaignByToken, getApplicantsByCampaignId, getFormConfig } from "@/lib/db";
 import { applicantsToCSV } from "@/lib/applicants/csv";
 import { applicantsToXlsx } from "@/lib/applicants/xlsx";
+import { fileDownloadResponse } from "@/lib/http/fileResponse";
 
 /**
  * 지원자 데이터 내보내기 (CSV 및 Excel .xlsx).
@@ -36,13 +37,7 @@ export async function GET(request: NextRequest) {
     });
     const filename = encodeURIComponent(`${campaign.name}_지원자리스트.xlsx`);
 
-    return new NextResponse(new Uint8Array(buffer), {
-      headers: {
-        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename*=UTF-8''${filename}`,
-        "Cache-Control": "no-store",
-      },
-    });
+    return fileDownloadResponse(buffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename);
   }
 
   const csv = applicantsToCSV(applicants, formConfig?.custom_questions || [], {
@@ -50,11 +45,5 @@ export async function GET(request: NextRequest) {
   });
   const filename = encodeURIComponent(`${campaign.name}_지원자리스트.csv`);
 
-  return new NextResponse(csv, {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename*=UTF-8''${filename}`,
-      "Cache-Control": "no-store",
-    },
-  });
+  return fileDownloadResponse(Buffer.from(csv, "utf-8"), "text/csv; charset=utf-8", filename);
 }

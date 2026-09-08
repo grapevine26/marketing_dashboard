@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getReportById, ValidationError } from "@/lib/db";
 import { generateReportPDF } from "@/lib/reports/pdf";
+import { fileDownloadResponse } from "@/lib/http/fileResponse";
 
 export async function GET(
   request: NextRequest,
@@ -16,13 +17,7 @@ export async function GET(
     const pdfBuffer = await generateReportPDF(report);
     const filename = encodeURIComponent(`${report.title}.pdf`);
 
-    return new NextResponse(new Uint8Array(pdfBuffer), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename*=UTF-8''${filename}`,
-        "Cache-Control": "no-store",
-      },
-    });
+    return fileDownloadResponse(pdfBuffer, "application/pdf", filename);
   } catch (error) {
     if (error instanceof ValidationError) {
       return new NextResponse(error.message, { status: 400, headers: { "Content-Type": "text/plain; charset=utf-8" } });

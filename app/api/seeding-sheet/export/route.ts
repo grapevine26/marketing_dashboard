@@ -9,6 +9,7 @@ import { seedingSheetToCSV } from "@/lib/seeding/sheetCsv";
 import { seedingSheetToXlsx } from "@/lib/seeding/sheetXlsx";
 import { mergeSeedingRows } from "@/lib/seeding/rows";
 import { toKstDateString } from "@/lib/seeding/dday";
+import { fileDownloadResponse } from "@/lib/http/fileResponse";
 
 /**
  * 관리시트 데이터 내보내기 (CSV 및 Excel .xlsx).
@@ -42,23 +43,11 @@ export async function GET(request: NextRequest) {
     const buffer = await seedingSheetToXlsx(rows, toKstDateString());
     const filename = encodeURIComponent(`${campaign.name}_시딩관리시트.xlsx`);
 
-    return new NextResponse(new Uint8Array(buffer), {
-      headers: {
-        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename*=UTF-8''${filename}`,
-        "Cache-Control": "no-store",
-      },
-    });
+    return fileDownloadResponse(buffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename);
   }
 
   const csv = seedingSheetToCSV(rows, toKstDateString());
   const filename = encodeURIComponent(`${campaign.name}_시딩관리시트.csv`);
 
-  return new NextResponse(csv, {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename*=UTF-8''${filename}`,
-      "Cache-Control": "no-store",
-    },
-  });
+  return fileDownloadResponse(Buffer.from(csv, "utf-8"), "text/csv; charset=utf-8", filename);
 }
