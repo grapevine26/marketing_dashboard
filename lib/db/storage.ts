@@ -260,6 +260,69 @@ export async function probeConditionalWrite(): Promise<{
   }
 }
 
+/**
+ * 진짜 DB 문서에 대고 조건부 쓰기를 재현한다.
+ *
+ * 임시 키로 한 검사는 통과하는데 실제 저장은 계속 충돌하는 상황을 가르기 위한 것이다.
+ * 내용은 방금 읽은 것을 그대로 다시 쓴다. 성공해도 문서는 한 글자도 바뀌지 않는다.
+ */
+export async function probeDocConditionalWrite(): Promise<{
+  ok: boolean;
+  steps: Record<string, unknown>;
+}> {
+  const steps: Record<string, unknown> = {};
+
+  if (!isBlobBackend()) {
+    return { ok: true, steps: { skipped: "파일 백엔드" } };
+  }
+
+  const { put, BlobPreconditionFailedError } = await import("@vercel/blob");
+
+  try {
+    const first = await readDoc();
+    if (!first) {
+      return { ok: true, steps: { skipped: "아직 DB 문서가 없다" } };
+    }
+    const second = await readDoc();
+
+    steps.etagStableAcrossReads = second ? first.version === second.version : null;
+    steps.etagSample = first.version ? `${first.version.slice(0, 12)}…(${first.version.length}자)` : null;
+    steps.bytes = first.text.length;
+
+    if (!first.version) {
+      steps.failedAt = "읽기가 ETag 를 주지 않았다";
+      return { ok: false, steps };
+    }
+
+    // 방금 읽은 그 내용을 그대로, 방금 읽은 ETag 를 조건으로 다시 쓴다.
+    try {
+      const res = await put(DOC_KEY, first.text, {
+        access: "private",
+        contentType: "application/json",
+        allowOverwrite: true,
+        addRandomSuffix: false,
+        ifMatch: first.version,
+      });
+      steps.sameContentWriteAccepted = true;
+      steps.etagAfterWrite = res.etag ? `${res.etag.slice(0, 12)}…` : null;
+      steps.etagChangedForIdenticalContent = res.etag !== first.version;
+      return { ok: true, steps };
+    } catch (err) {
+      steps.sameContentWriteAccepted = false;
+      steps.isPreconditionFailed = err instanceof BlobPreconditionFailedError;
+      steps.error = err instanceof Error ? { name: err.name, message: err.message } : String(err);
+
+      // 조건 없이 쓰면 되는지까지는 확인하지 않는다. 진단이 데이터를 건드리면 안 된다.
+      steps.note = "실제 문서에서는 조건부 쓰기가 거부된다. 저장 실패의 원인이 여기다.";
+      return { ok: false, steps };
+    }
+  } catch (err) {
+    steps.failedAt = "예외";
+    steps.error = err instanceof Error ? { name: err.name, message: err.message } : String(err);
+    return { ok: false, steps };
+  }
+}
+
 // ---------- 업로드 파일 (SNS 시안 미디어) ----------
 
 export async function putFile(key: string, buffer: Buffer, contentType: string): Promise<void> {

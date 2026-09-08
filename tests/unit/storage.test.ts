@@ -130,6 +130,34 @@ describe("저장소 추상화", () => {
       expect(ids).toEqual(["mine", "outside"]);
       expect(result).toBe(2);
     });
+
+    it("계속 충돌해도 마지막에는 조건 없이 써서 저장을 끝낸다", async () => {
+      await mutateDb((db) => {
+        db.campaigns = [];
+        return null;
+      });
+
+      let attempts = 0;
+      const result = await mutateDb(async (db) => {
+        attempts++;
+        // 매 시도마다 밖에서 먼저 저장한다. 낙관적 잠금은 끝내 통과하지 못한다.
+        const snap = await readDoc();
+        const outside = JSON.parse(snap!.text);
+        outside.campaigns = [makeCampaign(`outside-${attempts}`)];
+        await new Promise((r) => setTimeout(r, 20));
+        await writeDoc(JSON.stringify(outside), null);
+
+        db.campaigns = [makeCampaign("mine")];
+        return attempts;
+      });
+
+      // 재시도를 모두 쓰고, 마지막 한 번을 조건 없이 쓴다.
+      expect(result).toBe(5);
+
+      // 저장은 반드시 끝나야 한다. 저장이 안 되는 것보다는 덮어쓰는 게 낫다.
+      const db = await readDb();
+      expect(db.campaigns.map((c) => c.id)).toEqual(["mine"]);
+    });
   });
 
   describe("업로드 파일", () => {

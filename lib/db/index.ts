@@ -511,6 +511,12 @@ const BACKUP_KEEP = 48;
  * - 인스턴스가 여러 개여도 최대 이 시간만큼만 늦게 반영된다. (예전처럼 영구히 갈리지 않는다.)
  */
 const CACHE_TTL_MS = 1000;
+/** 낙관적 잠금 재시도 횟수. 다 쓰면 조건 없이 한 번 쓴다. */
+const CAS_ATTEMPTS = 4;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /** 저장소에서 문서를 읽어 파싱한다. 없으면 초기 데이터를 만들어 저장한다. */
 async function loadDoc(): Promise<{ data: DatabaseSchema; version: string | null }> {
@@ -586,24 +592,33 @@ export async function mutateDb<T>(fn: (db: DatabaseSchema) => T | Promise<T>): P
   globalThis._marketingDbLock = prev.then(() => mine);
   await prev;
   try {
-    let lastError: unknown = null;
-    for (let attempt = 0; attempt < 4; attempt++) {
+    for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
       const { data, version } = await loadDoc();
       const result = await fn(data);
       try {
         await persist(data, version);
         return result;
       } catch (err) {
-        if (err instanceof ConcurrentWriteError) {
-          lastError = err;
-          continue;
-        }
-        throw err;
+        if (!(err instanceof ConcurrentWriteError)) throw err;
+        // 곧바로 다시 읽으면 같은 순간을 또 짚는다. 조금씩 늘려가며 기다린다.
+        await sleep(40 * 2 ** attempt + Math.floor(Math.random() * 40));
       }
     }
-    throw lastError instanceof Error
-      ? new Error("다른 사용자의 저장과 계속 충돌했습니다. 잠시 후 다시 시도해주세요.")
-      : lastError;
+
+    // 여기까지 왔다는 건 낙관적 잠금으로는 끝내 커밋하지 못했다는 뜻이다.
+    //
+    // 낙관적 잠금은 동시 저장이 서로를 덮어쓰는 걸 막으려는 장치다. 그런데 그것 때문에
+    // 저장 자체가 아예 안 되면 앱이 죽는다. 못 막는 것보다 못 쓰는 게 더 나쁘다.
+    // 그래서 마지막 한 번은 조건 없이 쓴다. 이때만 last-writer-wins 가 된다.
+    // 흔한 일이 아니므로 크게 로그를 남긴다. 자주 찍히면 원인을 봐야 한다.
+    console.error(
+      `[db] 낙관적 잠금으로 ${CAS_ATTEMPTS}번 시도했지만 모두 충돌했습니다. ` +
+        "조건 없이 덮어씁니다. 이 로그가 반복되면 저장소 설정을 확인하세요."
+    );
+    const { data } = await loadDoc();
+    const result = await fn(data);
+    await persist(data, null);
+    return result;
   } finally {
     release();
   }

@@ -6,6 +6,7 @@ import {
   readFile,
   deleteFilesByPrefixes,
   probeConditionalWrite,
+  probeDocConditionalWrite,
 } from "@/lib/db/storage";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +58,13 @@ export async function GET() {
     checks.conditionalWrite = probe;
   } catch (err) {
     checks.conditionalWrite = { ok: false, error: describeError(err) };
+  }
+
+  // 2-b. 같은 검사를 진짜 DB 문서에 대고 한 번 더. 내용은 바뀌지 않는다.
+  try {
+    checks.conditionalWriteOnRealDoc = await probeDocConditionalWrite();
+  } catch (err) {
+    checks.conditionalWriteOnRealDoc = { ok: false, error: describeError(err) };
   }
 
   // 3. 파일 쓰기 → 읽기 → 삭제 (진단용 임시 키)
