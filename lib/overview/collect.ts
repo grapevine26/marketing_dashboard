@@ -169,6 +169,8 @@ export interface HomeSummary {
   activeCampaignCount: number;
   newApplicantsThisMonth: number;
   totalSelectedCount: number;
+  preparingEventCount: number;
+  pendingApprovalSnsCount: number;
   /** 최근 생성된 진행중(모집중~보고서 작성) 캠페인 최대 3개. 홈 화면 카드 목록용. */
   activeCampaigns: HomeCampaignSummary[];
 }
@@ -178,7 +180,11 @@ export interface HomeSummary {
  * 캠페인이 삭제되어도 조용히 제외되며, 지원자 조회 실패는 해당 캠페인만 0으로 집계한다.
  */
 export async function collectHomeSummary(todayKst: string): Promise<HomeSummary> {
-  const campaigns = await getCampaigns();
+  const [campaigns, events, snsContents] = await Promise.all([
+    getCampaigns(),
+    getAllEvents().catch(() => []),
+    getAllSnsContents().catch(() => []),
+  ]);
   const currentYm = todayKst.slice(0, 7);
 
   const perCampaign = await Promise.all(
@@ -217,10 +223,15 @@ export async function collectHomeSummary(todayKst: string): Promise<HomeSummary>
       selectedCount: applicants.filter((a) => a.status === "selected").length,
     }));
 
+  const preparingEventCount = events.filter((e) => e.status === "preparing").length;
+  const pendingApprovalSnsCount = snsContents.filter((c) => c.status === "pending_approval").length;
+
   return {
     activeCampaignCount: campaigns.filter((c) => isActive(c.status)).length,
     newApplicantsThisMonth,
     totalSelectedCount,
+    preparingEventCount,
+    pendingApprovalSnsCount,
     activeCampaigns,
   };
 }

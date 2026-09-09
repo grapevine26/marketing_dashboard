@@ -6,8 +6,8 @@ import CalendarOverviewClient, { UrgentItemsWidget } from "./CalendarOverviewCli
 import {
   ArrowUpRight,
   FolderKanban,
-  Users,
-  CheckCircle2,
+  PartyPopper,
+  Clock,
   Camera,
   Activity,
 } from "lucide-react";
@@ -74,45 +74,45 @@ export default async function DashboardOverviewPage({
           </div>
         </Link>
 
-        {/* 이번달 신규 지원자 */}
+        {/* 준비중인 행사 */}
         <Link
-          href="/campaigns"
+          href="/events"
           className="p-4 sm:p-5 rounded-3xl bg-surface border border-border hover:border-accent-link/40 hover:bg-surface2/30 transition duration-150 group flex flex-col justify-between space-y-3 shadow-xs"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-text-muted group-hover:text-text transition">
-              이번달 신규 지원자
+              준비중인 행사
             </span>
             <div className="w-7 h-7 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center shrink-0">
-              <Users className="w-3.5 h-3.5" />
+              <PartyPopper className="w-3.5 h-3.5" />
             </div>
           </div>
           <div>
             <div className="font-mono tabular-nums text-2xl sm:text-3xl font-bold text-text">
-              {summary.newApplicantsThisMonth}
+              {summary.preparingEventCount}
             </div>
-            <p className="text-[11px] text-text-sub mt-0.5">전체 캠페인 모집 합산</p>
+            <p className="text-[11px] text-text-sub mt-0.5">오프라인 초청 및 팝업</p>
           </div>
         </Link>
 
-        {/* 누적 최종선정 */}
+        {/* 승인 대기 콘텐츠 */}
         <Link
-          href="/campaigns"
+          href="/sns"
           className="p-4 sm:p-5 rounded-3xl bg-surface border border-border hover:border-accent-link/40 hover:bg-surface2/30 transition duration-150 group flex flex-col justify-between space-y-3 shadow-xs"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-text-muted group-hover:text-text transition">
-              누적 최종선정
+              승인 대기 콘텐츠
             </span>
-            <div className="w-7 h-7 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-3.5 h-3.5" />
+            <div className="w-7 h-7 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn flex items-center justify-center shrink-0">
+              <Clock className="w-3.5 h-3.5" />
             </div>
           </div>
           <div>
-            <div className="font-mono tabular-nums text-2xl sm:text-3xl font-bold text-text">
-              {summary.totalSelectedCount}
+            <div className={`font-mono tabular-nums text-2xl sm:text-3xl font-bold ${summary.pendingApprovalSnsCount > 0 ? "text-warn" : "text-text"}`}>
+              {summary.pendingApprovalSnsCount}
             </div>
-            <p className="text-[11px] text-text-sub mt-0.5">선정 인플루언서 총합</p>
+            <p className="text-[11px] text-text-sub mt-0.5">광고주 시안 컨펌 대기</p>
           </div>
         </Link>
 
