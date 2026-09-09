@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PublicSnsAccount, ReviewableSnsContent, SnsMediaAttachment } from "@/lib/db/types";
 import { reviewSnsContentByTokenAction } from "./actions";
 import { CheckCircle2, AlertCircle, MessageSquare, Loader2, Image as ImageIcon, Video as VideoIcon, ExternalLink, X } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 export default function SnsApprovalClient({
   token,
@@ -31,7 +32,7 @@ export default function SnsApprovalClient({
     if (decision === "approve" && !confirm(`"${c.title}" 시안을 승인할까요?`)) return;
 
     setLoadingId(c.id);
-    const res = await reviewSnsContentByTokenAction({ token, contentId: c.id, decision, comment });
+    const res = await safeCall(reviewSnsContentByTokenAction({ token, contentId: c.id, decision, comment }));
     setLoadingId(null);
     if (!res.ok) {
       setError(res.error);

@@ -16,6 +16,7 @@ import {
   Search,
   Archive,
 } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 interface SnsAccountsListClientProps {
   initialAccounts: SnsAccount[];
@@ -50,7 +51,7 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
     if (!targetAccount) return;
     setIsDeleting(true);
     setDeleteError(null);
-    const res = await deleteSnsAccountAction(targetAccount.id);
+    const res = await safeCall(deleteSnsAccountAction(targetAccount.id));
     setIsDeleting(false);
 
     if (res.ok) {

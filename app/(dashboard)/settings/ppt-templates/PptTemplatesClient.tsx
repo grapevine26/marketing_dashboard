@@ -10,6 +10,7 @@ import {
 } from "@/lib/db/types";
 import { uploadPptTemplateAction, confirmPptTemplateUploadAction, deletePptTemplateAction } from "./actions";
 import { Upload, Trash2, Loader2, Lock } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
@@ -54,7 +55,7 @@ export default function PptTemplatesClient({
     }
 
     try {
-      return await confirmPptTemplateUploadAction({ templateId, kind, name: name.trim() });
+      return await safeCall(confirmPptTemplateUploadAction({ templateId, kind, name: name.trim() }));
     } catch (err) {
       return { ok: false as const, error: `등록에 실패했습니다. (${err instanceof Error ? err.message : String(err)})` };
     }
@@ -74,7 +75,7 @@ export default function PptTemplatesClient({
     // finally 로 반드시 잠금을 푼다. 여기서 예외가 새면 버튼이 영구히 비활성으로 남고
     // 화면에는 아무 설명도 안 뜬다. 새로고침 전까지 아무것도 못 하게 된다.
     try {
-      const res = clientUpload ? await uploadDirect() : await uploadPptTemplateAction(fd);
+      const res = clientUpload ? await uploadDirect() : await safeCall(uploadPptTemplateAction(fd));
       if (!res.ok) {
         setError(res.error);
         return;
@@ -94,7 +95,7 @@ export default function PptTemplatesClient({
   const handleDelete = async (t: PptTemplate) => {
     if (!confirm(`"${t.name}" 템플릿을 삭제할까요? 이 템플릿을 쓰는 운영안은 PPT를 다운로드할 수 없게 됩니다.`)) return;
     setError(null);
-    const res = await deletePptTemplateAction(t.id);
+    const res = await safeCall(deletePptTemplateAction(t.id));
     if (!res.ok) {
       setError(res.error);
       return;

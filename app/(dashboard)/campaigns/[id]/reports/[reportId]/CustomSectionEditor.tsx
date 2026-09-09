@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CustomSection } from "@/lib/db/types";
 import { saveReportSectionsAction } from "../actions";
 import { Plus, Trash2, Save, CheckCircle2, Loader2 } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 export default function CustomSectionEditor({
   reportId,
@@ -36,7 +37,7 @@ export default function CustomSectionEditor({
   const handleSave = async () => {
     setSaving(true);
     setError(null);
-    const res = await saveReportSectionsAction({ reportId, campaignId, customSections: sections });
+    const res = await safeCall(saveReportSectionsAction({ reportId, campaignId, customSections: sections }));
     setSaving(false);
     if (!res.ok) {
       setError(res.error);

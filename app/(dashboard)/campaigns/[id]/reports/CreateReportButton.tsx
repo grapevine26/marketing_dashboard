@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createReportAction } from "./actions";
 import { Plus, Loader2 } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 export default function CreateReportButton({ campaignId }: { campaignId: string }) {
   const [loading, setLoading] = useState(false);
@@ -13,7 +14,7 @@ export default function CreateReportButton({ campaignId }: { campaignId: string 
   const handleCreate = async () => {
     setLoading(true);
     setError(null);
-    const res = await createReportAction(campaignId);
+    const res = await safeCall(createReportAction(campaignId));
     if (!res.ok) {
       setError(res.error);
       setLoading(false);

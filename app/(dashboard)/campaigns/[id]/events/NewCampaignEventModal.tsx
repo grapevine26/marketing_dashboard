@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createEventAction } from "./actions";
 import { Plus, X, Loader2, PartyPopper } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 export default function NewCampaignEventModal({ campaignId }: { campaignId: string }) {
   const [open, setOpen] = useState(false);
@@ -22,13 +23,13 @@ export default function NewCampaignEventModal({ campaignId }: { campaignId: stri
 
     setLoading(true);
     setErrorMsg(null);
-    const res = await createEventAction({
+    const res = await safeCall(createEventAction({
       campaignId,
       name: formData.name.trim(),
       eventAtLocal: formData.event_at || null,
       venue: formData.venue.trim() || null,
       memo: formData.memo.trim() || null,
-    });
+    }));
     setLoading(false);
     if (!res.ok) {
       setErrorMsg(res.error);

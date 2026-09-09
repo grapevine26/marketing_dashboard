@@ -5,6 +5,7 @@ import { Campaign, CampaignFormConfig, CustomQuestion, CustomQuestionType } from
 import { saveFormConfigAction, generateAiIntroAction } from "./actions";
 import { Sparkles, Save, Plus, Trash2, ArrowLeft, Loader2, CheckCircle2, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import { safeCall } from "@/lib/actions/safeCall";
 
 const TYPE_LABELS: Record<CustomQuestionType, string> = {
   text: "단답/서술",
@@ -39,7 +40,7 @@ export default function ApplyFormEditor({
     setLoadingAi(true);
     setNotice(null);
     setError(null);
-    const res = await generateAiIntroAction(campaign.id);
+    const res = await safeCall(generateAiIntroAction(campaign.id));
     setLoadingAi(false);
     if (!res.ok) {
       setError(res.error);
@@ -70,12 +71,12 @@ export default function ApplyFormEditor({
     e.preventDefault();
     setSaving(true);
     setError(null);
-    const res = await saveFormConfigAction({
+    const res = await safeCall(saveFormConfigAction({
       campaignId: campaign.id,
       introText,
       customQuestions,
       isPublished,
-    });
+    }));
     setSaving(false);
     if (!res.ok) {
       setError(res.error);

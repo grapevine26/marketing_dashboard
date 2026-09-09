@@ -17,6 +17,7 @@ import {
   Search,
   Archive,
 } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 interface CampaignsListClientProps {
   initialCampaigns: Campaign[];
@@ -51,7 +52,7 @@ export default function CampaignsListClient({ initialCampaigns }: CampaignsListC
     if (!targetCampaign) return;
     setIsDeleting(true);
     setDeleteError(null);
-    const res = await deleteCampaignAction(targetCampaign.id);
+    const res = await safeCall(deleteCampaignAction(targetCampaign.id));
     setIsDeleting(false);
 
     if (res.ok) {

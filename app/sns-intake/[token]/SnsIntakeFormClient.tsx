@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PublicSnsAccount, SnsIntakeTemplate } from "@/lib/db/types";
 import { submitSnsIntakeAction, assistSnsIntakeAction } from "../actions";
 import { CheckCircle2, Loader2, Send, Sparkles, Info, Edit3 } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 export default function SnsIntakeFormClient({
   token,
@@ -29,7 +30,7 @@ export default function SnsIntakeFormClient({
     setAiLoadingKey(questionId);
     setError(null);
     setNotice(null);
-    const res = await assistSnsIntakeAction({ token, questionId, userDraft: answers[questionId] });
+    const res = await safeCall(assistSnsIntakeAction({ token, questionId, userDraft: answers[questionId] }));
     setAiLoadingKey(null);
     if (!res.ok) return setError(res.error);
     if (res.data.fallback) {
@@ -44,7 +45,7 @@ export default function SnsIntakeFormClient({
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const res = await submitSnsIntakeAction({ token, answers, honeypot });
+    const res = await safeCall(submitSnsIntakeAction({ token, answers, honeypot }));
     setLoading(false);
     if (!res.ok) return setError(res.error);
     setSubmitted(true);

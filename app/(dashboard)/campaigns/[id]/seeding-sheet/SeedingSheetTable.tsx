@@ -7,6 +7,7 @@ import { getStagesForType } from "@/lib/seeding/stages";
 import { calculateDDay, ddayToneClass } from "@/lib/seeding/dday";
 import { updateSeedingRecordAction } from "./actions";
 import { Search, ExternalLink, Download, Loader2, FileSpreadsheet } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 type Patch = {
   progress_stage?: ProgressStage;
@@ -44,7 +45,7 @@ export default function SeedingSheetTable({
     if (isReadOnly) return;
     setError(null);
     setSavingId(seedingId);
-    const res = await updateSeedingRecordAction({ seedingId, campaignId: campaign.id, patch });
+    const res = await safeCall(updateSeedingRecordAction({ seedingId, campaignId: campaign.id, patch }));
     setSavingId(null);
     if (!res.ok) {
       setError(res.error);

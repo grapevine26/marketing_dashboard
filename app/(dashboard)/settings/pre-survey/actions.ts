@@ -12,6 +12,6 @@ export async function saveTemplateAction(
     const t = await updatePreSurveyTemplate(questions);
     return { questions: t.questions };
   });
-  if (res.ok) revalidatePath("/settings/pre-survey");
+  if (res.ok) revalidatePath("/settings/templates");
   return res;
 }

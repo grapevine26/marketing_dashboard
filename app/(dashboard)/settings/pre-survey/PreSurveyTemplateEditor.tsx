@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PreSurveyTemplate, PreSurveyQuestion } from "@/lib/db/types";
 import { saveTemplateAction } from "./actions";
 import { Plus, Trash2, Save, CheckCircle2, Loader2, HelpCircle, MessageSquareText, FileQuestion, ArrowUp, ArrowDown } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 export default function PreSurveyTemplateEditor({
   initialTemplate,
@@ -47,7 +48,7 @@ export default function PreSurveyTemplateEditor({
   const handleSave = async () => {
     setSaving(true);
     setError(null);
-    const res = await saveTemplateAction(questions);
+    const res = await safeCall(saveTemplateAction(questions));
     setSaving(false);
     if (!res.ok) {
       setError(res.error);

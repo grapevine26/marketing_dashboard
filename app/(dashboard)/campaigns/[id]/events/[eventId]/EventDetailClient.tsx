@@ -43,6 +43,7 @@ import {
   Pencil,
   X,
 } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 export interface TemplateOption {
   id: string;
@@ -132,7 +133,7 @@ export default function EventDetailClient({
   const handleStatusChange = async (status: EventStatus) => {
     setStatusSaving(true);
     setError(null);
-    const res = await updateEventAction({ eventId: event.id, campaignId: campaign.id, patch: { status } });
+    const res = await safeCall(updateEventAction({ eventId: event.id, campaignId: campaign.id, patch: { status } }));
     setStatusSaving(false);
     if (!res.ok) return setError(res.error);
     setEvent(res.data);
@@ -143,7 +144,7 @@ export default function EventDetailClient({
     e.preventDefault();
     setSavingInfo(true);
     setError(null);
-    const res = await updateEventAction({
+    const res = await safeCall(updateEventAction({
       eventId: event.id,
       campaignId: campaign.id,
       patch: {
@@ -152,7 +153,7 @@ export default function EventDetailClient({
         venue: infoForm.venue || null,
         memo: infoForm.memo || null,
       },
-    });
+    }));
     setSavingInfo(false);
     if (!res.ok) return setError(res.error);
     setEvent(res.data);
@@ -162,20 +163,20 @@ export default function EventDetailClient({
 
   const handleDeleteEvent = async () => {
     if (!confirm(`"${event.name}" 행사를 삭제할까요? 초대 명단, 체크리스트, 운영안도 함께 삭제됩니다.`)) return;
-    const res = await deleteEventAction(event.id, campaign.id);
+    const res = await safeCall(deleteEventAction(event.id, campaign.id));
     if (!res.ok) return setError(res.error);
     router.push(`/campaigns/${campaign.id}/events`);
   };
 
   // ---------- Invitees ----------
   const handleToggleCheckin = async (inv: EventInvitee) => {
-    const res = await updateInviteeAction(inv.id, campaign.id, event.id, { attended: !inv.attended });
+    const res = await safeCall(updateInviteeAction(inv.id, campaign.id, event.id, { attended: !inv.attended }));
     if (!res.ok) return setError(res.error);
     setInvitees((prev) => prev.map((i) => (i.id === inv.id ? res.data : i)));
   };
 
   const handleRsvpChange = async (inv: EventInvitee, rsvp_status: EventRsvpStatus) => {
-    const res = await updateInviteeAction(inv.id, campaign.id, event.id, { rsvp_status });
+    const res = await safeCall(updateInviteeAction(inv.id, campaign.id, event.id, { rsvp_status }));
     if (!res.ok) return setError(res.error);
     setInvitees((prev) => prev.map((i) => (i.id === inv.id ? res.data : i)));
   };
@@ -183,14 +184,14 @@ export default function EventDetailClient({
   const handleMemoBlur = async (inv: EventInvitee, memo: string) => {
     const next = memo.trim() || null;
     if (next === inv.memo) return;
-    const res = await updateInviteeAction(inv.id, campaign.id, event.id, { memo: next });
+    const res = await safeCall(updateInviteeAction(inv.id, campaign.id, event.id, { memo: next }));
     if (!res.ok) return setError(res.error);
     setInvitees((prev) => prev.map((i) => (i.id === inv.id ? res.data : i)));
   };
 
   const handleDeleteInvitee = async (inviteeId: string) => {
     if (!confirm("초대 명단에서 삭제하시겠습니까?")) return;
-    const res = await deleteInviteeAction(inviteeId, campaign.id, event.id);
+    const res = await safeCall(deleteInviteeAction(inviteeId, campaign.id, event.id));
     if (!res.ok) return setError(res.error);
     setInvitees((prev) => prev.filter((i) => i.id !== inviteeId));
   };
@@ -199,7 +200,7 @@ export default function EventDetailClient({
     if (selectedApplicantIds.length === 0) return;
     setImporting(true);
     setError(null);
-    const res = await addInviteesFromApplicantsAction(event.id, campaign.id, selectedApplicantIds);
+    const res = await safeCall(addInviteesFromApplicantsAction(event.id, campaign.id, selectedApplicantIds));
     setImporting(false);
     if (!res.ok) return setError(res.error);
     setInvitees((prev) => [...prev, ...res.data]);
@@ -211,14 +212,14 @@ export default function EventDetailClient({
     e.preventDefault();
     setAddingDirect(true);
     setError(null);
-    const res = await addDirectInviteeAction({
+    const res = await safeCall(addDirectInviteeAction({
       eventId: event.id,
       campaignId: campaign.id,
       name: directName,
       snsUrl: directSns || null,
       contact: directContact || null,
       memo: directMemo || null,
-    });
+    }));
     setAddingDirect(false);
     if (!res.ok) return setError(res.error);
     setInvitees((prev) => [...prev, res.data]);
@@ -233,13 +234,13 @@ export default function EventDetailClient({
     e.preventDefault();
     setAddingChecklist(true);
     setError(null);
-    const res = await addChecklistItemAction({
+    const res = await safeCall(addChecklistItemAction({
       eventId: event.id,
       campaignId: campaign.id,
       label: newChecklistLabel,
       dueDate: newChecklistDueDate || null,
       assignee: newChecklistAssignee || null,
-    });
+    }));
     setAddingChecklist(false);
     if (!res.ok) return setError(res.error);
     setChecklists((prev) => [...prev, res.data]);
@@ -249,13 +250,13 @@ export default function EventDetailClient({
   };
 
   const handleToggleChecklistDone = async (c: EventChecklistItem) => {
-    const res = await updateChecklistItemAction(c.id, campaign.id, event.id, { done: !c.done });
+    const res = await safeCall(updateChecklistItemAction(c.id, campaign.id, event.id, { done: !c.done }));
     if (!res.ok) return setError(res.error);
     setChecklists((prev) => prev.map((x) => (x.id === c.id ? res.data : x)));
   };
 
   const handleDeleteChecklist = async (itemId: string) => {
-    const res = await deleteChecklistItemAction(itemId, campaign.id, event.id);
+    const res = await safeCall(deleteChecklistItemAction(itemId, campaign.id, event.id));
     if (!res.ok) return setError(res.error);
     setChecklists((prev) => prev.filter((c) => c.id !== itemId));
   };
@@ -270,12 +271,12 @@ export default function EventDetailClient({
     if (!selectedTemplate) return;
     setError(null);
     setNotice(null);
-    const res = await generateEventAiDraftAction({
+    const res = await safeCall(generateEventAiDraftAction({
       eventId: event.id,
       templateId: selectedTemplate.id,
       placeholders,
       currentValues: fieldValues,
-    });
+    }));
     if (!res.ok) return setError(res.error);
     if (res.data.fallback) {
       setNotice("AI 제안 실패 — 직접 입력해주세요.");
@@ -307,12 +308,12 @@ export default function EventDetailClient({
     if (!selectedTemplate) return;
     setSavingPlan(true);
     setError(null);
-    const res = await saveEventPlanAction({
+    const res = await safeCall(saveEventPlanAction({
       eventId: event.id,
       campaignId: campaign.id,
       templateId: selectedTemplate.id,
       fieldValues,
-    });
+    }));
     setSavingPlan(false);
     if (!res.ok) return setError(res.error);
     setPlanSaved(true);

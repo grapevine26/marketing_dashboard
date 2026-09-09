@@ -6,6 +6,7 @@ import { Campaign, CampaignTokenType } from "@/lib/db/types";
 import { useOrigin } from "@/components/useOrigin";
 import { Share2, Copy, Check, ExternalLink, RotateCcw, ShieldAlert, Loader2, X } from "lucide-react";
 import { regenerateCampaignTokenAction } from "./actions";
+import { safeCall } from "@/lib/actions/safeCall";
 
 export default function TokenShareBox({ campaign }: { campaign: Campaign }) {
   const router = useRouter();
@@ -61,7 +62,7 @@ export default function TokenShareBox({ campaign }: { campaign: Campaign }) {
     setReissuing(true);
     setError(null);
     setNotice(null);
-    const res = await regenerateCampaignTokenAction(currentCampaign.id, confirmTarget.key);
+    const res = await safeCall(regenerateCampaignTokenAction(currentCampaign.id, confirmTarget.key));
     setReissuing(false);
     if (!res.ok) {
       setError(res.error);

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createCampaignAction } from "./actions";
 import { Truck, MapPin, Loader2 } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 export default function NewCampaignClient() {
   const router = useRouter();
@@ -23,11 +24,11 @@ export default function NewCampaignClient() {
     setLoading(true);
     setErrorMsg(null);
 
-    const res = await createCampaignAction({
+    const res = await safeCall(createCampaignAction({
       name: name.trim(),
       company_name: companyName.trim(),
       campaign_type: campaignType,
-    });
+    }));
 
     if (res.ok) {
       router.push(`/campaigns/${res.data.id}`);

@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 interface CampaignIntegrationsCardProps {
   campaignId: string;
@@ -37,7 +38,7 @@ export default function CampaignIntegrationsCard({
     setIsSaving(true);
     setSaveSuccess(false);
     setTestResult(null);
-    const res = await saveCampaignWebhookAction(campaignId, webhookUrl.trim() || null);
+    const res = await safeCall(saveCampaignWebhookAction(campaignId, webhookUrl.trim() || null));
     setIsSaving(false);
     if (res.ok) {
       setSaveSuccess(true);
@@ -54,7 +55,7 @@ export default function CampaignIntegrationsCard({
     }
     setIsTesting(true);
     setTestResult(null);
-    const res = await testCampaignWebhookAction(campaignId, webhookUrl.trim());
+    const res = await safeCall(testCampaignWebhookAction(campaignId, webhookUrl.trim()));
     setIsTesting(false);
     if (res.ok) {
       setTestResult({ ok: true, message: "웹훅 테스트 전송 성공! (HTTP 200 확인)" });

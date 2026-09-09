@@ -6,6 +6,7 @@ import { SnsAccount, SnsPlan } from "@/lib/db/types";
 import { saveSnsPlanAction, generateSnsAiPlanAction } from "../../actions";
 import DownloadFileButton from "@/components/DownloadFileButton";
 import { Sparkles, Save, Loader2, FileText } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 interface TemplateOption {
   id: string;
@@ -58,12 +59,12 @@ export default function SnsPlanEditorClient({
   const runAi = async (targets: string[]) => {
     setError(null);
     setNotice(null);
-    const res = await generateSnsAiPlanAction({
+    const res = await safeCall(generateSnsAiPlanAction({
       accountId: account.id,
       templateId: selectedTemplateId,
       placeholders: targets,
       currentValues: fieldValues,
-    });
+    }));
     if (!res.ok) return setError(res.error);
     if (res.data.fallback) {
       setNotice("AI 제안 실패 — 직접 입력해주세요.");
@@ -93,7 +94,7 @@ export default function SnsPlanEditorClient({
   const handleSave = async () => {
     setSaving(true);
     setError(null);
-    const res = await saveSnsPlanAction({ accountId: account.id, templateId: selectedTemplateId, fieldValues });
+    const res = await safeCall(saveSnsPlanAction({ accountId: account.id, templateId: selectedTemplateId, fieldValues }));
     setSaving(false);
     if (!res.ok) return setError(res.error);
     setSaved(true);

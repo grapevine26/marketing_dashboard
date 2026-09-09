@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CampaignStatus, CAMPAIGN_STATUS_LABELS } from "@/lib/db/types";
 import { updateCampaignStatusAction } from "./actions";
 import { Loader2 } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 const ORDER: CampaignStatus[] = ["draft", "recruiting", "selecting", "seeding", "reporting", "completed"];
 
@@ -25,7 +26,7 @@ export default function CampaignStatusSelect({
     setStatus(next);
     setSaving(true);
     setError(null);
-    const res = await updateCampaignStatusAction(campaignId, next);
+    const res = await safeCall(updateCampaignStatusAction(campaignId, next));
     setSaving(false);
     if (!res.ok) {
       setStatus(prev);

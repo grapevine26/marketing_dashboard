@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PublicCampaign, PreSurveyTemplate } from "@/lib/db/types";
 import { submitPublicPreSurveyAction, getPublicAiAssistAction } from "./actions";
 import { Sparkles, Send, CheckCircle2, Loader2, Edit3 } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 export default function PreSurveyPublicForm({
   token,
@@ -29,7 +30,7 @@ export default function PreSurveyPublicForm({
   const handleAiAssist = async (questionId: string) => {
     setLoadingAiMap((prev) => ({ ...prev, [questionId]: true }));
     setNotice(null);
-    const res = await getPublicAiAssistAction({ token, questionId, userDraft: answers[questionId] || "" });
+    const res = await safeCall(getPublicAiAssistAction({ token, questionId, userDraft: answers[questionId] || "" }));
     setLoadingAiMap((prev) => ({ ...prev, [questionId]: false }));
     if (!res.ok) {
       setError(res.error);
@@ -48,7 +49,7 @@ export default function PreSurveyPublicForm({
     e.preventDefault();
     setSubmitting(true);
     setError(null);
-    const res = await submitPublicPreSurveyAction({ token, answers, usedAiAssist: usedAi, honeypot });
+    const res = await safeCall(submitPublicPreSurveyAction({ token, answers, usedAiAssist: usedAi, honeypot }));
     setSubmitting(false);
     if (!res.ok) {
       setError(res.error);

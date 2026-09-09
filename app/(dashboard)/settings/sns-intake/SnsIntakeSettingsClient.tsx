@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { SnsIntakeTemplate, PreSurveyQuestion } from "@/lib/db/types";
 import { updateSnsIntakeTemplateAction } from "../../sns/actions";
 import { Plus, Trash2, Save, CheckCircle2, Loader2, HelpCircle, MessageSquareText, FileQuestion, ArrowUp, ArrowDown } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTemplate: SnsIntakeTemplate }) {
   const router = useRouter();
@@ -40,7 +41,7 @@ export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTe
   const handleSave = async () => {
     setSaving(true);
     setError(null);
-    const res = await updateSnsIntakeTemplateAction(questions);
+    const res = await safeCall(updateSnsIntakeTemplateAction(questions));
     setSaving(false);
     if (!res.ok) {
       setError(res.error);

@@ -6,6 +6,7 @@ import { Campaign } from "@/lib/db/types";
 import { createEventAction } from "../campaigns/[id]/events/actions";
 import { Plus, X, Loader2, PartyPopper } from "lucide-react";
 import Link from "next/link";
+import { safeCall } from "@/lib/actions/safeCall";
 
 export default function NewGlobalEventModal({ campaigns }: { campaigns: Campaign[] }) {
   const [open, setOpen] = useState(false);
@@ -29,13 +30,13 @@ export default function NewGlobalEventModal({ campaigns }: { campaigns: Campaign
 
     setLoading(true);
     setErrorMsg(null);
-    const res = await createEventAction({
+    const res = await safeCall(createEventAction({
       campaignId: selectedCampaignId,
       name: formData.name.trim(),
       eventAtLocal: formData.event_at || null,
       venue: formData.venue.trim() || null,
       memo: formData.memo.trim() || null,
-    });
+    }));
     setLoading(false);
     if (!res.ok) {
       setErrorMsg(res.error);

@@ -5,6 +5,7 @@ import { Campaign, PreSurveyTemplate, PreSurveyResponse } from "@/lib/db/types";
 import { saveAgencyPreSurveyAction, getAiAssistAction } from "./actions";
 import { Sparkles, Save, CheckCircle2, ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { safeCall } from "@/lib/actions/safeCall";
 
 export default function PreSurveyAgencyView({
   campaign,
@@ -28,7 +29,7 @@ export default function PreSurveyAgencyView({
     setLoadingAiMap((prev) => ({ ...prev, [questionId]: true }));
     setNotice(null);
     setError(null);
-    const res = await getAiAssistAction({ campaignId: campaign.id, questionId, userDraft: answers[questionId] || "" });
+    const res = await safeCall(getAiAssistAction({ campaignId: campaign.id, questionId, userDraft: answers[questionId] || "" }));
     setLoadingAiMap((prev) => ({ ...prev, [questionId]: false }));
     if (!res.ok) {
       setError(res.error);
@@ -47,7 +48,7 @@ export default function PreSurveyAgencyView({
     e.preventDefault();
     setSaving(true);
     setError(null);
-    const res = await saveAgencyPreSurveyAction({ campaignId: campaign.id, answers, usedAiAssist: usedAi });
+    const res = await safeCall(saveAgencyPreSurveyAction({ campaignId: campaign.id, answers, usedAiAssist: usedAi }));
     setSaving(false);
     if (!res.ok) {
       setError(res.error);

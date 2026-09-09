@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createSnsAccountAction } from "./actions";
 import { SnsPlatform } from "@/lib/db/types";
 import { Plus, X, Loader2 } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 export default function NewSnsAccountModal() {
   const [open, setOpen] = useState(false);
@@ -29,13 +30,13 @@ export default function NewSnsAccountModal() {
 
     setLoading(true);
     setErrorMsg(null);
-    const res = await createSnsAccountAction({
+    const res = await safeCall(createSnsAccountAction({
       company_name: formData.company_name.trim(),
       platform: formData.platform,
       handle: formData.handle.trim().replace(/^@/, ""),
       starts_on: formData.starts_on || null,
       ends_on: formData.ends_on || null,
-    });
+    }));
     setLoading(false);
     if (!res.ok) {
       setErrorMsg(res.error);

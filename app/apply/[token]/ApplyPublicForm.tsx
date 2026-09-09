@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PublicCampaign, CustomFormQuestion } from "@/lib/db/types";
 import { submitApplicantAction } from "./actions";
 import { Send, CheckCircle2, Loader2, AlertTriangle } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 const inputCls =
   "w-full px-3.5 py-3 sm:py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500";
@@ -53,14 +54,14 @@ export default function ApplyPublicForm({
     }
 
     setSubmitting(true);
-    const res = await submitApplicantAction({
+    const res = await safeCall(submitApplicantAction({
       token,
       ...formData,
       follower_count: formData.follower_count ? Number(formData.follower_count) : null,
       category: formData.category || null,
       honeypot,
       allow_duplicate: allowDuplicate,
-    });
+    }));
     setSubmitting(false);
     if (!res.ok) {
       if (res.error.startsWith("DUPLICATE_SNS:")) {

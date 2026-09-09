@@ -53,6 +53,7 @@ import {
   RotateCcw,
   ShieldAlert,
 } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 const STATUS_TONE: Record<SnsContentStatus, string> = {
   planning: "text-text-sub",
@@ -168,7 +169,7 @@ export default function SnsAccountDetailClient({
     setReissuingToken(true);
     setError(null);
     setNotice(null);
-    const res = await regenerateSnsTokenAction(account.id, confirmTokenTarget.key);
+    const res = await safeCall(regenerateSnsTokenAction(account.id, confirmTokenTarget.key));
     setReissuingToken(false);
     if (!res.ok) {
       setError(res.error);
@@ -185,7 +186,7 @@ export default function SnsAccountDetailClient({
   const handleToggleAccountStatus = async () => {
     const next = account.status === "active" ? "ended" : "active";
     if (!confirm(next === "ended" ? "계약을 종료 상태로 바꿀까요?" : "계정을 다시 운영중으로 바꿀까요?")) return;
-    const res = await updateSnsAccountAction(account.id, { status: next });
+    const res = await safeCall(updateSnsAccountAction(account.id, { status: next }));
     if (!res.ok) return setError(res.error);
     setAccount(res.data);
     router.refresh();
@@ -195,13 +196,13 @@ export default function SnsAccountDetailClient({
     e.preventDefault();
     setSavingAccount(true);
     setError(null);
-    const res = await updateSnsAccountAction(account.id, {
+    const res = await safeCall(updateSnsAccountAction(account.id, {
       company_name: accountForm.company_name,
       platform: accountForm.platform,
       handle: accountForm.handle,
       starts_on: accountForm.starts_on || null,
       ends_on: accountForm.ends_on || null,
-    });
+    }));
     setSavingAccount(false);
     if (!res.ok) return setError(res.error);
     setAccount(res.data);
@@ -264,14 +265,14 @@ export default function SnsAccountDetailClient({
     }
 
     try {
-      return await confirmSnsMediaUploadAction({
+      return await safeCall(confirmSnsMediaUploadAction({
         contentId,
         accountId: account.id,
         attachmentId,
         storedFilename,
         name: file.name,
         mimeType: mime,
-      });
+      }));
     } catch (err) {
       return { ok: false as const, error: `"${file.name}" 등록에 실패했습니다. (${err instanceof Error ? err.message : String(err)})` };
     }
@@ -287,7 +288,7 @@ export default function SnsAccountDetailClient({
     fd.append("accountId", account.id);
     fd.append("file", file);
     try {
-      return await uploadSnsMediaAction(fd);
+      return await safeCall(uploadSnsMediaAction(fd));
     } catch (err) {
       const mb = (file.size / (1024 * 1024)).toFixed(1);
       const msg = err instanceof Error ? err.message : String(err);
@@ -335,7 +336,7 @@ export default function SnsAccountDetailClient({
 
   const handleDeleteMedia = async (contentId: string, attachmentId: string) => {
     if (!confirm("이 시안 미디어를 삭제할까요?")) return;
-    const res = await deleteSnsMediaAction(contentId, attachmentId, account.id);
+    const res = await safeCall(deleteSnsMediaAction(contentId, attachmentId, account.id));
     if (!res.ok) return setError(res.error);
     setContents((prev) =>
       prev.map((c) =>
@@ -354,12 +355,12 @@ export default function SnsAccountDetailClient({
     setLoadingAi(true);
     setError(null);
     setNotice(null);
-    const res = await generateSnsAiCaptionAction({
+    const res = await safeCall(generateSnsAiCaptionAction({
       accountId: account.id,
       title: form.title,
       scheduledOn: form.scheduled_on || null,
       mediaNote: form.media_note || null,
-    });
+    }));
     setLoadingAi(false);
     if (!res.ok) return setError(res.error);
     if (res.data.fallback) {
@@ -374,19 +375,19 @@ export default function SnsAccountDetailClient({
     setSaving(true);
     setError(null);
     if (editingId) {
-      const res = await updateSnsContentAction(editingId, account.id, {
+      const res = await safeCall(updateSnsContentAction(editingId, account.id, {
         title: form.title,
         scheduled_on: form.scheduled_on || null,
         assignee: form.assignee || null,
         caption: form.caption || null,
         hashtags: form.hashtags || null,
         media_note: form.media_note || null,
-      });
+      }));
       setSaving(false);
       if (!res.ok) return setError(res.error);
       setContents((prev) => prev.map((c) => (c.id === editingId ? res.data : c)));
     } else {
-      const res = await createSnsContentAction({
+      const res = await safeCall(createSnsContentAction({
         accountId: account.id,
         title: form.title,
         scheduledOn: form.scheduled_on || null,
@@ -394,7 +395,7 @@ export default function SnsAccountDetailClient({
         caption: form.caption || null,
         hashtags: form.hashtags || null,
         mediaNote: form.media_note || null,
-      });
+      }));
       if (!res.ok) {
         setSaving(false);
         return setError(res.error);
@@ -422,7 +423,7 @@ export default function SnsAccountDetailClient({
 
   const handleDeleteContent = async (c: SnsContent) => {
     if (!confirm(`"${c.title}" 콘텐츠를 삭제할까요?`)) return;
-    const res = await deleteSnsContentAction(c.id, account.id);
+    const res = await safeCall(deleteSnsContentAction(c.id, account.id));
     if (!res.ok) return setError(res.error);
     setContents((prev) => prev.filter((x) => x.id !== c.id));
     router.refresh();
@@ -430,7 +431,7 @@ export default function SnsAccountDetailClient({
 
   const handleStatusChange = async (c: SnsContent, status: SnsContentStatus) => {
     setError(null);
-    const res = await updateSnsContentAction(c.id, account.id, { status });
+    const res = await safeCall(updateSnsContentAction(c.id, account.id, { status }));
     if (!res.ok) return setError(res.error);
     setContents((prev) => prev.map((x) => (x.id === c.id ? res.data : x)));
     router.refresh();
@@ -469,7 +470,7 @@ export default function SnsAccountDetailClient({
       return;
     }
     setSavingPerfId(c.id);
-    const res = await updateSnsContentAction(c.id, account.id, patch);
+    const res = await safeCall(updateSnsContentAction(c.id, account.id, patch));
     setSavingPerfId(null);
     if (!res.ok) return setError(res.error);
     setContents((prev) => prev.map((x) => (x.id === c.id ? res.data : x)));

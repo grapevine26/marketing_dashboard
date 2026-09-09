@@ -35,6 +35,7 @@ import {
   X,
   FileSpreadsheet,
 } from "lucide-react";
+import { safeCall } from "@/lib/actions/safeCall";
 
 type Mode = "agency" | "company";
 
@@ -156,10 +157,10 @@ export default function ApplicantTable({
   const handleSaveTemplate = async () => {
     setSavingTemplate(true);
     const updated = { ...templates, [msgType]: msgContent };
-    const res = await saveCampaignMessageTemplatesAction({
+    const res = await safeCall(saveCampaignMessageTemplatesAction({
       campaignId: campaign.id,
       templates: updated,
-    });
+    }));
     setSavingTemplate(false);
     if (res.ok) {
       setTemplates(updated);
@@ -172,7 +173,7 @@ export default function ApplicantTable({
 
   const handleSaveMemo = async (applicantId: string) => {
     setSavingMemo(true);
-    const res = await updateAgencyMemoAction({ applicantId, memo: memoDraft });
+    const res = await safeCall(updateAgencyMemoAction({ applicantId, memo: memoDraft }));
     setSavingMemo(false);
     if (res.ok) {
       setApplicants((prev) =>
@@ -192,8 +193,8 @@ export default function ApplicantTable({
 
     const res =
       mode === "company"
-        ? await changeApplicantStatusByTokenAction({ token: shareToken || "", applicantId, status: nextStatus })
-        : await changeApplicantStatusAction({ applicantId, status: nextStatus });
+        ? await safeCall(changeApplicantStatusByTokenAction({ token: shareToken || "", applicantId, status: nextStatus }))
+        : await safeCall(changeApplicantStatusAction({ applicantId, status: nextStatus }));
 
     setPendingId(null);
     if (!res.ok) {

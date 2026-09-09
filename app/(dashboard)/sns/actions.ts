@@ -91,7 +91,7 @@ export async function updateSnsIntakeTemplateAction(
     const t = await updateSnsIntakeTemplate(questions);
     return { questions: t.questions };
   });
-  if (res.ok) revalidatePath("/settings/sns-intake");
+  if (res.ok) revalidatePath("/settings/templates");
   return res;
 }
 
