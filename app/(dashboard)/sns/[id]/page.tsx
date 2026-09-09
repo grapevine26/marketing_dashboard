@@ -15,10 +15,14 @@ export const revalidate = 0;
 
 export default async function SnsAccountDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ tab?: string; contentId?: string }>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
+  const initialTab = sp?.tab === "list" || sp?.tab === "intake" ? sp.tab : "calendar";
   const account = await getSnsAccountById(id);
   if (!account) notFound();
 
@@ -46,6 +50,8 @@ export default async function SnsAccountDetailPage({
         intakeQuestions={intakeTemplate.questions}
         todayKst={toKstDateString()}
         clientUpload={isBlobBackend()}
+        initialTab={initialTab}
+        highlightContentId={sp?.contentId}
       />
     </div>
   );

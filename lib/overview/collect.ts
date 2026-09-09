@@ -165,12 +165,27 @@ export interface HomeCampaignSummary {
   selectedCount: number;
 }
 
+export interface PendingApprovalSnsItem {
+  id: string;
+  accountId: string;
+  accountCompanyName: string;
+  accountHandle: string;
+  platform: string;
+  title: string;
+  scheduledOn: string | null;
+  assignee: string | null;
+  clientComment: string | null;
+  mediaCount: number;
+  createdAt: string;
+}
+
 export interface HomeSummary {
   activeCampaignCount: number;
   newApplicantsThisMonth: number;
   totalSelectedCount: number;
   preparingEventCount: number;
   pendingApprovalSnsCount: number;
+  pendingApprovalSnsContents: PendingApprovalSnsItem[];
   /** 최근 생성된 진행중(모집중~보고서 작성) 캠페인 최대 3개. 홈 화면 카드 목록용. */
   activeCampaigns: HomeCampaignSummary[];
 }
@@ -180,10 +195,11 @@ export interface HomeSummary {
  * 캠페인이 삭제되어도 조용히 제외되며, 지원자 조회 실패는 해당 캠페인만 0으로 집계한다.
  */
 export async function collectHomeSummary(todayKst: string): Promise<HomeSummary> {
-  const [campaigns, events, snsContents] = await Promise.all([
+  const [campaigns, events, snsContents, snsAccounts] = await Promise.all([
     getCampaigns(),
     getAllEvents().catch(() => []),
     getAllSnsContents().catch(() => []),
+    getSnsAccounts().catch(() => []),
   ]);
   const currentYm = todayKst.slice(0, 7);
 
@@ -224,14 +240,40 @@ export async function collectHomeSummary(todayKst: string): Promise<HomeSummary>
     }));
 
   const preparingEventCount = events.filter((e) => e.status === "preparing").length;
-  const pendingApprovalSnsCount = snsContents.filter((c) => c.status === "pending_approval").length;
+
+  const accountMap = new Map(snsAccounts.map((a) => [a.id, a]));
+  const pendingApprovalSnsContents: PendingApprovalSnsItem[] = snsContents
+    .filter((c) => c.status === "pending_approval")
+    .map((c) => {
+      const acc = accountMap.get(c.account_id);
+      return {
+        id: c.id,
+        accountId: c.account_id,
+        accountCompanyName: acc?.company_name || "미지정 계정",
+        accountHandle: acc?.handle || "",
+        platform: acc?.platform || "instagram",
+        title: c.title,
+        scheduledOn: c.scheduled_on,
+        assignee: c.assignee,
+        clientComment: c.client_comment,
+        mediaCount: c.media_attachments?.length || 0,
+        createdAt: c.created_at,
+      };
+    })
+    .sort((a, b) => {
+      if (a.scheduledOn && b.scheduledOn) return a.scheduledOn.localeCompare(b.scheduledOn);
+      if (a.scheduledOn) return -1;
+      if (b.scheduledOn) return 1;
+      return b.createdAt.localeCompare(a.createdAt);
+    });
 
   return {
     activeCampaignCount: campaigns.filter((c) => isActive(c.status)).length,
     newApplicantsThisMonth,
     totalSelectedCount,
     preparingEventCount,
-    pendingApprovalSnsCount,
+    pendingApprovalSnsCount: pendingApprovalSnsContents.length,
+    pendingApprovalSnsContents,
     activeCampaigns,
   };
 }

@@ -31,4 +31,24 @@ test.describe("D. 통합 오버뷰", () => {
     await page.getByRole("button", { name: "닫기" }).click();
     await expect(page.getByRole("heading", { name: /전체 일정$/ })).toBeHidden();
   });
+
+  test("승인 대기 콘텐츠 카드를 클릭하면 모달이 열리고, 항목 클릭 시 해당 SNS 계정의 콘텐츠 목록 및 성과 관리 탭으로 이동한다", async ({ page }) => {
+    await page.goto("/");
+    const card = page.getByRole("button", { name: /승인 대기 콘텐츠/ });
+    await expect(card).toBeVisible();
+    await card.click();
+
+    await expect(page.getByRole("heading", { name: "승인 대기 콘텐츠 목록" })).toBeVisible();
+
+    const pendingItem = page.locator("div[role='dialog'] div.cursor-pointer").first();
+    if (await pendingItem.isVisible()) {
+      await pendingItem.click();
+      await expect(page).toHaveURL(/\/sns\/[^\/]+\?tab=list/);
+      const listTabBtn = page.getByRole("button", { name: /콘텐츠 목록 및 성과 관리/ });
+      await expect(listTabBtn).toHaveClass(/text-accent2/);
+    } else {
+      await page.getByRole("button", { name: "닫기" }).click();
+      await expect(page.getByRole("heading", { name: "승인 대기 콘텐츠 목록" })).toBeHidden();
+    }
+  });
 });

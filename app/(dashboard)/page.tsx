@@ -3,11 +3,11 @@ import { toKstDateString, parseMonthParam, buildMonthGrid, shiftMonth } from "@/
 import { collectOverviewItems, collectHomeSummary } from "@/lib/overview/collect";
 import { getAuditLogs, getCampaigns, getSnsAccounts } from "@/lib/db";
 import CalendarOverviewClient, { UrgentItemsWidget } from "./CalendarOverviewClient";
+import PendingApprovalSnsCard from "./PendingApprovalSnsCard";
 import {
   ArrowUpRight,
   FolderKanban,
   PartyPopper,
-  Clock,
   Camera,
   Activity,
 } from "lucide-react";
@@ -95,26 +95,11 @@ export default async function DashboardOverviewPage({
           </div>
         </Link>
 
-        {/* 승인 대기 콘텐츠 */}
-        <Link
-          href="/sns"
-          className="p-4 sm:p-5 rounded-3xl bg-surface border border-border hover:border-accent-link/40 hover:bg-surface2/30 transition duration-150 group flex flex-col justify-between space-y-3 shadow-xs"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-text-muted group-hover:text-text transition">
-              승인 대기 콘텐츠
-            </span>
-            <div className="w-7 h-7 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn flex items-center justify-center shrink-0">
-              <Clock className="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div>
-            <div className={`font-mono tabular-nums text-2xl sm:text-3xl font-bold ${summary.pendingApprovalSnsCount > 0 ? "text-warn" : "text-text"}`}>
-              {summary.pendingApprovalSnsCount}
-            </div>
-            <p className="text-[11px] text-text-sub mt-0.5">광고주 시안 컨펌 대기</p>
-          </div>
-        </Link>
+        {/* 승인 대기 콘텐츠 (클릭 시 모달 팝업) */}
+        <PendingApprovalSnsCard
+          count={summary.pendingApprovalSnsCount}
+          items={summary.pendingApprovalSnsContents}
+        />
 
         {/* 이번주 발행 예정 */}
         <Link

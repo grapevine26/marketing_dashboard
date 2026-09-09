@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useOrigin } from "@/components/useOrigin";
 import { useRouter } from "next/navigation";
 import {
@@ -83,6 +83,8 @@ export default function SnsAccountDetailClient({
   intakeQuestions,
   todayKst,
   clientUpload,
+  initialTab,
+  highlightContentId,
 }: {
   account: SnsAccount;
   initialContents: SnsContent[];
@@ -96,10 +98,27 @@ export default function SnsAccountDetailClient({
    * 로컬 개발에는 Blob 이 없으므로 예전처럼 서버 액션으로 올린다.
    */
   clientUpload: boolean;
+  initialTab?: "calendar" | "list" | "intake";
+  highlightContentId?: string;
 }) {
   const router = useRouter();
   const [account, setAccount] = useState<SnsAccount>(initialAccount);
-  const [activeTab, setActiveTab] = useState<"calendar" | "list" | "intake">("calendar");
+  const [activeTab, setActiveTab] = useState<"calendar" | "list" | "intake">(initialTab || "calendar");
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  useEffect(() => {
+    if (highlightContentId && activeTab === "list") {
+      const el = document.getElementById(`content-${highlightContentId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  }, [highlightContentId, activeTab]);
   const [contents, setContents] = useState<SnsContent[]>(initialContents);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const origin = useOrigin();
@@ -760,7 +779,15 @@ export default function SnsAccountDetailClient({
             contents.map((c) => {
               const perf = perfOf(c);
               return (
-                <div key={c.id} className="p-5 rounded-3xl bg-surface border border-border space-y-4 shadow-md">
+                <div
+                  key={c.id}
+                  id={`content-${c.id}`}
+                  className={`p-5 rounded-3xl bg-surface border transition duration-300 space-y-4 shadow-md ${
+                    highlightContentId === c.id
+                      ? "border-amber-500/80 ring-2 ring-amber-500/30 bg-surface2/30"
+                      : "border-border"
+                  }`}
+                >
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                     <div className="space-y-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
