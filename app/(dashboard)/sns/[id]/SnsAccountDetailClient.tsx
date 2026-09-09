@@ -16,6 +16,8 @@ import {
   ALLOWED_SNS_MEDIA_MIME_TYPES,
   MAX_SNS_MEDIA_BYTES,
   buildUploadPathname,
+  resolveMediaMime,
+  unsupportedMediaMessage,
 } from "@/lib/db/types";
 import {
   createSnsContentAction,
@@ -239,10 +241,11 @@ export default function SnsAccountDetailClient({
 
   /** 파일을 브라우저에서 Blob 으로 바로 보낸 뒤, 서버에는 기록만 요청한다. */
   const uploadDirect = async (contentId: string, file: File): Promise<UploadOutcome> => {
-    const mime = (file.type || "").toLowerCase();
+    // 휴대폰 사진첩은 형식을 안 알려주는 경우가 있다. 그때는 확장자로 되짚는다.
+    const mime = resolveMediaMime(file.name, file.type);
     const ext = ALLOWED_SNS_MEDIA_MIME_TYPES[mime];
     if (!ext) {
-      return { ok: false, error: `"${file.name}" 은(는) 지원하지 않는 형식입니다. (JPG, PNG, WebP, GIF, MP4, WebM, MOV)` };
+      return { ok: false, error: unsupportedMediaMessage(file.name) };
     }
     if (file.size > MAX_SNS_MEDIA_BYTES) {
       return { ok: false, error: `"${file.name}" 이(가) 50MB를 넘습니다.` };

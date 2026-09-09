@@ -11,6 +11,62 @@ export const ALLOWED_SNS_MEDIA_MIME_TYPES: Record<string, string> = {
 
 export const MAX_SNS_MEDIA_BYTES = 50 * 1024 * 1024;
 
+/** 확장자로 형식을 되짚는다. 브라우저가 형식을 안 알려줄 때 쓴다. */
+const EXTENSION_TO_MIME: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+  mp4: "video/mp4",
+  webm: "video/webm",
+  mov: "video/quicktime",
+};
+
+/** 지원하지는 않지만 무엇인지는 알려줄 수 있는 형식. 안내 문구를 정확히 하려고 둔다. */
+const KNOWN_UNSUPPORTED: Record<string, string> = {
+  heic: "아이폰 HEIC 사진",
+  heif: "아이폰 HEIF 사진",
+  avif: "AVIF 이미지",
+  bmp: "BMP 이미지",
+  tiff: "TIFF 이미지",
+  mkv: "MKV 영상",
+  avi: "AVI 영상",
+  wmv: "WMV 영상",
+};
+
+export function fileExtensionOf(fileName: string): string {
+  const dot = fileName.lastIndexOf(".");
+  return dot < 0 ? "" : fileName.slice(dot + 1).toLowerCase();
+}
+
+/**
+ * 올린 파일의 형식을 정한다.
+ *
+ * 브라우저가 늘 형식을 알려주지는 않는다. 휴대폰 사진첩이나 파일 앱에서 고르면
+ * 형식이 비어 있거나 application/octet-stream 으로 오는 경우가 흔하다.
+ * 그때 확장자로 되짚지 않으면 멀쩡한 사진도 거부된다.
+ *
+ * 확장자를 믿어도 안전하다. 서버가 파일 앞부분 바이트를 읽어 실제 내용을 다시 확인하기 때문에,
+ * 확장자만 바꾼 파일은 그 단계에서 걸린다.
+ */
+export function resolveMediaMime(fileName: string, browserType: string | undefined): string {
+  const reported = (browserType || "").toLowerCase();
+  if (ALLOWED_SNS_MEDIA_MIME_TYPES[reported]) return reported;
+  return EXTENSION_TO_MIME[fileExtensionOf(fileName)] ?? reported;
+}
+
+/** 거부할 때 무엇이 문제인지 짚어주는 문구. */
+export function unsupportedMediaMessage(fileName: string): string {
+  const ext = fileExtensionOf(fileName);
+  const known = KNOWN_UNSUPPORTED[ext];
+  if (known) {
+    return `"${fileName}" 은(는) ${known}이라 올릴 수 없습니다. JPG나 PNG로 변환해 올려주세요.`;
+  }
+  return `"${fileName}" 은(는) 지원하지 않는 형식입니다. JPG, PNG, WebP, GIF, MP4, WebM, MOV만 올릴 수 있습니다.`;
+}
+
+
 /** 업로드 파일의 저장소 접두사. 서버와 브라우저가 같은 경로를 만들어야 한다. */
 export const UPLOAD_PREFIX = "uploads/";
 

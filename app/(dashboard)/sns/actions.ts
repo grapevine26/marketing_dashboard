@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { resolveMediaMime } from "@/lib/db/types";
 import {
   createSnsAccount,
   updateSnsAccount,
@@ -157,7 +158,8 @@ export async function uploadSnsMediaAction(formData: FormData): Promise<ActionRe
     saveSnsMediaAttachment(contentId, {
       name: file.name,
       buffer,
-      mime_type: file.type || "application/octet-stream",
+      // 브라우저가 형식을 안 알려주면 확장자로 되짚는다. 실제 내용은 서버가 다시 확인한다.
+      mime_type: resolveMediaMime(file.name, file.type),
       size: file.size,
     })
   );
