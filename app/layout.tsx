@@ -6,9 +6,18 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 export const metadata: Metadata = {
   title: "MOA (모아) | 인플루언서 마케팅 & 올인원 캠페인 운영",
   description: "인플루언서 시딩, 오프라인 행사, 공식 SNS 채널을 한곳에 모아 운영하는 마케팅 통합 플랫폼",
+  applicationName: "MOA",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "MOA",
+  },
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/apple-icon", sizes: "180x180", type: "image/png" },
     ],
   },
 };

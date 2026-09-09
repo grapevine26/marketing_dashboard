@@ -18,6 +18,7 @@ import {
 import ThemeToggleButton from "@/components/ThemeToggleButton";
 import RefreshOnFocus from "@/components/RefreshOnFocus";
 import MoaLogo from "@/components/MoaLogo";
+import InstallAppButton from "@/components/InstallAppButton";
 
 export default function DashboardLayout({
   children,
@@ -194,8 +195,9 @@ export default function DashboardLayout({
           ))}
         </nav>
 
-        {/* Theme Switcher Toggle at Bottom */}
-        <div className="pt-3 border-t border-border">
+        {/* App Install & Theme Switcher at Bottom */}
+        <div className="pt-3 border-t border-border space-y-2">
+          <InstallAppButton />
           <ThemeToggleButton />
         </div>
       </aside>
