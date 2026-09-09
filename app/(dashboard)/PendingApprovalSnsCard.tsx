@@ -66,11 +66,7 @@ export default function PendingApprovalSnsCard({
           </div>
         </div>
         <div>
-          <div
-            className={`font-mono tabular-nums text-2xl sm:text-3xl font-bold ${
-              count > 0 ? "text-warn" : "text-text"
-            }`}
-          >
+          <div className="font-mono tabular-nums text-2xl sm:text-3xl font-bold text-text">
             {count}
           </div>
           <p className="text-[11px] text-text-sub mt-0.5">광고주 시안 컨펌 대기</p>

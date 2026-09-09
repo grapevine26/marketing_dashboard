@@ -63,7 +63,7 @@ export default function ScheduledSnsThisWeekCard({
         aria-label="이번주 발행 예정 콘텐츠 목록 확인"
       >
         <div className="flex items-center justify-between w-full">
-          <span className="text-xs font-semibold text-accent-link group-hover:text-text transition flex items-center gap-1.5">
+          <span className="text-xs font-semibold text-text transition flex items-center gap-1.5">
             이번주 발행 예정
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent2/10 text-accent2 border border-accent2/20 group-hover:border-accent-link/30">
               상세보기
@@ -74,7 +74,7 @@ export default function ScheduledSnsThisWeekCard({
           </div>
         </div>
         <div>
-          <div className="font-mono tabular-nums text-2xl sm:text-3xl font-bold text-accent-link">
+          <div className="font-mono tabular-nums text-2xl sm:text-3xl font-bold text-text">
             {count}
           </div>
           <p className="text-[11px] text-text-sub mt-0.5">SNS 공식 채널 피드/릴스</p>
