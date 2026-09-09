@@ -21,6 +21,12 @@ import {
   deleteSnsAccount,
   updateCampaignMessageTemplates,
   updateApplicantAgencyMemo,
+  getPreSurveyQuestionsForCampaign,
+  updateCampaignPreSurveyQuestions,
+  getSnsIntakeQuestionsForAccount,
+  updateSnsAccountIntakeQuestions,
+  getPreSurveyTemplate,
+  getSnsIntakeTemplate,
   ValidationError,
   mutateDb,
 } from "@/lib/db";
@@ -313,5 +319,64 @@ describe("Phase 1: 캠페인/SNS 삭제 및 메모/템플릿", () => {
 
     const cleared = await updateApplicantAgencyMemo(app.id, null);
     expect(cleared?.agency_memo).toBeUndefined();
+  });
+
+  it("캠페인별 사전조사 문항을 개별 설정 및 공통 템플릿으로 리셋할 수 있다", async () => {
+    const { camp } = await seedCampaign();
+    const globalTmpl = await getPreSurveyTemplate();
+
+    // 설정 전에는 공통 템플릿 문항을 반환한다
+    const defaultQs = await getPreSurveyQuestionsForCampaign(camp.id);
+    expect(defaultQs).toEqual(globalTmpl.questions);
+
+    // 캠페인별 맞춤 문항 설정
+    const customQs = [
+      { id: "custom-1", question: "특별 요청 질문", placeholder: "내용 입력", type: "textarea", required: true },
+      { id: "custom-2", question: "추가 문의", placeholder: undefined, type: undefined, required: false },
+    ];
+    const updatedCamp = await updateCampaignPreSurveyQuestions(camp.id, customQs);
+    expect(updatedCamp?.pre_survey_questions).toEqual(customQs);
+
+    const fetchedQs = await getPreSurveyQuestionsForCampaign(camp.id);
+    expect(fetchedQs).toEqual(customQs);
+
+    // null 로 리셋하면 다시 공통 템플릿 문항으로 돌아간다
+    const resetCamp = await updateCampaignPreSurveyQuestions(camp.id, null);
+    expect(resetCamp?.pre_survey_questions).toBeUndefined();
+
+    const afterResetQs = await getPreSurveyQuestionsForCampaign(camp.id);
+    expect(afterResetQs).toEqual(globalTmpl.questions);
+  });
+
+  it("SNS 계정별 사전설문 문항을 개별 설정 및 공통 템플릿으로 리셋할 수 있다", async () => {
+    const acc = await createSnsAccount({
+      company_name: "맞춤설문브랜드",
+      handle: "custom_survey_brand",
+      platform: "instagram",
+      starts_on: null,
+      ends_on: null,
+    });
+    const globalSnsTmpl = await getSnsIntakeTemplate();
+
+    // 설정 전에는 공통 템플릿 문항을 반환한다
+    const defaultQs = await getSnsIntakeQuestionsForAccount(acc.id);
+    expect(defaultQs).toEqual(globalSnsTmpl.questions);
+
+    // 계정별 맞춤 문항 설정
+    const customQs = [
+      { id: "sns-q1", question: "인스타그램 릴스 톤앤매너", placeholder: "참고 계정 등", required: true },
+    ];
+    const updatedAcc = await updateSnsAccountIntakeQuestions(acc.id, customQs);
+    expect(updatedAcc?.intake_questions).toEqual(customQs);
+
+    const fetchedQs = await getSnsIntakeQuestionsForAccount(acc.id);
+    expect(fetchedQs).toEqual(customQs);
+
+    // null 로 리셋하면 다시 공통 템플릿 문항으로 돌아간다
+    const resetAcc = await updateSnsAccountIntakeQuestions(acc.id, null);
+    expect(resetAcc?.intake_questions).toBeUndefined();
+
+    const afterResetQs = await getSnsIntakeQuestionsForAccount(acc.id);
+    expect(afterResetQs).toEqual(globalSnsTmpl.questions);
   });
 });

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getSnsAccountByToken, getSnsIntakeTemplate, getSnsIntakeResponse } from "@/lib/db";
+import { getSnsAccountByToken, getSnsIntakeQuestionsForAccount, getSnsIntakeResponse } from "@/lib/db";
 import { toPublicSnsAccount } from "@/lib/db/types";
 import SnsIntakeFormClient from "./SnsIntakeFormClient";
 import { Camera, ShieldCheck, Sparkles, Video, Play } from "lucide-react";
@@ -15,10 +15,12 @@ export default async function SnsIntakePublicPage({
   const account = await getSnsAccountByToken("intake", token);
   if (!account) notFound();
 
-  const [template, existingResponse] = await Promise.all([
-    getSnsIntakeTemplate(),
+  const [questions, existingResponse] = await Promise.all([
+    getSnsIntakeQuestionsForAccount(account.id),
     getSnsIntakeResponse(account.id),
   ]);
+
+  const template = { id: 1, questions };
 
   const icon =
     account.platform === "youtube" ? <Play className="w-6 h-6 text-red-500" />

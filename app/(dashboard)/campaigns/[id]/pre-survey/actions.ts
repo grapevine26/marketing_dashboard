@@ -1,6 +1,12 @@
 "use server";
 
-import { upsertPreSurveyResponse, getCampaignById, getPreSurveyTemplate } from "@/lib/db";
+import {
+  upsertPreSurveyResponse,
+  getCampaignById,
+  getPreSurveyQuestionsForCampaign,
+  updateCampaignPreSurveyQuestions,
+} from "@/lib/db";
+import { PreSurveyQuestion } from "@/lib/db/types";
 import { assistPreSurvey, PreSurveyAssistResponse } from "@/lib/ai/preSurveyAssist";
 import { revalidatePath } from "next/cache";
 import { ActionResult, runAction, fail } from "@/lib/actions/result";
@@ -25,6 +31,35 @@ export async function saveAgencyPreSurveyAction(params: {
   return res;
 }
 
+export async function saveCampaignPreSurveyQuestionsAction(params: {
+  campaignId: string;
+  questions: PreSurveyQuestion[];
+}): Promise<ActionResult<{ questions: PreSurveyQuestion[] }>> {
+  const res = await runAction(async () => {
+    const updated = await updateCampaignPreSurveyQuestions(params.campaignId, params.questions);
+    return { questions: updated.pre_survey_questions || [] };
+  });
+  if (res.ok) {
+    revalidatePath(`/campaigns/${params.campaignId}`);
+    revalidatePath(`/campaigns/${params.campaignId}/pre-survey`);
+  }
+  return res;
+}
+
+export async function resetCampaignPreSurveyQuestionsAction(
+  campaignId: string
+): Promise<ActionResult<{ success: boolean }>> {
+  const res = await runAction(async () => {
+    await updateCampaignPreSurveyQuestions(campaignId, null);
+    return { success: true };
+  });
+  if (res.ok) {
+    revalidatePath(`/campaigns/${campaignId}`);
+    revalidatePath(`/campaigns/${campaignId}/pre-survey`);
+  }
+  return res;
+}
+
 export async function getAiAssistAction(params: {
   campaignId: string;
   questionId: string;
@@ -32,8 +67,8 @@ export async function getAiAssistAction(params: {
 }): Promise<ActionResult<PreSurveyAssistResponse>> {
   const campaign = await getCampaignById(params.campaignId);
   if (!campaign) return fail("캠페인을 찾을 수 없습니다.");
-  const template = await getPreSurveyTemplate();
-  const question = template.questions.find((q) => q.id === params.questionId);
+  const questions = await getPreSurveyQuestionsForCampaign(params.campaignId);
+  const question = questions.find((q) => q.id === params.questionId);
   if (!question) return fail("질문을 찾을 수 없습니다.");
 
   return runAction(() =>

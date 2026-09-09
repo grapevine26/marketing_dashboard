@@ -22,6 +22,7 @@ import {
   templateStorageKey,
   Campaign,
   CampaignStatus,
+  PreSurveyQuestion,
   PreSurveyTemplate,
   PreSurveyResponse,
   CampaignFormConfig,
@@ -1005,6 +1006,42 @@ export async function updatePreSurveyTemplate(
   });
 }
 
+export async function getPreSurveyQuestionsForCampaign(campaignId: string): Promise<PreSurveyQuestion[]> {
+  const db = await readDb();
+  const camp = db.campaigns.find((c) => c.id === campaignId);
+  if (camp?.pre_survey_questions && camp.pre_survey_questions.length > 0) {
+    return camp.pre_survey_questions;
+  }
+  return db.pre_survey_template.questions;
+}
+
+export async function updateCampaignPreSurveyQuestions(
+  campaignId: string,
+  questions: PreSurveyQuestion[] | null
+): Promise<Campaign> {
+  let cleaned: PreSurveyQuestion[] | undefined = undefined;
+  if (questions !== null) {
+    if (!Array.isArray(questions) || questions.length === 0) {
+      throw new ValidationError("최소 1개 이상의 질문이 필요합니다.");
+    }
+    cleaned = questions.map((q) => ({
+      id: requireText(q.id, "질문 ID", 100),
+      question: requireText(q.question, "질문 내용", 500),
+      placeholder: optionalText(q.placeholder, 500) ?? undefined,
+      type: q.type,
+      required: Boolean(q.required),
+    }));
+  }
+
+  return mutateDb((db) => {
+    const idx = db.campaigns.findIndex((c) => c.id === campaignId);
+    if (idx < 0) throw new ValidationError("캠페인을 찾을 수 없습니다.");
+    const camp = db.campaigns[idx];
+    camp.pre_survey_questions = cleaned;
+    return camp;
+  });
+}
+
 export async function getPreSurveyResponse(campaignId: string): Promise<PreSurveyResponse | null> {
   const db = await readDb();
   return db.pre_survey_responses.find((r) => r.campaign_id === campaignId) || null;
@@ -1016,9 +1053,12 @@ export async function savePreSurveyResponse(data: {
   used_ai_assist: boolean;
 }): Promise<PreSurveyResponse> {
   return mutateDb((db) => {
-    const template = db.pre_survey_template;
+    const camp = db.campaigns.find((c) => c.id === data.campaign_id);
+    const questions = camp?.pre_survey_questions && camp.pre_survey_questions.length > 0
+      ? camp.pre_survey_questions
+      : db.pre_survey_template.questions;
     const answers: Record<string, string> = {};
-    for (const q of template.questions) {
+    for (const q of questions) {
       const v = data.answers?.[q.id];
       const text = typeof v === "string" ? v.trim() : "";
       if (q.required && !text) {
@@ -2217,6 +2257,42 @@ export async function updateSnsIntakeTemplate(
   });
 }
 
+export async function getSnsIntakeQuestionsForAccount(accountId: string): Promise<PreSurveyQuestion[]> {
+  const db = await readDb();
+  const acc = db.sns_accounts.find((a) => a.id === accountId);
+  if (acc?.intake_questions && acc.intake_questions.length > 0) {
+    return acc.intake_questions;
+  }
+  return db.sns_intake_template.questions;
+}
+
+export async function updateSnsAccountIntakeQuestions(
+  accountId: string,
+  questions: PreSurveyQuestion[] | null
+): Promise<SnsAccount> {
+  let cleaned: PreSurveyQuestion[] | undefined = undefined;
+  if (questions !== null) {
+    if (!Array.isArray(questions) || questions.length === 0) {
+      throw new ValidationError("최소 1개 이상의 질문이 필요합니다.");
+    }
+    cleaned = questions.map((q) => ({
+      id: requireText(q.id, "질문 ID", 100),
+      question: requireText(q.question, "질문 내용", 500),
+      placeholder: optionalText(q.placeholder, 500) ?? undefined,
+      type: q.type,
+      required: Boolean(q.required),
+    }));
+  }
+
+  return mutateDb((db) => {
+    const idx = db.sns_accounts.findIndex((a) => a.id === accountId);
+    if (idx < 0) throw new ValidationError("계정을 찾을 수 없습니다.");
+    const acc = db.sns_accounts[idx];
+    acc.intake_questions = cleaned;
+    return acc;
+  });
+}
+
 export async function getSnsIntakeResponse(accountId: string): Promise<SnsIntakeResponse | null> {
   const db = await readDb();
   return db.sns_intake_responses.find((r) => r.account_id === accountId) || null;
@@ -2227,11 +2303,15 @@ export async function saveSnsIntakeResponse(data: {
   answers: Record<string, string>;
 }): Promise<SnsIntakeResponse> {
   return mutateDb((db) => {
-    if (!db.sns_accounts.some((a) => a.id === data.account_id)) {
+    const account = db.sns_accounts.find((a) => a.id === data.account_id);
+    if (!account) {
       throw new ValidationError("계정을 찾을 수 없습니다.");
     }
+    const questions = account.intake_questions && account.intake_questions.length > 0
+      ? account.intake_questions
+      : db.sns_intake_template.questions;
     const answers: Record<string, string> = {};
-    for (const q of db.sns_intake_template.questions) {
+    for (const q of questions) {
       const v = data.answers?.[q.id];
       const text = typeof v === "string" ? v.trim() : "";
       if (q.required && !text) throw new ValidationError(`필수 질문에 답변해주세요: ${q.question}`);

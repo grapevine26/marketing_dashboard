@@ -1,6 +1,6 @@
 "use server";
 
-import { getCampaignByToken, getPreSurveyTemplate, upsertPreSurveyResponse } from "@/lib/db";
+import { getCampaignByToken, getPreSurveyQuestionsForCampaign, upsertPreSurveyResponse } from "@/lib/db";
 import { assistPreSurvey, PreSurveyAssistResponse } from "@/lib/ai/preSurveyAssist";
 import { ActionResult, runAction, fail } from "@/lib/actions/result";
 import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
@@ -48,8 +48,8 @@ export async function getPublicAiAssistAction(params: {
 }): Promise<ActionResult<PreSurveyAssistResponse>> {
   const campaign = await getCampaignByToken("pre_survey", params.token);
   if (!campaign) return fail("유효하지 않은 사전조사 링크입니다.");
-  const template = await getPreSurveyTemplate();
-  const question = template.questions.find((q) => q.id === params.questionId);
+  const questions = await getPreSurveyQuestionsForCampaign(campaign.id);
+  const question = questions.find((q) => q.id === params.questionId);
   if (!question) return fail("질문을 찾을 수 없습니다.");
 
   return runAction(() =>

@@ -55,8 +55,10 @@ import {
   RotateCcw,
   ShieldAlert,
   Search,
+  Sliders,
 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import SnsIntakeQuestionEditor from "./SnsIntakeQuestionEditor";
 
 const STATUS_TONE: Record<SnsContentStatus, string> = {
   planning: "text-text-sub",
@@ -82,6 +84,8 @@ export default function SnsAccountDetailClient({
   initialContents,
   intakeResponse,
   intakeQuestions,
+  defaultIntakeTemplateQuestions,
+  isCustomIntake,
   todayKst,
   clientUpload,
   initialTab,
@@ -91,6 +95,8 @@ export default function SnsAccountDetailClient({
   initialContents: SnsContent[];
   intakeResponse: SnsIntakeResponse | null;
   intakeQuestions: PreSurveyQuestion[];
+  defaultIntakeTemplateQuestions?: PreSurveyQuestion[];
+  isCustomIntake?: boolean;
   /** 서버에서 KST로 계산한 오늘 (YYYY-MM-DD) */
   todayKst: string;
   /**
@@ -105,6 +111,7 @@ export default function SnsAccountDetailClient({
   const router = useRouter();
   const [account, setAccount] = useState<SnsAccount>(initialAccount);
   const [activeTab, setActiveTab] = useState<"calendar" | "list" | "intake">(initialTab || "calendar");
+  const [intakeSubTab, setIntakeSubTab] = useState<"response" | "questions">("response");
 
   useEffect(() => {
     if (initialTab) {
@@ -1017,34 +1024,88 @@ export default function SnsAccountDetailClient({
 
       {/* Intake */}
       {activeTab === "intake" && (
-        <div className="p-5 sm:p-7 rounded-3xl bg-surface border border-border space-y-4 shadow-xl">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm sm:text-base font-bold text-text">광고주 사전설문(자료요청) 응답 결과</h2>
-            {intakeResponse && (
-              <span className="text-xs text-text-muted font-mono">제출일: {new Date(intakeResponse.submitted_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}</span>
-            )}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-surface border border-border shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-text-sub">설문 문항 상태:</span>
+              {isCustomIntake ? (
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[11px] font-semibold">
+                  이 계정 맞춤 문항 ({intakeQuestions.length}개)
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full bg-surface2 text-text-sub border border-border text-[11px] font-semibold">
+                  공통 기본 템플릿 ({intakeQuestions.length}개)
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIntakeSubTab("response")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${
+                  intakeSubTab === "response"
+                    ? "bg-accent2 text-white shadow-sm"
+                    : "bg-surface2 text-text-sub hover:text-text border border-border"
+                }`}
+              >
+                광고주 답변 확인
+              </button>
+              <button
+                type="button"
+                onClick={() => setIntakeSubTab("questions")}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition inline-flex items-center gap-1.5 ${
+                  intakeSubTab === "questions"
+                    ? "bg-accent2 text-white shadow-sm"
+                    : "bg-surface2 text-text-sub hover:text-text border border-border"
+                }`}
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>문항 커스텀 설정</span>
+              </button>
+            </div>
           </div>
 
-          {!intakeResponse ? (
-            <div className="p-8 text-center text-text-muted text-xs border border-dashed border-border rounded-2xl bg-bg">
-              아직 광고주가 설문을 제출하지 않았습니다. 상단의 [링크 복사]를 통해 광고주에게 사전설문 링크를 전달하세요.
-            </div>
+          {intakeSubTab === "questions" ? (
+            <SnsIntakeQuestionEditor
+              accountId={account.id}
+              initialQuestions={intakeQuestions}
+              isCustom={Boolean(isCustomIntake)}
+              defaultTemplateQuestions={defaultIntakeTemplateQuestions || []}
+            />
           ) : (
-            <div className="space-y-4 divide-y divide-border">
-              {intakeQuestions.map((q, idx) => (
-                <div key={q.id} className={idx > 0 ? "pt-4 space-y-1.5" : "space-y-1.5"}>
-                  <div className="text-xs font-bold text-accent2">{idx + 1}. {q.question}</div>
-                  <div className="p-3.5 rounded-xl bg-bg border border-border text-xs text-text leading-relaxed whitespace-pre-line">
-                    {intakeResponse.answers[q.id] || <span className="text-text-faint">(답변 없음)</span>}
-                  </div>
+            <div className="p-5 sm:p-7 rounded-3xl bg-surface border border-border space-y-4 shadow-xl">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm sm:text-base font-bold text-text">광고주 사전설문(자료요청) 응답 결과</h2>
+                {intakeResponse && (
+                  <span className="text-xs text-text-muted font-mono">제출일: {new Date(intakeResponse.submitted_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}</span>
+                )}
+              </div>
+
+              {!intakeResponse ? (
+                <div className="p-8 text-center text-text-muted text-xs border border-dashed border-border rounded-2xl bg-bg space-y-2">
+                  <p>아직 광고주가 설문을 제출하지 않았습니다. 상단의 [링크 복사]를 통해 광고주에게 사전설문 링크를 전달하세요.</p>
+                  <p className="text-[11px] text-text-faint">
+                    설문 링크를 전달하기 전 상단의 [문항 커스텀 설정]에서 이 브랜드에 맞는 맞춤형 질문으로 변경할 수 있습니다.
+                  </p>
                 </div>
-              ))}
-              {Object.keys(intakeResponse.answers).filter((k) => !intakeQuestions.some((q) => q.id === k)).map((k) => (
-                <div key={k} className="pt-4 space-y-1.5">
-                  <div className="text-xs font-bold text-text-muted">(삭제된 질문 {k})</div>
-                  <div className="p-3.5 rounded-xl bg-bg border border-border text-xs text-text-sub whitespace-pre-line">{intakeResponse.answers[k]}</div>
+              ) : (
+                <div className="space-y-4 divide-y divide-border">
+                  {intakeQuestions.map((q, idx) => (
+                    <div key={q.id} className={idx > 0 ? "pt-4 space-y-1.5" : "space-y-1.5"}>
+                      <div className="text-xs font-bold text-accent2">{idx + 1}. {q.question}</div>
+                      <div className="p-3.5 rounded-xl bg-bg border border-border text-xs text-text leading-relaxed whitespace-pre-line">
+                        {intakeResponse.answers[q.id] || <span className="text-text-faint">(답변 없음)</span>}
+                      </div>
+                    </div>
+                  ))}
+                  {Object.keys(intakeResponse.answers).filter((k) => !intakeQuestions.some((q) => q.id === k)).map((k) => (
+                    <div key={k} className="pt-4 space-y-1.5">
+                      <div className="text-xs font-bold text-text-muted">(삭제된 질문 {k})</div>
+                      <div className="p-3.5 rounded-xl bg-bg border border-border text-xs text-text-sub whitespace-pre-line">{intakeResponse.answers[k]}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>

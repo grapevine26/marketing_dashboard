@@ -175,6 +175,7 @@ export interface Campaign {
   seeding_sheet_share_token: string;
   message_templates?: Record<string, string>;
   webhook_url?: string;
+  pre_survey_questions?: PreSurveyQuestion[];
   created_at: string;
 }
 
@@ -458,6 +459,7 @@ export interface SnsAccount {
   status: SnsAccountStatus;
   intake_token: string; // Public intake token
   approval_token: string; // Public approval token
+  intake_questions?: PreSurveyQuestion[];
   created_at: string;
 }
 

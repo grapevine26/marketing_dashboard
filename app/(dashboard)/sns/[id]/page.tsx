@@ -4,6 +4,7 @@ import {
   getSnsContentsByAccountId,
   getSnsIntakeResponse,
   getSnsIntakeTemplate,
+  getSnsIntakeQuestionsForAccount,
 } from "@/lib/db";
 import { toKstDateString } from "@/lib/seeding/dday";
 import Link from "next/link";
@@ -26,10 +27,11 @@ export default async function SnsAccountDetailPage({
   const account = await getSnsAccountById(id);
   if (!account) notFound();
 
-  const [contents, intakeResponse, intakeTemplate] = await Promise.all([
+  const [contents, intakeResponse, intakeTemplate, resolvedIntakeQuestions] = await Promise.all([
     getSnsContentsByAccountId(account.id),
     getSnsIntakeResponse(account.id),
     getSnsIntakeTemplate(),
+    getSnsIntakeQuestionsForAccount(account.id),
   ]);
 
   return (
@@ -47,7 +49,9 @@ export default async function SnsAccountDetailPage({
         account={account}
         initialContents={contents}
         intakeResponse={intakeResponse}
-        intakeQuestions={intakeTemplate.questions}
+        intakeQuestions={resolvedIntakeQuestions}
+        defaultIntakeTemplateQuestions={intakeTemplate.questions}
+        isCustomIntake={Boolean(account.intake_questions && account.intake_questions.length > 0)}
         todayKst={toKstDateString()}
         clientUpload={isBlobBackend()}
         initialTab={initialTab}

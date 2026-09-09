@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { saveSnsIntakeResponse, getSnsAccountByToken, getSnsIntakeTemplate } from "@/lib/db";
+import { saveSnsIntakeResponse, getSnsAccountByToken, getSnsIntakeQuestionsForAccount } from "@/lib/db";
 import { assistSnsIntake, SnsIntakeAssistResponse } from "@/lib/ai/snsIntakeAssist";
 import { ActionResult, runAction, fail } from "@/lib/actions/result";
 import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
@@ -42,8 +42,8 @@ export async function assistSnsIntakeAction(data: {
 }): Promise<ActionResult<SnsIntakeAssistResponse>> {
   const account = await getSnsAccountByToken("intake", data.token);
   if (!account) return fail("유효하지 않은 설문 링크입니다.");
-  const template = await getSnsIntakeTemplate();
-  const question = template.questions.find((q) => q.id === data.questionId);
+  const questions = await getSnsIntakeQuestionsForAccount(account.id);
+  const question = questions.find((q) => q.id === data.questionId);
   if (!question) return fail("질문을 찾을 수 없습니다.");
 
   return runAction(() =>

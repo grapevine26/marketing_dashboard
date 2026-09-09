@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getCampaignByToken, getPreSurveyTemplate, getPreSurveyResponse } from "@/lib/db";
+import { getCampaignByToken, getPreSurveyQuestionsForCampaign, getPreSurveyResponse } from "@/lib/db";
 import { toPublicCampaign } from "@/lib/db/types";
 import PreSurveyPublicForm from "./PreSurveyPublicForm";
 import { Building2 } from "lucide-react";
@@ -15,10 +15,12 @@ export default async function PreSurveyPublicPage({
   const campaign = await getCampaignByToken("pre_survey", token);
   if (!campaign) notFound();
 
-  const [template, response] = await Promise.all([
-    getPreSurveyTemplate(),
+  const [questions, response] = await Promise.all([
+    getPreSurveyQuestionsForCampaign(campaign.id),
     getPreSurveyResponse(campaign.id),
   ]);
+
+  const template = { id: 1, questions };
 
   return (
     <div className="min-h-screen bg-bg text-text py-12 px-4 sm:px-6 flex flex-col items-center justify-center font-sans">

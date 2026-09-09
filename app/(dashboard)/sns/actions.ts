@@ -20,6 +20,7 @@ import {
   getPptTemplateById,
   SnsContentPatch,
   regenerateSnsToken,
+  updateSnsAccountIntakeQuestions,
 } from "@/lib/db";
 import { SnsAccount, SnsContent, SnsPlan, PreSurveyQuestion, SnsMediaAttachment, SnsTokenType } from "@/lib/db/types";
 import { generateSnsCaptionDraft } from "@/lib/ai/snsCaptionAssist";
@@ -93,6 +94,29 @@ export async function updateSnsIntakeTemplateAction(
     return { questions: t.questions };
   });
   if (res.ok) revalidatePath("/settings/templates");
+  return res;
+}
+
+export async function saveSnsAccountIntakeQuestionsAction(data: {
+  accountId: string;
+  questions: PreSurveyQuestion[];
+}): Promise<ActionResult<{ questions: PreSurveyQuestion[] }>> {
+  const res = await runAction(async () => {
+    const updated = await updateSnsAccountIntakeQuestions(data.accountId, data.questions);
+    return { questions: updated.intake_questions || [] };
+  });
+  if (res.ok) revalidateAccount(data.accountId);
+  return res;
+}
+
+export async function resetSnsAccountIntakeQuestionsAction(
+  accountId: string
+): Promise<ActionResult<{ success: boolean }>> {
+  const res = await runAction(async () => {
+    await updateSnsAccountIntakeQuestions(accountId, null);
+    return { success: true };
+  });
+  if (res.ok) revalidateAccount(accountId);
   return res;
 }
 
