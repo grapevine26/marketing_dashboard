@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   PptTemplate,
   PptTemplateKind,
@@ -8,8 +9,17 @@ import {
   MAX_PPT_TEMPLATE_BYTES,
   buildTemplatePathname,
 } from "@/lib/db/types";
-import { uploadPptTemplateAction, confirmPptTemplateUploadAction, deletePptTemplateAction } from "./actions";
-import { Upload, Trash2, Loader2, Lock } from "lucide-react";
+import {
+  uploadPptTemplateAction,
+  uploadPptTemplateReplacementAction,
+  confirmPptTemplateUploadAction,
+  deletePptTemplateAction,
+  updatePptTemplateMetaAction,
+  preparePptTemplateReplaceAction,
+  confirmPptTemplateReplaceAction,
+  restoreBuiltinPptTemplatesAction,
+} from "./actions";
+import { Upload, Trash2, Loader2, Lock, Pencil, Download, RefreshCw, Check, X, RotateCcw } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
 
 const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
@@ -17,14 +27,18 @@ const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.
 export default function PptTemplatesClient({
   initialTemplates,
   clientUpload,
+  initialHiddenBuiltinCount,
 }: {
   initialTemplates: PptTemplate[];
+  /** 지워져서 목록에 없는 기본 내장 템플릿 수. 0보다 크면 되살리기 버튼을 보여준다. */
+  initialHiddenBuiltinCount: number;
   /**
    * Blob 저장소가 붙어 있으면 pptx 를 브라우저에서 저장소로 바로 보낸다.
    * Vercel 함수는 요청 본문을 4.5MB 로 자르는데, 이미지가 든 pptx 는 그보다 쉽게 커진다.
    */
   clientUpload: boolean;
 }) {
+  const router = useRouter();
   const [templates, setTemplates] = useState<PptTemplate[]>(initialTemplates);
   const [name, setName] = useState("");
   const [kind, setKind] = useState<PptTemplateKind>("event");
@@ -33,6 +47,12 @@ export default function PptTemplatesClient({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editKind, setEditKind] = useState<PptTemplateKind>("event");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [replacingId, setReplacingId] = useState<string | null>(null);
+  const [hiddenBuiltinCount, setHiddenBuiltinCount] = useState(initialHiddenBuiltinCount);
 
   /** 파일을 브라우저에서 저장소로 바로 보낸 뒤, 서버에는 등록만 요청한다. */
   const uploadDirect = async () => {
@@ -93,14 +113,116 @@ export default function PptTemplatesClient({
   };
 
   const handleDelete = async (t: PptTemplate) => {
-    if (!confirm(`"${t.name}" 템플릿을 삭제할까요? 이 템플릿을 쓰는 운영안은 PPT를 다운로드할 수 없게 됩니다.`)) return;
+    const message = t.builtin
+      ? `"${t.name}"을(를) 목록에서 지울까요? 기본 템플릿이라 언제든 되살릴 수 있습니다.`
+      : `"${t.name}" 템플릿을 삭제할까요? 이 템플릿을 쓰는 운영안은 PPT를 다운로드할 수 없게 됩니다.`;
+    if (!confirm(message)) return;
     setError(null);
+    setNotice(null);
     const res = await safeCall(deletePptTemplateAction(t.id));
     if (!res.ok) {
       setError(res.error);
       return;
     }
     setTemplates((prev) => prev.filter((x) => x.id !== t.id));
+    if (t.builtin) setHiddenBuiltinCount((n) => n + 1);
+  };
+
+  const handleRestoreBuiltins = async () => {
+    setError(null);
+    const res = await safeCall(restoreBuiltinPptTemplatesAction());
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    setHiddenBuiltinCount(0);
+    setNotice(`기본 템플릿 ${res.data.restored}개를 되살렸습니다. 새로고침하면 목록에 나타납니다.`);
+    router.refresh();
+  };
+
+  const startEdit = (t: PptTemplate) => {
+    setEditingId(t.id);
+    setEditName(t.name);
+    setEditKind(t.kind);
+    setError(null);
+    setNotice(null);
+  };
+
+  const handleSaveEdit = async (t: PptTemplate) => {
+    if (!editName.trim()) return;
+    setSavingEdit(true);
+    setError(null);
+    try {
+      const res = await safeCall(updatePptTemplateMetaAction({ id: t.id, name: editName.trim(), kind: editKind }));
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setTemplates((prev) => prev.map((x) => (x.id === t.id ? res.data : x)));
+      setEditingId(null);
+      setNotice("템플릿 정보를 수정했습니다.");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  /**
+   * 파일만 갈아끼운다. 템플릿 id 가 그대로라 이 템플릿을 쓰던 운영안이 계속 붙어 있다.
+   * 지웠다 새로 올리면 id 가 바뀌어 그 연결이 끊긴다.
+   */
+  const handleReplaceFile = async (t: PptTemplate, replacement: File) => {
+    setError(null);
+    setNotice(null);
+    if (replacement.size > MAX_PPT_TEMPLATE_BYTES) {
+      setError("템플릿 파일은 15MB 이하만 업로드할 수 있습니다.");
+      return;
+    }
+    setReplacingId(t.id);
+    try {
+      const prep = await safeCall(preparePptTemplateReplaceAction(t.id));
+      if (!prep.ok) {
+        setError(prep.error);
+        return;
+      }
+
+      if (clientUpload) {
+        try {
+          const { upload } = await import("@vercel/blob/client");
+          await upload(prep.data.pathname, replacement, {
+            access: "private",
+            handleUploadUrl: "/api/ppt-templates/upload",
+            contentType: PPTX_MIME,
+          });
+        } catch (err) {
+          setError(`업로드에 실패했습니다. (${err instanceof Error ? err.message : String(err)})`);
+          return;
+        }
+      } else {
+        const fd = new FormData();
+        fd.append("file", replacement);
+        fd.append("fileKey", prep.data.fileKey);
+        const up = await safeCall(uploadPptTemplateReplacementAction(fd));
+        if (!up.ok) {
+          setError(up.error);
+          return;
+        }
+      }
+
+      const res = await safeCall(
+        confirmPptTemplateReplaceAction({ templateId: t.id, fileKey: prep.data.fileKey })
+      );
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setTemplates((prev) => prev.map((x) => (x.id === t.id ? res.data.template : x)));
+      setNotice(
+        res.data.warning ||
+          `파일을 교체했습니다. 감지된 치환 항목 ${res.data.template.placeholders.length}개. 이 템플릿을 쓰던 운영안은 그대로 유지됩니다.`
+      );
+    } finally {
+      setReplacingId(null);
+    }
   };
 
   return (
@@ -159,7 +281,19 @@ export default function PptTemplatesClient({
       </form>
 
       <div className="space-y-3">
-        <h2 className="text-sm font-bold text-text-2">등록된 템플릿 목록 ({templates.length})</h2>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h2 className="text-sm font-bold text-text-2">등록된 템플릿 목록 ({templates.length})</h2>
+          {hiddenBuiltinCount > 0 && (
+            <button
+              type="button"
+              onClick={handleRestoreBuiltins}
+              className="px-3 py-1.5 rounded-lg bg-surface2 border border-border text-text-sub hover:text-text text-[11px] font-semibold inline-flex items-center gap-1.5 transition"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              지운 기본 템플릿 {hiddenBuiltinCount}개 되살리기
+            </button>
+          )}
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {templates.map((t) => (
             <div key={t.id} className="p-5 rounded-3xl bg-surface border border-border space-y-3 shadow-md flex flex-col justify-between">
@@ -175,13 +309,101 @@ export default function PptTemplatesClient({
                       </span>
                     )}
                   </div>
-                  {!t.builtin && (
-                    <button type="button" onClick={() => handleDelete(t)} className="p-1 rounded text-text-muted hover:text-red-400" title="삭제">
+                  <div className="flex items-center gap-1">
+                    <a
+                      href={`/api/ppt-templates/${t.id}/download`}
+                      className="px-2 py-1 rounded-lg text-text-sub hover:text-text hover:bg-surface2 text-[11px] font-semibold inline-flex items-center gap-1 transition"
+                      title="원본 pptx 내려받기"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">받기</span>
+                    </a>
+                    {!t.builtin && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => startEdit(t)}
+                          className="px-2 py-1 rounded-lg text-text-sub hover:text-text hover:bg-surface2 text-[11px] font-semibold inline-flex items-center gap-1 transition"
+                          title="이름과 종류 수정"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">수정</span>
+                        </button>
+                        <label
+                          className={`px-2 py-1 rounded-lg text-text-sub hover:text-text hover:bg-surface2 text-[11px] font-semibold inline-flex items-center gap-1 transition cursor-pointer ${replacingId === t.id ? "opacity-50 pointer-events-none" : ""}`}
+                          title="템플릿을 쓰던 운영안을 그대로 둔 채 파일만 교체합니다"
+                        >
+                          {replacingId === t.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-3.5 h-3.5" />
+                          )}
+                          <span className="hidden sm:inline">파일 교체</span>
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                            onChange={(e) => {
+                              const picked = e.target.files?.[0];
+                              e.target.value = "";
+                              if (picked) void handleReplaceFile(t, picked);
+                            }}
+                          />
+                        </label>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(t)}
+                      className="px-2 py-1 rounded-lg text-text-sub hover:text-red-400 hover:bg-surface2 text-[11px] font-semibold inline-flex items-center gap-1 transition"
+                      title={t.builtin ? "목록에서 지우기 (되살릴 수 있습니다)" : "삭제"}
+                    >
                       <Trash2 className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">삭제</span>
                     </button>
-                  )}
+                  </div>
                 </div>
-                <h3 className="text-base font-bold text-text">{t.name}</h3>
+                {editingId === t.id ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-bg border border-border text-text text-sm"
+                      placeholder="템플릿 이름"
+                    />
+                    <select
+                      value={editKind}
+                      onChange={(e) => setEditKind(e.target.value as PptTemplateKind)}
+                      className="w-full px-3 py-2 rounded-xl bg-bg border border-border text-text text-sm"
+                    >
+                      {(Object.keys(PPT_TEMPLATE_KIND_LABELS) as PptTemplateKind[]).map((k) => (
+                        <option key={k} value={k}>{PPT_TEMPLATE_KIND_LABELS[k]} 템플릿</option>
+                      ))}
+                    </select>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={savingEdit || !editName.trim()}
+                        onClick={() => handleSaveEdit(t)}
+                        className="px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-bold inline-flex items-center gap-1 disabled:opacity-50"
+                      >
+                        {savingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                        저장
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingId(null)}
+                        className="px-3 py-1.5 rounded-lg bg-surface2 text-text-sub text-xs font-semibold inline-flex items-center gap-1"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        취소
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <h3 className="text-base font-bold text-text">{t.name}</h3>
+                )}
                 <div className="space-y-1">
                   <span className="text-[11px] text-text-muted block font-medium">감지된 치환 항목 ({t.placeholders.length}):</span>
                   <div className="flex flex-wrap gap-1.5">

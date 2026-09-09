@@ -19,6 +19,7 @@ import {
   MAX_SNS_MEDIA_BYTES,
   MAX_PPT_TEMPLATE_BYTES,
   buildTemplatePathname,
+  templateStorageKey,
   Campaign,
   CampaignStatus,
   PreSurveyTemplate,
@@ -87,6 +88,11 @@ interface DatabaseSchema {
   seeding_records: SeedingRecord[];
   reports: CampaignReport[];
   ppt_templates: PptTemplate[];
+  /**
+   * 사용자가 지운 내장 템플릿 id.
+   * 내장 템플릿은 코드에서 매번 채워 넣기 때문에, 지웠다는 사실을 따로 기억하지 않으면 되살아난다.
+   */
+  hidden_builtin_template_ids?: string[];
   events: MarketingEvent[];
   event_invitees: EventInvitee[];
   event_checklist_items: EventChecklistItem[];
@@ -271,6 +277,7 @@ function getInitialData(): DatabaseSchema {
       },
     ],
     reports: [],
+    hidden_builtin_template_ids: [],
     ppt_templates: Object.entries(BUILTIN_TEMPLATES).map(([id, t]) => ({
       id,
       kind: t.kind,
@@ -477,6 +484,9 @@ function migrateDb(db: DatabaseSchema) {
     if (!Array.isArray(db[key])) (db as unknown as Record<string, unknown>)[key] = [];
   }
 
+  if (!Array.isArray(db.hidden_builtin_template_ids)) db.hidden_builtin_template_ids = [];
+  const hiddenBuiltins = new Set(db.hidden_builtin_template_ids);
+
   // 내장 템플릿은 base64를 저장하지 않고 코드에서 매번 생성한다(코드 변경이 즉시 반영되도록).
   for (const t of db.ppt_templates) {
     const builtin = BUILTIN_TEMPLATES[t.id];
@@ -487,8 +497,11 @@ function migrateDb(db: DatabaseSchema) {
       t.placeholders = builtin.placeholders;
     }
   }
-  // 나중에 추가된 내장 템플릿(예: 보고서)은 기존 JSON에 없으므로 채워 넣는다.
+  // 사용자가 지운 내장 템플릿은 목록에서 뺀다.
+  db.ppt_templates = db.ppt_templates.filter((t) => !hiddenBuiltins.has(t.id));
+  // 나중에 추가된 내장 템플릿(예: 보고서)은 기존 JSON에 없으므로 채워 넣는다. 지운 것은 빼고.
   for (const [id, t] of Object.entries(BUILTIN_TEMPLATES)) {
+    if (hiddenBuiltins.has(id)) continue;
     if (!db.ppt_templates.some((x) => x.id === id)) {
       db.ppt_templates.push({ id, kind: t.kind, name: t.name, builtin: true, placeholders: t.placeholders, uploaded_at: nowIso() });
     }
@@ -1449,10 +1462,6 @@ export async function getPptTemplateBuffer(template: PptTemplate): Promise<Buffe
 
 const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
-function templateStorageKey(templateId: string): string {
-  return `${templateId}.pptx`;
-}
-
 /** pptx 인지 앞부분만 보고 판단한다. zip 컨테이너라 PK 로 시작한다. */
 function looksLikePptx(head: Buffer): boolean {
   return head.length >= 4 && head.toString("latin1", 0, 2) === "PK";
@@ -1570,7 +1579,13 @@ export async function recordUploadedPptTemplate(input: {
  */
 export async function readUploadedPptTemplateBuffer(templateId: string): Promise<Buffer | null> {
   if (!/^[0-9a-f-]{36}$/i.test(templateId)) return null;
-  const res = await readFile(templateStorageKey(templateId), null, "templates");
+  return readPptTemplateFileByKey(templateStorageKey(templateId));
+}
+
+/** 저장소 키로 직접 읽는다. 파일 교체는 `<id>-<버전>.pptx` 키를 쓰기 때문에 필요하다. */
+export async function readPptTemplateFileByKey(fileKey: string): Promise<Buffer | null> {
+  if (!/^[0-9a-f-]{36}(-\d{1,20})?\.pptx$/i.test(fileKey)) return null;
+  const res = await readFile(fileKey, null, "templates");
   if (!res) return null;
   return Buffer.from(await new Response(res.stream).arrayBuffer());
 }
@@ -1578,6 +1593,15 @@ export async function readUploadedPptTemplateBuffer(templateId: string): Promise
 /** 등록되지 않은 채 남은 업로드 파일을 치운다. */
 export async function discardUploadedPptTemplate(templateId: string): Promise<void> {
   await purgeTemplateFile(templateId);
+}
+
+/** 특정 키 하나만 지운다. 교체할 때 옛 파일을 치우는 용도. */
+async function purgeTemplateKey(fileKey: string): Promise<void> {
+  try {
+    await deleteFilesByPrefixes([fileKey], "templates");
+  } catch (err) {
+    console.warn("[storage] 옛 템플릿 파일 삭제 실패:", err);
+  }
 }
 
 /** 템플릿 파일 삭제. DB 커밋이 끝난 뒤에 부른다. 실패해도 DB 는 이미 정합하다. */
@@ -1589,19 +1613,145 @@ async function purgeTemplateFile(templateId: string): Promise<void> {
   }
 }
 
-export async function deletePptTemplate(id: string): Promise<boolean> {
-  const removed = await mutateDb((db) => {
-    const idx = db.ppt_templates.findIndex((t) => t.id === id);
-    if (idx < 0) return false;
-    if (db.ppt_templates[idx].builtin) {
-      throw new ValidationError("기본 내장 템플릿은 삭제할 수 없습니다.");
+/** 템플릿의 이름과 종류를 바꾼다. 파일은 그대로라 이 템플릿을 쓰던 운영안이 끊기지 않는다. */
+export async function updatePptTemplateMeta(
+  id: string,
+  patch: { name?: string; kind?: PptTemplate["kind"] }
+): Promise<PptTemplate | null> {
+  return mutateDb((db) => {
+    const t = db.ppt_templates.find((x) => x.id === id);
+    if (!t) return null;
+    if (t.builtin) {
+      throw new ValidationError("기본 내장 템플릿은 이름과 종류를 바꿀 수 없습니다.");
     }
+    if (patch.name !== undefined) t.name = requireText(patch.name, "템플릿 이름", 200);
+    if (patch.kind !== undefined) {
+      t.kind = oneOf(patch.kind, ["event", "sns", "report"] as const, "템플릿 종류");
+    }
+    return t;
+  });
+}
+
+/**
+ * 파일만 갈아끼운다. 템플릿 id 가 그대로라, 이 템플릿을 쓰던 행사·SNS 운영안이 계속 붙어 있다.
+ * 지웠다 새로 올리면 id 가 바뀌어 그 연결이 전부 끊긴다.
+ */
+/** 로컬 개발처럼 파일이 서버를 거쳐 올 때, 지정된 키로 그대로 저장한다. */
+export async function putPptTemplateReplacement(fileKey: string, buffer: Buffer): Promise<void> {
+  if (!/^[0-9a-f-]{36}(-\d{1,20})?\.pptx$/i.test(fileKey)) {
+    throw new ValidationError("잘못된 교체 요청입니다.");
+  }
+  if (!looksLikePptx(buffer)) throw new ValidationError("올바른 .pptx 파일이 아닙니다.");
+  if (buffer.length > MAX_PPT_TEMPLATE_BYTES) {
+    throw new ValidationError("템플릿 파일은 15MB 이하만 업로드할 수 있습니다.");
+  }
+  await putFile(fileKey, buffer, PPTX_MIME, "templates");
+}
+
+export async function preparePptTemplateReplace(
+  templateId: string
+): Promise<{ fileKey: string; pathname: string }> {
+  const db = await readDb();
+  const t = db.ppt_templates.find((x) => x.id === templateId);
+  if (!t) throw new ValidationError("템플릿을 찾을 수 없습니다.");
+  if (t.builtin) throw new ValidationError("기본 내장 템플릿은 파일을 바꿀 수 없습니다.");
+
+  // 쓰고 있는 키를 덮어쓰지 않는다. 교체가 실패해도 기존 파일이 살아 있어야 한다.
+  const version = Date.now();
+  return { fileKey: templateStorageKey(templateId, version), pathname: buildTemplatePathname(templateId, version) };
+}
+
+export async function recordReplacedPptTemplate(input: {
+  templateId: string;
+  fileKey: string;
+  placeholders: string[];
+}): Promise<PptTemplate> {
+  if (!/^[0-9a-f-]{36}(-\d{1,20})?\.pptx$/i.test(input.fileKey)) {
+    throw new ValidationError("잘못된 교체 요청입니다.");
+  }
+  if (!input.fileKey.startsWith(input.templateId)) {
+    throw new ValidationError("잘못된 교체 요청입니다.");
+  }
+
+  const stat = await statFile(input.fileKey, "templates");
+  if (!stat) throw new ValidationError("업로드된 파일을 찾을 수 없습니다. 다시 시도해주세요.");
+  if (stat.size > MAX_PPT_TEMPLATE_BYTES || stat.size <= 0) {
+    await purgeTemplateKey(input.fileKey);
+    throw new ValidationError("템플릿 파일은 15MB 이하만 업로드할 수 있습니다.");
+  }
+  const head = await readFile(input.fileKey, "bytes=0-11", "templates");
+  if (!head || !looksLikePptx(Buffer.from(await new Response(head.stream).arrayBuffer()))) {
+    await purgeTemplateKey(input.fileKey);
+    throw new ValidationError("올바른 .pptx 파일이 아닙니다.");
+  }
+
+  const previousKey = await mutateDb<string | null>((db) => {
+    const t = db.ppt_templates.find((x) => x.id === input.templateId);
+    if (!t) throw new ValidationError("템플릿을 찾을 수 없습니다.");
+    if (t.builtin) throw new ValidationError("기본 내장 템플릿은 파일을 바꿀 수 없습니다.");
+    const old = t.file_key ?? null;
+    t.file_key = input.fileKey;
+    t.placeholders = input.placeholders;
+    t.uploaded_at = nowIso();
+    delete t.file_data;
+    return old;
+  });
+
+  // 기록이 새 파일을 가리킨 다음에 옛 파일을 지운다.
+  if (previousKey && previousKey !== input.fileKey) await purgeTemplateKey(previousKey);
+
+  const updated = await getPptTemplateById(input.templateId);
+  if (!updated) throw new ValidationError("템플릿을 찾을 수 없습니다.");
+  return updated;
+}
+
+/** 지워서 목록에 없는 기본 내장 템플릿 수. 되살리기 버튼을 보여줄지 정하는 데 쓴다. */
+export async function getHiddenBuiltinTemplateCount(): Promise<number> {
+  const db = await readDb();
+  return (db.hidden_builtin_template_ids ?? []).length;
+}
+
+/** 지웠던 기본 내장 템플릿을 모두 되살린다. */
+export async function restoreBuiltinPptTemplates(): Promise<number> {
+  return mutateDb((db) => {
+    const hidden = db.hidden_builtin_template_ids ?? [];
+    db.hidden_builtin_template_ids = [];
+    // 여기서 바로 되돌려 넣는다. migrateDb 는 문서를 새로 읽을 때만 도는데,
+    // 방금 저장한 값은 메모리 캐시에서 나오므로 그때까지 목록이 비어 보인다.
+    for (const id of hidden) {
+      const builtin = BUILTIN_TEMPLATES[id];
+      if (!builtin) continue;
+      if (db.ppt_templates.some((t) => t.id === id)) continue;
+      db.ppt_templates.push({
+        id,
+        kind: builtin.kind,
+        name: builtin.name,
+        builtin: true,
+        placeholders: builtin.placeholders,
+        uploaded_at: nowIso(),
+      });
+    }
+    return hidden.length;
+  });
+}
+
+export async function deletePptTemplate(id: string): Promise<boolean> {
+  const removed = await mutateDb<{ wasBuiltin: boolean } | null>((db) => {
+    const idx = db.ppt_templates.findIndex((t) => t.id === id);
+    if (idx < 0) return null;
+    const wasBuiltin = Boolean(db.ppt_templates[idx].builtin);
     db.ppt_templates.splice(idx, 1);
-    return true;
+    if (wasBuiltin) {
+      // 내장 템플릿은 코드에서 매번 채워 넣으므로, 지웠다는 사실을 남겨야 되살아나지 않는다.
+      db.hidden_builtin_template_ids = db.hidden_builtin_template_ids ?? [];
+      if (!db.hidden_builtin_template_ids.includes(id)) db.hidden_builtin_template_ids.push(id);
+    }
+    return { wasBuiltin };
   });
 
   if (!removed) return false;
-  await purgeTemplateFile(id);
+  // 내장 템플릿은 저장소에 파일이 없다. 코드에서 만들어 쓴다.
+  if (!removed.wasBuiltin) await purgeTemplateFile(id);
   return true;
 }
 

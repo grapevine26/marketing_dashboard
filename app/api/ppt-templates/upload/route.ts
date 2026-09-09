@@ -28,7 +28,8 @@ export async function POST(request: Request) {
       request,
       body,
       onBeforeGenerateToken: async (pathname) => {
-        if (!/^templates\/[0-9a-f-]{36}\.pptx$/i.test(pathname)) {
+        // 새 등록은 templates/<id>.pptx, 파일 교체는 templates/<id>-<버전>.pptx 로 온다.
+        if (!/^templates\/[0-9a-f-]{36}(-\d{1,20})?\.pptx$/i.test(pathname)) {
           throw new Error("허용되지 않은 업로드 경로입니다.");
         }
         return {

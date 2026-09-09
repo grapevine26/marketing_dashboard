@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getReportById, getPptTemplateById, getPptTemplateBuffer, ValidationError, BUILTIN_REPORT_TEMPLATE_ID } from "@/lib/db";
+import { getReportById, getPptTemplateById, getPptTemplates, getPptTemplateBuffer, ValidationError, BUILTIN_REPORT_TEMPLATE_ID } from "@/lib/db";
 import { generateReportPPTX } from "@/lib/reports/pptx";
 import { fileDownloadResponse } from "@/lib/http/fileResponse";
 
@@ -18,10 +18,14 @@ export async function GET(
   const report = await getReportById(reportId);
   if (!report) return textResponse("보고서를 찾을 수 없습니다.", 404);
 
-  const templateId = new URL(request.url).searchParams.get("template") || BUILTIN_REPORT_TEMPLATE_ID;
-  const template = await getPptTemplateById(templateId);
+  const requested = new URL(request.url).searchParams.get("template") || BUILTIN_REPORT_TEMPLATE_ID;
+  let template = await getPptTemplateById(requested);
   if (!template || template.kind !== "report") {
-    return textResponse("보고서용 PPT 템플릿을 찾을 수 없습니다.", 404);
+    // 기본 내장 템플릿을 지웠을 수 있다. 남아 있는 보고서 템플릿으로 대신한다.
+    template = (await getPptTemplates("report"))[0] ?? null;
+  }
+  if (!template) {
+    return textResponse("보고서용 PPT 템플릿이 하나도 없습니다. 설정에서 템플릿을 등록해주세요.", 404);
   }
   const templateBuffer = await getPptTemplateBuffer(template);
   if (!templateBuffer) return textResponse("템플릿 파일을 불러오지 못했습니다. 다시 업로드해주세요.", 404);

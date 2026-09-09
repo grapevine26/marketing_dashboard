@@ -32,6 +32,9 @@ export default async function ReportDetailPage({
 
   if (!report || !campaign || report.campaign_id !== campaign.id) notFound();
   const templateOptions = reportTemplates.map((t) => ({ id: t.id, name: t.name, builtin: Boolean(t.builtin), placeholders: t.placeholders }));
+  // 기본 내장 템플릿을 지웠을 수 있다. 그러면 남아 있는 첫 템플릿을 기본값으로 쓴다.
+  const defaultTemplateId =
+    templateOptions.find((t) => t.id === BUILTIN_REPORT_TEMPLATE_ID)?.id ?? templateOptions[0]?.id ?? "";
 
   const snapshot = report.snapshot_data;
   const metrics = snapshot?.metrics || EMPTY_METRICS;
@@ -52,7 +55,7 @@ export default async function ReportDetailPage({
         </div>
 
         {snapshot ? (
-          <ReportDownloads reportId={report.id} templates={templateOptions} defaultTemplateId={BUILTIN_REPORT_TEMPLATE_ID} />
+          <ReportDownloads reportId={report.id} templates={templateOptions} defaultTemplateId={defaultTemplateId} />
         ) : (
           <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn-soft text-xs flex items-center gap-2">
             <AlertTriangle className="w-4 h-4" />

@@ -21,8 +21,17 @@ export function buildUploadPathname(attachmentId: string, ext: string): string {
   return `${UPLOAD_PREFIX}${attachmentId}${ext}`;
 }
 
-export function buildTemplatePathname(templateId: string): string {
-  return `${TEMPLATE_PREFIX}${templateId}.pptx`;
+/**
+ * 템플릿 파일 경로.
+ * 교체할 때는 version 을 붙여 새 키로 올린다. 옛 파일은 기록을 바꾼 뒤에 지운다.
+ * 그래야 교체가 실패해도 쓰던 파일이 남는다.
+ */
+export function buildTemplatePathname(templateId: string, version?: number): string {
+  return `${TEMPLATE_PREFIX}${templateStorageKey(templateId, version)}`;
+}
+
+export function templateStorageKey(templateId: string, version?: number): string {
+  return version ? `${templateId}-${version}.pptx` : `${templateId}.pptx`;
 }
 
 export const MAX_PPT_TEMPLATE_BYTES = 15 * 1024 * 1024;
