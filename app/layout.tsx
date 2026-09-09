@@ -4,8 +4,13 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
 export const metadata: Metadata = {
-  title: "모아 | 인플루언서 마케팅 운영",
-  description: "인플루언서 시딩, 오프라인 행사, 공식 SNS 채널을 한곳에 모아 운영합니다.",
+  title: "Seed (시드) | 인플루언서 시딩 & 마케팅 캠페인 운영",
+  description: "인플루언서 시딩, 오프라인 행사, 공식 SNS 채널을 한곳에서 관리하는 마케팅 운영 플랫폼",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+  },
 };
 
 export const viewport: Viewport = {
