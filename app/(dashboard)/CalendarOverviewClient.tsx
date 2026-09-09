@@ -19,18 +19,50 @@ import {
 
 export type { UnifiedCalendarItem };
 
-const SOURCE_BADGE: Record<UnifiedCalendarItem["source"], { label: string; cls: string; Icon: typeof FolderKanban }> = {
-  seeding: { label: "시딩", cls: "bg-blue-500/15 text-blue-400 border-blue-500/30", Icon: FolderKanban },
-  event: { label: "행사", cls: "bg-teal-500/15 text-teal-400 border-teal-500/30", Icon: PartyPopper },
-  // 행사준비는 행사의 하위 항목이다. 별개의 색을 주지 않고 행사 색의 연한 버전으로 둔다.
-  event_checklist: { label: "행사준비", cls: "bg-teal-500/10 text-teal-300 border-teal-500/20", Icon: Clock },
-  sns: { label: "SNS", cls: "bg-accent2/15 text-accent2 border-accent2/30", Icon: Camera },
+/**
+ * 소스별 색과 모양.
+ *
+ * badge 는 이름표가 함께 보이는 자리(임박 목록, 날짜 모달)에 쓰고,
+ * cell 은 달력 칸의 작은 막대에 쓴다. 칸에는 이름표가 없어서 모양만으로 구분해야 한다.
+ *
+ * 행사와 행사준비는 같은 청록을 쓴다. 준비는 행사에 딸린 항목이지 다섯 번째 종류가 아니다.
+ * 대신 행사는 색을 채우고 준비는 점선 테두리만 둘러 비워서, 밝기가 아니라 모양으로 가른다.
+ * 밝기로 가르면 다크에서 연한 것이 라이트에서는 진한 것이 되어 두 테마에서 뒤집힌다.
+ */
+const SOURCE_BADGE: Record<
+  UnifiedCalendarItem["source"],
+  { label: string; badge: string; cell: string; Icon: typeof FolderKanban }
+> = {
+  seeding: {
+    label: "시딩",
+    badge: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+    cell: "bg-blue-500/20 border-blue-500/40",
+    Icon: FolderKanban,
+  },
+  event: {
+    label: "행사",
+    badge: "bg-teal-500/15 text-teal-400 border-teal-500/40",
+    cell: "bg-teal-500/25 border-teal-500/50",
+    Icon: PartyPopper,
+  },
+  event_checklist: {
+    label: "행사준비",
+    badge: "bg-transparent text-teal-400 border-teal-500/50 border-dashed",
+    cell: "bg-transparent border-dashed border-teal-500/60",
+    Icon: Clock,
+  },
+  sns: {
+    label: "SNS",
+    badge: "bg-accent2/15 text-accent2 border-accent2/30",
+    cell: "bg-accent2/20 border-accent2/40",
+    Icon: Camera,
+  },
 };
 
 function SourceBadge({ source }: { source: UnifiedCalendarItem["source"] }) {
-  const { label, cls, Icon } = SOURCE_BADGE[source];
+  const { label, badge, Icon } = SOURCE_BADGE[source];
   return (
-    <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold inline-flex items-center gap-1 ${cls}`}>
+    <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold inline-flex items-center gap-1 ${badge}`}>
       <Icon className="w-3 h-3" /> {label}
     </span>
   );
@@ -183,13 +215,13 @@ export default function CalendarOverviewClient({
 
                   <div className="space-y-1 overflow-hidden">
                     {items.slice(0, MAX_PER_CELL).map((item) => {
-                      const tone = SOURCE_BADGE[item.source].cls.split(" ")[0];
+                      const tone = SOURCE_BADGE[item.source].cell;
                       return (
                         <Link
                           key={item.id}
                           href={item.linkUrl}
                           onClick={(e) => e.stopPropagation()}
-                          className={`block truncate text-[10px] px-1.5 py-0.5 rounded border border-border text-text font-medium hover:border-indigo-500/50 ${tone}`}
+                          className={`block truncate text-[10px] px-1.5 py-0.5 rounded border text-text font-medium hover:brightness-125 ${tone}`}
                           title={item.title}
                         >
                           {item.title}
