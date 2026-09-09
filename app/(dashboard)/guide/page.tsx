@@ -114,12 +114,12 @@ export default function GuidePage() {
       <div className="p-8 sm:p-10 rounded-3xl bg-surface border border-border space-y-4">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-bold">
           <BookOpen className="w-3.5 h-3.5" />
-          <span>Seed(시드) 사용 매뉴얼</span>
+          <span>MOA(모아) 사용 매뉴얼</span>
         </div>
 
         <h1 className="text-2xl sm:text-4xl font-extrabold text-text tracking-tight leading-tight">
           처음 오셨나요? <br />
-          Seed(시드) 사용 가이드
+          MOA(모아) 사용 가이드
         </h1>
 
         <p className="text-xs sm:text-sm text-text-2 leading-relaxed max-w-3xl">

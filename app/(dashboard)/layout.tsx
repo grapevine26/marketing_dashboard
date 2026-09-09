@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import ThemeToggleButton from "@/components/ThemeToggleButton";
 import RefreshOnFocus from "@/components/RefreshOnFocus";
-import SeedLogo from "@/components/SeedLogo";
+import MoaLogo from "@/components/MoaLogo";
 
 export default function DashboardLayout({
   children,
@@ -116,7 +116,7 @@ export default function DashboardLayout({
       {/* Mobile Top Header */}
       <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-sidebar/95 backdrop-blur-md border-b border-border">
         <Link href="/" className="flex items-center">
-          <SeedLogo size={18} />
+          <MoaLogo size={18} />
         </Link>
 
         <div className="flex items-center gap-2">
@@ -148,7 +148,7 @@ export default function DashboardLayout({
         {/* Sidebar Brand Header */}
         <div className="px-2 flex items-center justify-between">
           <Link href="/" onClick={closeMenu} className="flex items-center">
-            <SeedLogo size={20} />
+            <MoaLogo size={20} />
           </Link>
 
           {/* Close button inside mobile drawer */}
