@@ -20,10 +20,10 @@ export default async function CampaignEventDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string; eventId: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; checklistId?: string }>;
 }) {
   const { id, eventId } = await params;
-  const { tab } = await searchParams;
+  const { tab, checklistId } = await searchParams;
   const [campaign, event] = await Promise.all([getCampaignById(id), getEventById(eventId)]);
 
   if (!campaign || !event || event.campaign_id !== campaign.id) notFound();
@@ -57,6 +57,7 @@ export default async function CampaignEventDetailPage({
         applicants={applicants}
         todayKst={toKstDateString()}
         initialTab={tab === "checklist" || tab === "plan" ? tab : "invitees"}
+        highlightChecklistId={checklistId}
       />
     </div>
   );

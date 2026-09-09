@@ -128,7 +128,7 @@ export async function collectOverviewItems(todayKst: string): Promise<OverviewDa
         source: "event_checklist",
         title: chk.label,
         dateStr: chk.due_date,
-        linkUrl: `/campaigns/${parentEvent.campaign_id}/events/${parentEvent.id}?tab=checklist`,
+        linkUrl: `/campaigns/${parentEvent.campaign_id}/events/${parentEvent.id}?tab=checklist&checklistId=${chk.id}`,
         brandName: camp?.company_name || parentEvent.name,
         extraInfo: [parentEvent.name, chk.assignee ? `담당: ${chk.assignee}` : null].filter(Boolean).join(" • "),
         daysDiff: daysUntilDeadline(chk.due_date, todayKst),

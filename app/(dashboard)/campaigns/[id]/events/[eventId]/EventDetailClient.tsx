@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Campaign,
@@ -64,6 +64,7 @@ export default function EventDetailClient({
   applicants,
   todayKst,
   initialTab,
+  highlightChecklistId,
 }: {
   campaign: Campaign;
   event: MarketingEvent;
@@ -74,10 +75,26 @@ export default function EventDetailClient({
   applicants: Applicant[];
   todayKst: string;
   initialTab: "invitees" | "plan" | "checklist";
+  highlightChecklistId?: string;
 }) {
   const router = useRouter();
   const [event, setEvent] = useState<MarketingEvent>(initialEvent);
   const [activeTab, setActiveTab] = useState<"invitees" | "plan" | "checklist">(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  useEffect(() => {
+    if (highlightChecklistId && activeTab === "checklist") {
+      const el = document.getElementById(`checklist-${highlightChecklistId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  }, [highlightChecklistId, activeTab]);
   const [invitees, setInvitees] = useState<EventInvitee[]>(initialInvitees);
   const [checklists, setChecklists] = useState<EventChecklistItem[]>(initialChecklists);
   const [error, setError] = useState<string | null>(null);
@@ -760,11 +777,27 @@ export default function EventDetailClient({
             ) : (
               checklists.map((c) => {
                 const ddayInfo = calculateDDay(c.due_date, todayKst);
+                const isHighlighted = highlightChecklistId === c.id;
                 return (
-                  <div key={c.id} className={`p-3.5 rounded-2xl border transition flex items-center justify-between gap-3 ${c.done ? "bg-bg/50 border-surface2 opacity-60" : "bg-bg border-border"}`}>
+                  <div
+                    key={c.id}
+                    id={`checklist-${c.id}`}
+                    className={`p-3.5 rounded-2xl border transition duration-300 flex items-center justify-between gap-3 ${
+                      isHighlighted
+                        ? "bg-teal-500/15 border-teal-400 ring-2 ring-teal-400/40 shadow-md"
+                        : c.done
+                        ? "bg-bg/50 border-surface2 opacity-60"
+                        : "bg-bg border-border"
+                    }`}
+                  >
                     <div className="flex items-center gap-3 min-w-0">
                       <input type="checkbox" checked={c.done} onChange={() => handleToggleChecklistDone(c)} className="w-4 h-4 accent-teal-600 rounded cursor-pointer shrink-0" />
-                      <span className={`text-xs font-medium text-text truncate ${c.done ? "line-through text-text-muted" : ""}`}>{c.label}</span>
+                      <span className={`text-xs font-medium truncate ${c.done ? "line-through text-text-muted" : isHighlighted ? "text-teal-300 font-bold" : "text-text"}`}>{c.label}</span>
+                      {isHighlighted && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/30 shrink-0 animate-pulse">
+                          선택된 준비항목
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-3 shrink-0 text-xs">

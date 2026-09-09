@@ -71,4 +71,15 @@ test.describe("D. 통합 오버뷰", () => {
       await expect(page.getByRole("heading", { name: "이번주 발행 예정 콘텐츠" })).toBeHidden();
     }
   });
+
+  test("캘린더나 긴급 일정에서 행사준비 항목 클릭 시 해당 행사의 체크리스트 탭으로 이동하고 항목이 포커스된다", async ({ page }) => {
+    await page.goto("/");
+    const checklistLink = page.locator("a[href*='tab=checklist&checklistId=']").first();
+    if (await checklistLink.isVisible()) {
+      await checklistLink.click();
+      await expect(page).toHaveURL(/tab=checklist&checklistId=/);
+      await expect(page.getByRole("heading", { name: "행사 준비 체크리스트 & 할 일" })).toBeVisible();
+      await expect(page.getByText("선택된 준비항목")).toBeVisible();
+    }
+  });
 });
