@@ -63,11 +63,8 @@ export default function ScheduledSnsThisWeekCard({
         aria-label="이번주 발행 예정 콘텐츠 목록 확인"
       >
         <div className="flex items-center justify-between w-full">
-          <span className="text-xs font-semibold text-text transition flex items-center gap-1.5">
+          <span className="text-xs font-semibold text-text-muted group-hover:text-text transition">
             이번주 발행 예정
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent2/10 text-accent2 border border-accent2/20 group-hover:border-accent-link/30">
-              상세보기
-            </span>
           </span>
           <div className="w-7 h-7 rounded-xl bg-accent2/10 border border-accent2/20 text-accent2 flex items-center justify-center shrink-0">
             <Camera className="w-3.5 h-3.5" />

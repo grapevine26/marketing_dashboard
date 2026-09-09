@@ -55,11 +55,8 @@ export default function PendingApprovalSnsCard({
         aria-label="승인 대기 콘텐츠 목록 확인"
       >
         <div className="flex items-center justify-between w-full">
-          <span className="text-xs font-semibold text-text-muted group-hover:text-text transition flex items-center gap-1.5">
+          <span className="text-xs font-semibold text-text-muted group-hover:text-text transition">
             승인 대기 콘텐츠
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface2 text-text-sub border border-border group-hover:border-accent-link/30">
-              상세보기
-            </span>
           </span>
           <div className="w-7 h-7 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn flex items-center justify-center shrink-0">
             <Clock className="w-3.5 h-3.5" />
