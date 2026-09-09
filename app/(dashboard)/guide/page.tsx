@@ -75,7 +75,7 @@ const SEEDING_STAGES = [
 const TROUBLE = [
   {
     q: "PPT 다운로드를 눌렀는데 에러가 납니다.",
-    a: "운영안·제안서 PPT는 적용할 템플릿을 고르고 [운영안 저장]을 누른 뒤에만 받을 수 있습니다. 저장 전이면 저장된 운영안이 없다는 안내가, 템플릿이 없으면 템플릿 안내가 뜹니다. 템플릿은 템플릿 설정의 공유 PPT 보관함에서 종류를 골라 업로드합니다.",
+    a: "운영안·제안서 PPT는 적용할 템플릿을 고르고 [운영안 저장]을 누른 뒤에만 받을 수 있습니다. 저장 전이면 저장된 운영안이 없다는 안내가, 템플릿이 없으면 템플릿 안내가 뜹니다. 템플릿은 템플릿 설정의 공용 PPT 관리에서 종류를 골라 업로드합니다.",
   },
   {
     q: "AI 버튼을 눌렀더니 AI 제안 실패라고 나옵니다.",
@@ -300,7 +300,7 @@ export default function GuidePage() {
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 text-xs font-bold text-blue-400">
             <FolderKanban className="w-4 h-4" />
-            <span>왼쪽 메뉴 · 인플루언서 시딩</span>
+            <span>인플루언서 시딩</span>
           </div>
           <h2 className="text-xl font-bold text-text">1. 인플루언서 시딩 5단계</h2>
           <p className="text-xs text-text-sub">
@@ -441,7 +441,7 @@ export default function GuidePage() {
               <p>• <strong>[현재 데이터로 새 결과보고서 생성]</strong>을 누르면 그 시점의 지원자·관리시트·성과가 <strong>스냅샷으로 저장</strong>됩니다. 이후 수치가 바뀌어도 보고서는 그대로 보존되므로, 최신 내용이 필요하면 보고서를 새로 만드세요.</p>
               <p>• <strong>[총평 편집 &amp; 열기]</strong>에서 총평과 추가 섹션을 쓴 뒤 내려받습니다.</p>
               <p>• <strong>[PDF 보고서 다운로드]</strong>는 한글이 정상 출력되고 성과 막대 차트가 들어갑니다. <strong>[PPTX 슬라이드 다운로드]</strong>는 파워포인트에서 그대로 편집할 수 있고, 표와 차트도 파워포인트 개체로 들어갑니다.</p>
-              <p>• PPTX는 적용할 템플릿을 고를 수 있습니다. 기본 템플릿이 이미 들어 있고, 회사 서식은 <strong>[템플릿 설정 → 공유 PPT 보관함]</strong>에 시딩 결과보고서 종류로 올리면 목록에 나타납니다.</p>
+              <p>• PPTX는 적용할 템플릿을 고를 수 있습니다. 기본 템플릿이 이미 들어 있고, 회사 서식은 <strong>[템플릿 설정 → 공용 PPT 관리]</strong>에 시딩 결과보고서 종류로 올리면 목록에 나타납니다.</p>
             </div>
           </div>
         </div>
@@ -452,7 +452,7 @@ export default function GuidePage() {
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 text-xs font-bold text-teal-400">
             <PartyPopper className="w-4 h-4" />
-            <span>왼쪽 메뉴 · 인플루언서 행사</span>
+            <span>인플루언서 행사</span>
           </div>
           <h2 className="text-xl font-bold text-text">2. 인플루언서 행사</h2>
           <p className="text-xs text-text-sub">
@@ -509,7 +509,7 @@ export default function GuidePage() {
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 text-xs font-bold text-accent2">
             <Camera className="w-4 h-4" />
-            <span>왼쪽 메뉴 · SNS 채널 운영</span>
+            <span>SNS 채널 운영</span>
           </div>
           <h2 className="text-xl font-bold text-text">3. SNS 공식 채널 대행 운영</h2>
           <p className="text-xs text-text-sub">
@@ -574,7 +574,7 @@ export default function GuidePage() {
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 text-xs font-bold text-blue-400">
             <Calendar className="w-4 h-4" />
-            <span>왼쪽 메뉴 · 통합 오버뷰 &amp; 캘린더</span>
+            <span>오버뷰</span>
           </div>
           <h2 className="text-xl font-bold text-text">4. 통합 오버뷰와 캘린더</h2>
           <p className="text-xs text-text-sub">진행 중인 모든 일정을 한 화면에 모아 놓친 마감을 막습니다.</p>
@@ -633,7 +633,7 @@ export default function GuidePage() {
             href="/settings/ppt-templates"
             className="p-5 rounded-2xl bg-surface border border-border hover:border-amber-500/40 transition space-y-2 group"
           >
-            <div className="text-xs font-bold text-warn group-hover:underline">공유 PPT 보관함 →</div>
+            <div className="text-xs font-bold text-warn group-hover:underline">공용 PPT 관리 →</div>
             <p className="text-xs text-text-sub leading-relaxed">
               회사 서식 .pptx를 올려 두면 운영안과 보고서를 그 서식으로 뽑습니다.
             </p>

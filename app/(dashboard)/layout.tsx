@@ -32,7 +32,7 @@ export default function DashboardLayout({
       group: "통합 일정",
       items: [
         {
-          name: "통합 오버뷰 & 캘린더",
+          name: "오버뷰",
           href: "/",
           // 오버뷰는 카테고리가 아니라 셋을 모두 덮는 화면이라 색을 주지 않는다.
           // 파랑은 시딩, 남색은 행사, 분홍은 SNS 를 뜻하므로 여기에 쓰면 뜻이 어긋난다.
@@ -43,7 +43,7 @@ export default function DashboardLayout({
       ],
     },
     {
-      group: "마케팅 프로젝트",
+      group: "프로젝트",
       items: [
         {
           name: "인플루언서 시딩",
@@ -75,7 +75,7 @@ export default function DashboardLayout({
           color: "text-text-sub",
         },
         {
-          name: "공유 PPT 보관함",
+          name: "공용 PPT 관리",
           href: "/settings/ppt-templates",
           icon: Presentation,
           color: "text-text-sub",
