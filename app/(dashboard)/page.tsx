@@ -65,8 +65,8 @@ export default async function DashboardOverviewPage({
           </div>
           <div className="h-8 w-px bg-border hidden sm:block" />
           <div className="text-left sm:text-right">
-            <span className="block text-[11px] text-accent font-semibold">이번주 발행 예정</span>
-            <span className="font-mono tabular-nums text-xl font-bold text-accent">{contentDueThisWeek}</span>
+            <span className="block text-[11px] text-accent-link font-semibold">이번주 발행 예정</span>
+            <span className="font-mono tabular-nums text-xl font-bold text-accent-link">{contentDueThisWeek}</span>
           </div>
         </div>
       </div>
@@ -88,7 +88,7 @@ export default async function DashboardOverviewPage({
         <div className="lg:col-span-2 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-text">진행중인 캠페인</h2>
-            <Link href="/campaigns" className="text-xs font-semibold text-accent inline-flex items-center gap-1 hover:underline">
+            <Link href="/campaigns" className="text-xs font-semibold text-accent-link inline-flex items-center gap-1 hover:underline">
               전체보기 <ArrowUpRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -102,7 +102,7 @@ export default async function DashboardOverviewPage({
                 <Link
                   key={c.id}
                   href={`/campaigns/${c.id}`}
-                  className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-surface border border-border hover:border-accent/40 transition"
+                  className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-surface border border-border hover:border-accent-link/40 transition"
                 >
                   <div className="space-y-1 min-w-0">
                     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold">

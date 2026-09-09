@@ -386,7 +386,7 @@ export default function PptTemplatesClient({
                         type="button"
                         disabled={savingEdit || !editName.trim()}
                         onClick={() => handleSaveEdit(t)}
-                        className="px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-bold inline-flex items-center gap-1 disabled:opacity-50"
+                        className="px-3 py-1.5 rounded-lg bg-accent text-accent-on text-xs font-bold inline-flex items-center gap-1 disabled:opacity-50"
                       >
                         {savingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                         저장

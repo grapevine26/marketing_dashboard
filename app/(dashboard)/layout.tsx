@@ -112,7 +112,7 @@ export default function DashboardLayout({
       {/* Mobile Top Header */}
       <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-sidebar/95 backdrop-blur-md border-b border-border">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center font-bold text-white text-xs shadow-sm">
+          <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center font-bold text-accent-on text-xs shadow-sm">
             M
           </div>
           <span className="font-bold text-text text-sm tracking-tight">마케팅 올인원</span>
@@ -147,7 +147,7 @@ export default function DashboardLayout({
         {/* Sidebar Brand Header */}
         <div className="px-2 flex items-center justify-between">
           <Link href="/" onClick={closeMenu} className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-accent flex items-center justify-center font-bold text-white shadow-sm">
+            <div className="w-8 h-8 rounded-xl bg-accent flex items-center justify-center font-bold text-accent-on shadow-sm">
               M
             </div>
             <div>
