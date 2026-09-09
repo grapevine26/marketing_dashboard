@@ -51,60 +51,60 @@ export default function PendingApprovalSnsCard({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="p-4 sm:p-5 rounded-3xl bg-surface border border-border hover:border-accent-link/40 hover:bg-surface2/30 transition duration-150 group flex flex-col justify-between space-y-3 shadow-xs text-left w-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent-link/30"
+        className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-surface border border-border hover:border-accent-link/40 hover:bg-surface2/30 transition duration-150 group flex flex-col justify-between space-y-2.5 sm:space-y-3 shadow-xs text-left w-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent-link/30 min-h-[100px] sm:min-h-[116px]"
         aria-label="승인 대기 콘텐츠 목록 확인"
       >
         <div className="flex items-center justify-between w-full">
-          <span className="text-xs font-semibold text-text-muted group-hover:text-text transition">
+          <span className="text-[11px] sm:text-xs font-semibold text-text-muted group-hover:text-text transition truncate">
             승인 대기 콘텐츠
           </span>
-          <div className="w-7 h-7 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn flex items-center justify-center shrink-0">
-            <Clock className="w-3.5 h-3.5" />
+          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn flex items-center justify-center shrink-0">
+            <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
           </div>
         </div>
         <div>
-          <div className="font-mono tabular-nums text-2xl sm:text-3xl font-bold text-text">
+          <div className="font-mono tabular-nums text-xl sm:text-3xl font-bold text-text">
             {count}
           </div>
-          <p className="text-[11px] text-text-sub mt-0.5">광고주 시안 컨펌 대기</p>
+          <p className="text-[10px] sm:text-[11px] text-text-sub mt-0.5 truncate">광고주 시안 컨펌 대기</p>
         </div>
       </button>
 
       {/* 승인 대기 콘텐츠 목록 모달 */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
           onClick={() => setIsOpen(false)}
         >
           <div
-            className="w-full max-w-xl bg-surface border border-border rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col font-sans relative text-left"
+            className="w-full max-w-xl bg-surface border border-border rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4 shadow-2xl max-h-[88vh] sm:max-h-[85vh] flex flex-col font-sans relative text-left"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-labelledby="pending-sns-modal-title"
           >
             {/* 헤더 */}
-            <div className="flex items-center justify-between pb-3 border-b border-border">
-              <div className="space-y-0.5">
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-border">
+              <div className="space-y-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-lg bg-amber-500/15 border border-amber-500/30 text-warn flex items-center justify-center shrink-0">
                     <Clock className="w-3.5 h-3.5" />
                   </div>
-                  <h3 id="pending-sns-modal-title" className="text-base font-bold text-text">
+                  <h3 id="pending-sns-modal-title" className="text-sm sm:text-base font-bold text-text truncate">
                     승인 대기 콘텐츠 목록
                   </h3>
-                  <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-warn border border-amber-500/30">
+                  <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-warn border border-amber-500/30 shrink-0">
                     {items.length}건
                   </span>
                 </div>
-                <p className="text-xs text-text-sub pl-8">
+                <p className="text-xs text-text-sub leading-relaxed">
                   광고주의 컨펌을 기다리고 있는 SNS 기획/시안 목록입니다. 항목을 클릭하면 해당 계정의 콘텐츠 관리 탭으로 이동합니다.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="text-text-muted hover:text-text p-1.5 rounded-xl hover:bg-surface2 transition"
+                className="text-text-muted hover:text-text p-2 rounded-xl hover:bg-surface2 transition shrink-0 touch-manipulation"
                 aria-label="닫기"
               >
                 <X className="w-5 h-5" />

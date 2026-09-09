@@ -82,4 +82,39 @@ test.describe("D. 통합 오버뷰", () => {
       await expect(page.getByText("선택된 준비항목")).toBeVisible();
     }
   });
+
+  test("모바일 뷰포트(375x667)에서 가로 스크롤 없이 깔끔하게 렌더링되고 달력/목록 전환 및 모달이 동작한다", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto("/");
+
+    // 1. 가로 스크롤 없음 검증
+    const hasHorizontalScroll = await page.evaluate(() => {
+      return document.documentElement.scrollWidth > document.documentElement.clientWidth;
+    });
+    expect(hasHorizontalScroll).toBe(false);
+
+    // 2. 상단 4대 KPI 카드가 정상 노출되는지 확인
+    await expect(page.getByText("진행중 캠페인")).toBeVisible();
+    await expect(page.getByText("준비중인 행사")).toBeVisible();
+    await expect(page.getByRole("button", { name: /승인 대기 콘텐츠/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /이번주 발행 예정/ })).toBeVisible();
+
+    // 3. 달력/목록 전환 뷰 동작 확인
+    const agendaBtn = page.getByRole("button", { name: "목록 뷰" });
+    await agendaBtn.click();
+    await expect(page.getByRole("button", { name: "목록 뷰" })).toHaveClass(/bg-surface/);
+
+    const calBtn = page.getByRole("button", { name: "달력 뷰" });
+    await calBtn.click();
+    await expect(page.getByRole("button", { name: "달력 뷰" })).toHaveClass(/bg-surface/);
+
+    // 4. 날짜 셀 클릭 시 일정 모달이 열리고 닫기 동작
+    const cell = page.locator(".grid.grid-cols-7 > div").filter({ hasText: "15" }).first();
+    if (await cell.isVisible()) {
+      await cell.click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await page.getByRole("button", { name: "닫기" }).click();
+      await expect(page.getByRole("dialog")).toBeHidden();
+    }
+  });
 });

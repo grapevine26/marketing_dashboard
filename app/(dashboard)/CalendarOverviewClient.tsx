@@ -82,7 +82,7 @@ export function UrgentItemsWidget({
   failedSources?: string[];
 }) {
   return (
-    <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-border space-y-4 shadow-sm">
+    <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-3.5 sm:space-y-4 shadow-sm">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-warn shrink-0" />
@@ -101,7 +101,7 @@ export function UrgentItemsWidget({
       )}
 
       {urgentItems.length === 0 ? (
-        <div className="p-7 text-center text-xs text-text-muted border border-dashed border-border rounded-2xl bg-bg space-y-1.5">
+        <div className="p-6 sm:p-7 text-center text-xs text-text-muted border border-dashed border-border rounded-2xl bg-bg space-y-1.5">
           <div className="inline-flex p-2 rounded-full bg-surface2 text-text-muted mb-1">
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           </div>
@@ -109,12 +109,12 @@ export function UrgentItemsWidget({
           <p className="text-[11px] text-text-sub">마감 3일 이내의 임박이나 지연된 항목이 없습니다.</p>
         </div>
       ) : (
-        <div className="space-y-2.5 max-h-[540px] overflow-y-auto pr-0.5">
+        <div className="space-y-2 max-h-[340px] sm:max-h-[540px] overflow-y-auto pr-0.5">
           {urgentItems.map((item) => (
             <Link
               key={item.id}
               href={item.linkUrl}
-              className={`p-3.5 rounded-2xl border transition flex flex-col justify-between space-y-2.5 group ${
+              className={`p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border transition flex flex-col justify-between space-y-2 group ${
                 item.daysDiff < 0
                   ? "bg-red-500/10 border-red-500/30 hover:border-red-500/60"
                   : item.daysDiff === 0
@@ -200,27 +200,28 @@ export default function CalendarOverviewClient({
   const datesWithItems = Object.keys(groupedByDate).sort();
 
   return (
-    <div className="space-y-6 font-sans">
+    <div className="space-y-4 sm:space-y-6 font-sans">
       {/* 긴급 일정 통합 렌더링 옵션 (단일 컬럼 모드 지원) */}
       {renderUrgent && (
         <UrgentItemsWidget urgentItems={urgentItems} failedSources={failedSources} />
       )}
 
       {/* 캘린더 카드 */}
-      <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-border space-y-4 shadow-sm">
+      <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-4 shadow-sm">
         {/* 상단 컨트롤 바 */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <CalendarIcon className="w-5 h-5 text-accent-link shrink-0" />
+            <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-accent-link shrink-0" />
             <h2 className="text-sm sm:text-base font-bold text-text">
-              {year}년 {month}월 전체 마케팅 통합 일정
+              <span className="sm:hidden">{month}월 마케팅 일정</span>
+              <span className="hidden sm:inline">{year}년 {month}월 전체 마케팅 통합 일정</span>
             </h2>
-            <span className="text-xs text-text-muted font-mono tabular-nums">
+            <span className="text-[11px] sm:text-xs text-text-muted font-mono tabular-nums">
               ({monthItems.length}건)
             </span>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
             {/* 달력 / 목록 뷰 모드 토글 */}
             <div className="flex items-center bg-bg p-1 rounded-xl border border-border">
               <button
@@ -260,7 +261,7 @@ export default function CalendarOverviewClient({
               >
                 <ChevronLeft className="w-4 h-4" />
               </Link>
-              <span className="text-xs font-bold text-text px-2 font-mono">{currentMonth}</span>
+              <span className="text-xs font-bold text-text px-1.5 sm:px-2 font-mono">{currentMonth}</span>
               <Link
                 href={`/?month=${nextMonth}`}
                 className="p-1.5 rounded-lg text-text-muted hover:text-text hover:bg-surface2 transition"
@@ -282,8 +283,8 @@ export default function CalendarOverviewClient({
 
         {/* 1) 바둑판 달력 뷰 */}
         {viewMode === "calendar" ? (
-          <div className="border border-border rounded-2xl overflow-hidden bg-bg">
-            <div className="grid grid-cols-7 text-center text-xs font-bold text-text-muted border-b border-border bg-surface py-2.5">
+          <div className="border border-border rounded-xl sm:rounded-2xl overflow-hidden bg-bg">
+            <div className="grid grid-cols-7 text-center text-xs font-bold text-text-muted border-b border-border bg-surface py-2 sm:py-2.5">
               <div className="text-red-400">일</div>
               <div>월</div>
               <div>화</div>
@@ -295,7 +296,7 @@ export default function CalendarOverviewClient({
 
             <div className="grid grid-cols-7 divide-x divide-y divide-border">
               {Array.from({ length: leadingBlanks }).map((_, idx) => (
-                <div key={`blank-${idx}`} className="h-20 sm:h-28 bg-bg/40" />
+                <div key={`blank-${idx}`} className="h-16 sm:h-28 bg-bg/40" />
               ))}
 
               {cells.map((cell) => {
@@ -305,7 +306,7 @@ export default function CalendarOverviewClient({
                   <div
                     key={cell.dateStr}
                     onClick={() => setSelectedDay(cell.dateStr)}
-                    className={`h-20 sm:h-28 p-1 sm:p-2 flex flex-col justify-between cursor-pointer transition ${
+                    className={`h-16 sm:h-28 p-1 sm:p-2 flex flex-col justify-between cursor-pointer transition ${
                       isSelected
                         ? "bg-accent-link/15 ring-2 ring-inset ring-accent-link/60"
                         : cell.isToday
@@ -324,13 +325,37 @@ export default function CalendarOverviewClient({
                         {cell.dayNum}
                       </span>
                       {items.length > 0 && (
-                        <span className="w-4 h-4 rounded-full bg-accent-link/20 text-accent-link text-[10px] font-bold flex items-center justify-center font-mono">
+                        <span className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-accent-link/20 text-accent-link text-[9px] sm:text-[10px] font-bold flex items-center justify-center font-mono">
                           {items.length}
                         </span>
                       )}
                     </div>
 
-                    <div className="space-y-1 overflow-hidden">
+                    {/* 모바일 뷰: 깔끔한 색상 도트 표시 (sm:hidden) */}
+                    <div className="flex sm:hidden items-center justify-center gap-1 py-1 flex-wrap min-h-[14px]">
+                      {items.slice(0, 3).map((item) => {
+                        const dotColor =
+                          item.source === "seeding"
+                            ? "bg-blue-400"
+                            : item.source === "event" || item.source === "event_checklist"
+                            ? "bg-teal-400"
+                            : "bg-accent2";
+                        return (
+                          <span
+                            key={item.id}
+                            className={`w-1.5 h-1.5 rounded-full ${dotColor}`}
+                          />
+                        );
+                      })}
+                      {items.length > 3 && (
+                        <span className="text-[8px] font-mono text-text-muted">
+                          +{items.length - 3}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 데스크톱 뷰: 텍스트 배지 표시 (hidden sm:block) */}
+                    <div className="hidden sm:block space-y-1 overflow-hidden">
                       {items.slice(0, MAX_PER_CELL).map((item) => {
                         const tone = SOURCE_BADGE[item.source].cell;
                         return (
@@ -437,22 +462,24 @@ export default function CalendarOverviewClient({
       {/* 날짜 클릭 모달 */}
       {selectedDay && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
           onClick={() => setSelectedDay(null)}
         >
           <div
-            className="w-full max-w-lg bg-surface border border-border rounded-3xl p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col font-sans"
+            className="w-full max-w-lg bg-surface border border-border rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4 shadow-2xl max-h-[88vh] sm:max-h-[85vh] flex flex-col font-sans"
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
           >
-            <div className="flex items-center justify-between pb-2 border-b border-border">
-              <div>
-                <h3 className="text-base font-bold text-text font-mono">{selectedDay} 전체 일정</h3>
-                <p className="text-xs text-text-muted">해당 날짜에 예정된 마케팅 업무 목록입니다.</p>
+            <div className="flex items-start justify-between gap-3 pb-2 border-b border-border">
+              <div className="min-w-0">
+                <h3 className="text-sm sm:text-base font-bold text-text font-mono truncate">{selectedDay} 전체 일정</h3>
+                <p className="text-xs text-text-muted mt-0.5">해당 날짜에 예정된 마케팅 업무 목록입니다.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedDay(null)}
-                className="text-text-muted hover:text-text p-1 rounded-lg hover:bg-surface2 transition"
+                className="text-text-muted hover:text-text p-2 rounded-xl hover:bg-surface2 transition shrink-0 touch-manipulation"
                 aria-label="닫기"
               >
                 <X className="w-5 h-5" />

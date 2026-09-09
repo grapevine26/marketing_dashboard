@@ -47,48 +47,48 @@ export default async function DashboardOverviewPage({
   const accountNameById = new Map(snsAccounts.map((a) => [a.id, `${a.company_name} · @${a.handle}`]));
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto font-sans">
-      {/* 1. 상단 클릭형 KPI 통계 카드 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto font-sans">
+      {/* 1. 상단 클릭형 KPI 통계 카드 (모바일 2열 정렬 및 균일 높이 보장) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* 진행중 캠페인 */}
         <Link
           href="/campaigns"
-          className="p-4 sm:p-5 rounded-3xl bg-surface border border-border hover:border-accent-link/40 hover:bg-surface2/30 transition duration-150 group flex flex-col justify-between space-y-3 shadow-xs"
+          className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-surface border border-border hover:border-accent-link/40 hover:bg-surface2/30 transition duration-150 group flex flex-col justify-between space-y-2.5 sm:space-y-3 shadow-xs min-h-[100px] sm:min-h-[116px]"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-text-muted group-hover:text-text transition">
+            <span className="text-[11px] sm:text-xs font-semibold text-text-muted group-hover:text-text transition truncate">
               진행중 캠페인
             </span>
-            <div className="w-7 h-7 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
-              <FolderKanban className="w-3.5 h-3.5" />
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+              <FolderKanban className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             </div>
           </div>
           <div>
-            <div className="font-mono tabular-nums text-2xl sm:text-3xl font-bold text-text">
+            <div className="font-mono tabular-nums text-xl sm:text-3xl font-bold text-text">
               {summary.activeCampaignCount}
             </div>
-            <p className="text-[11px] text-text-sub mt-0.5">시딩 및 초청 행사 관리</p>
+            <p className="text-[10px] sm:text-[11px] text-text-sub mt-0.5 truncate">시딩 및 초청 행사 관리</p>
           </div>
         </Link>
 
         {/* 준비중인 행사 */}
         <Link
           href="/events"
-          className="p-4 sm:p-5 rounded-3xl bg-surface border border-border hover:border-accent-link/40 hover:bg-surface2/30 transition duration-150 group flex flex-col justify-between space-y-3 shadow-xs"
+          className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-surface border border-border hover:border-accent-link/40 hover:bg-surface2/30 transition duration-150 group flex flex-col justify-between space-y-2.5 sm:space-y-3 shadow-xs min-h-[100px] sm:min-h-[116px]"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-text-muted group-hover:text-text transition">
+            <span className="text-[11px] sm:text-xs font-semibold text-text-muted group-hover:text-text transition truncate">
               준비중인 행사
             </span>
-            <div className="w-7 h-7 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center shrink-0">
-              <PartyPopper className="w-3.5 h-3.5" />
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center shrink-0">
+              <PartyPopper className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             </div>
           </div>
           <div>
-            <div className="font-mono tabular-nums text-2xl sm:text-3xl font-bold text-text">
+            <div className="font-mono tabular-nums text-xl sm:text-3xl font-bold text-text">
               {summary.preparingEventCount}
             </div>
-            <p className="text-[11px] text-text-sub mt-0.5">오프라인 초청 및 팝업</p>
+            <p className="text-[10px] sm:text-[11px] text-text-sub mt-0.5 truncate">오프라인 초청 및 팝업</p>
           </div>
         </Link>
 
@@ -105,10 +105,17 @@ export default async function DashboardOverviewPage({
         />
       </div>
 
-      {/* 2. 데스크톱 2단 스플릿 메인 대시보드 */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-        {/* 좌측 메인 워크스페이스 (8/12 컬럼) */}
-        <div className="xl:col-span-8 space-y-6 order-2 xl:order-1">
+      {/* 모바일 전용: 긴급 조치 일정 피드 (xl:hidden) - 마감 임박 또는 지연이 있을 때 캘린더 위에 우선 배치 */}
+      {urgentItems.length > 0 && (
+        <div className="xl:hidden">
+          <UrgentItemsWidget urgentItems={urgentItems} failedSources={failedSources} />
+        </div>
+      )}
+
+      {/* 2. 데스크톱 2단 스플릿 / 모바일 자연스러운 순서 레이아웃 */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 items-start">
+        {/* 메인 워크스페이스 (xl: 8/12 컬럼) */}
+        <div className="xl:col-span-8 space-y-4 sm:space-y-6">
           {/* 마케팅 통합 캘린더 (달력/목록 뷰 토글 지원) */}
           <CalendarOverviewClient
             currentMonth={currentMonth}
@@ -124,10 +131,10 @@ export default async function DashboardOverviewPage({
           />
 
           {/* 진행중인 캠페인 카드 섹션 */}
-          <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-border space-y-4 shadow-sm">
+          <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-3.5 sm:space-y-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <FolderKanban className="w-5 h-5 text-blue-400" />
+                <FolderKanban className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                 <h2 className="text-sm sm:text-base font-bold text-text">진행중인 캠페인</h2>
               </div>
               <Link
@@ -139,16 +146,16 @@ export default async function DashboardOverviewPage({
             </div>
 
             {summary.activeCampaigns.length === 0 ? (
-              <div className="p-8 text-center text-xs text-text-muted border border-dashed border-border rounded-2xl bg-bg">
+              <div className="p-6 sm:p-8 text-center text-xs text-text-muted border border-dashed border-border rounded-xl sm:rounded-2xl bg-bg">
                 현재 진행중인 캠페인이 없습니다.
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                 {summary.activeCampaigns.map((c) => (
                   <Link
                     key={c.id}
                     href={`/campaigns/${c.id}`}
-                    className="flex flex-col justify-between gap-3 p-4 rounded-2xl bg-bg border border-border hover:border-accent-link/40 transition group"
+                    className="flex flex-col justify-between gap-2.5 sm:gap-3 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-bg border border-border hover:border-accent-link/40 transition group"
                   >
                     <div className="space-y-1.5 min-w-0">
                       <div className="flex items-center justify-between gap-2">
@@ -172,13 +179,15 @@ export default async function DashboardOverviewPage({
           </div>
         </div>
 
-        {/* 우측 액션 사이드 패널 (4/12 컬럼) */}
-        <div className="xl:col-span-4 space-y-6 order-1 xl:order-2">
-          {/* 긴급 조치 일정 피드 */}
-          <UrgentItemsWidget urgentItems={urgentItems} failedSources={failedSources} />
+        {/* 액션 사이드 패널 (xl: 4/12 컬럼) */}
+        <div className="xl:col-span-4 space-y-4 sm:space-y-6">
+          {/* 데스크톱 전용: 긴급 조치 일정 피드 (hidden xl:block) */}
+          <div className="hidden xl:block">
+            <UrgentItemsWidget urgentItems={urgentItems} failedSources={failedSources} />
+          </div>
 
           {/* 최근 플랫폼 활동 로그 */}
-          <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-border space-y-4 shadow-sm">
+          <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-3.5 sm:space-y-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-text-sub shrink-0" />
@@ -187,11 +196,11 @@ export default async function DashboardOverviewPage({
             </div>
 
             {recentLogs.length === 0 ? (
-              <div className="p-7 text-center text-xs text-text-muted border border-dashed border-border rounded-2xl bg-bg">
+              <div className="p-6 sm:p-7 text-center text-xs text-text-muted border border-dashed border-border rounded-xl sm:rounded-2xl bg-bg">
                 아직 기록된 최근 활동이 없습니다.
               </div>
             ) : (
-              <div className="rounded-2xl bg-bg border border-border divide-y divide-border overflow-hidden">
+              <div className="rounded-xl sm:rounded-2xl bg-bg border border-border divide-y divide-border overflow-hidden">
                 {recentLogs.map((log) => {
                   const context = log.campaign_id
                     ? campaignNameById.get(log.campaign_id)
@@ -199,7 +208,7 @@ export default async function DashboardOverviewPage({
                     ? accountNameById.get(log.account_id)
                     : undefined;
                   return (
-                    <div key={log.id} className="p-3.5 space-y-1">
+                    <div key={log.id} className="p-3 sm:p-3.5 space-y-1">
                       <div className="text-xs text-text leading-snug">{log.summary}</div>
                       <div className="text-[10px] text-text-muted font-mono tabular-nums flex items-center justify-between">
                         <span>
