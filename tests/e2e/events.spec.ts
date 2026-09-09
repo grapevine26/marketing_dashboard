@@ -70,4 +70,20 @@ test.describe("B. 인플루언서 행사", () => {
     await expect(page.getByText("AI 제안 실패 — 직접 입력해주세요.")).toBeVisible();
     await expect(brandField).toHaveValue(before);
   });
+
+  test("전체 행사 관리 페이지(/events)에서 검색 및 캠페인 드롭다운 필터가 동작한다", async ({ page }) => {
+    await page.goto("/events");
+    await expect(page.getByRole("heading", { name: "인플루언서 행사 관리 (전체)" })).toBeVisible();
+    const searchInput = page.getByPlaceholder("행사명, 브랜드명, 장소 검색...");
+    await expect(searchInput).toBeVisible();
+
+    const campaignSelect = page.locator("select").filter({ hasText: /전체 캠페인/ });
+    await expect(campaignSelect).toBeVisible();
+
+    await searchInput.fill("존재하지않은행사이름XYZ");
+    await expect(page.getByText("선택한 조건에 해당하는 행사가 없습니다.")).toBeVisible();
+
+    await page.getByRole("button", { name: "필터 초기화" }).click();
+    await expect(searchInput).toHaveValue("");
+  });
 });
