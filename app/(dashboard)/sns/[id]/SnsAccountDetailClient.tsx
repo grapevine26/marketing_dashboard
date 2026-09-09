@@ -54,6 +54,7 @@ import {
   UploadCloud,
   RotateCcw,
   ShieldAlert,
+  Search,
 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
 
@@ -158,6 +159,45 @@ export default function SnsAccountDetailClient({
   // Performance inputs
   const [perfInputs, setPerfInputs] = useState<Record<string, { views: string; likes: string; comments: string; postUrl: string }>>({});
   const [savingPerfId, setSavingPerfId] = useState<string | null>(null);
+
+  // List tab search & filter
+  const [contentSearch, setContentSearch] = useState("");
+  const [contentStatusFilter, setContentStatusFilter] = useState<"all" | SnsContentStatus>("all");
+  const [contentAssigneeFilter, setContentAssigneeFilter] = useState<string>("all");
+
+  const assignees = useMemo(() => {
+    const set = new Set<string>();
+    contents.forEach((c) => {
+      if (c.assignee && c.assignee.trim()) {
+        set.add(c.assignee.trim());
+      }
+    });
+    return Array.from(set).sort();
+  }, [contents]);
+
+  const isListFiltered = contentSearch !== "" || contentStatusFilter !== "all" || contentAssigneeFilter !== "all";
+
+  const handleResetListFilters = () => {
+    setContentSearch("");
+    setContentStatusFilter("all");
+    setContentAssigneeFilter("all");
+  };
+
+  const filteredContents = useMemo(() => {
+    const q = contentSearch.trim().toLowerCase();
+    return contents.filter((c) => {
+      if (contentStatusFilter !== "all" && c.status !== contentStatusFilter) return false;
+      if (contentAssigneeFilter !== "all" && c.assignee !== contentAssigneeFilter) return false;
+      if (q) {
+        const titleMatch = (c.title || "").toLowerCase().includes(q);
+        const captionMatch = (c.caption || "").toLowerCase().includes(q);
+        const hashtagMatch = (c.hashtags || "").toLowerCase().includes(q);
+        const assigneeMatch = (c.assignee || "").toLowerCase().includes(q);
+        return titleMatch || captionMatch || hashtagMatch || assigneeMatch;
+      }
+      return true;
+    });
+  }, [contents, contentSearch, contentStatusFilter, contentAssigneeFilter]);
 
   // Monthly aggregation
   const postedContents = contents.filter((c) => c.status === "posted");
@@ -770,13 +810,103 @@ export default function SnsAccountDetailClient({
 
       {/* List */}
       {activeTab === "list" && (
-        <div className="space-y-3">
+        <div className="space-y-4">
+          {/* List Search and Filter Toolbar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface/50 p-2.5 sm:p-3 rounded-2xl border border-border">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Status Filter */}
+              <select
+                value={contentStatusFilter}
+                onChange={(e) => setContentStatusFilter(e.target.value as "all" | SnsContentStatus)}
+                className="px-2.5 py-1.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-accent2 font-medium"
+                title="콘텐츠 상태별 필터"
+              >
+                <option value="all">전체 상태 ({contents.length})</option>
+                {SNS_CONTENT_STATUSES.map((s, i) => {
+                  const cnt = contents.filter((c) => c.status === s).length;
+                  return (
+                    <option key={s} value={s}>
+                      {i + 1}. {SNS_CONTENT_STATUS_LABELS[s]} ({cnt})
+                    </option>
+                  );
+                })}
+              </select>
+
+              {/* Assignee Filter */}
+              {assignees.length > 0 && (
+                <select
+                  value={contentAssigneeFilter}
+                  onChange={(e) => setContentAssigneeFilter(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-accent2 font-medium"
+                  title="담당자 필터"
+                >
+                  <option value="all">전체 담당자</option>
+                  {assignees.map((a) => (
+                    <option key={a} value={a}>
+                      담당: {a}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {isListFiltered && (
+                <button
+                  type="button"
+                  onClick={handleResetListFilters}
+                  className="px-2.5 py-1.5 rounded-xl bg-surface2 hover:bg-surface3 text-text-muted hover:text-text text-xs transition inline-flex items-center gap-1 border border-border"
+                  title="필터 초기화"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>초기화</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="relative w-full sm:w-64">
+                <input
+                  type="text"
+                  value={contentSearch}
+                  onChange={(e) => setContentSearch(e.target.value)}
+                  placeholder="제목, 본문, 해시태그 검색..."
+                  className="w-full pl-8 pr-7 py-1.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-accent2"
+                />
+                <Search className="w-3.5 h-3.5 text-text-muted absolute left-2.5 top-2.5" />
+                {contentSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setContentSearch("")}
+                    className="absolute right-2 top-2 text-text-muted hover:text-text p-0.5"
+                    title="검색어 지우기"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+              <span className="text-[11px] text-text-muted whitespace-nowrap font-mono shrink-0 hidden md:inline">
+                {filteredContents.length} / {contents.length}건
+              </span>
+            </div>
+          </div>
+
           {contents.length === 0 ? (
             <div className="p-8 text-center text-text-muted text-xs border border-dashed border-border rounded-2xl bg-surface">
               등록된 콘텐츠가 없습니다. 상단의 [새 콘텐츠 기획]을 눌러 첫 콘텐츠를 등록하세요.
             </div>
+          ) : filteredContents.length === 0 ? (
+            <div className="p-8 text-center text-text-sub text-xs border border-dashed border-border rounded-2xl bg-surface space-y-2">
+              <p>검색 및 필터 조건에 일치하는 콘텐츠가 없습니다.</p>
+              <button
+                type="button"
+                onClick={handleResetListFilters}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface2 hover:bg-surface3 border border-border text-xs text-text font-medium transition"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-text-sub" />
+                <span>필터 초기화</span>
+              </button>
+            </div>
           ) : (
-            contents.map((c) => {
+            filteredContents.map((c) => {
               const perf = perfOf(c);
               return (
                 <div

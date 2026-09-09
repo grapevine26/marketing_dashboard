@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { SnsAccount } from "@/lib/db/types";
+import { SnsAccount, SnsPlatform } from "@/lib/db/types";
 import { deleteSnsAccountAction } from "./actions";
 import NewSnsAccountModal from "./NewSnsAccountModal";
 import {
@@ -15,6 +15,7 @@ import {
   X,
   Search,
   Archive,
+  RotateCcw,
 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
 
@@ -26,6 +27,7 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
   const router = useRouter();
   const [accounts, setAccounts] = useState<SnsAccount[]>(initialAccounts);
   const [filter, setFilter] = useState<"active" | "all" | "ended">("active");
+  const [selectedPlatform, setSelectedPlatform] = useState<"all" | SnsPlatform>("all");
   const [search, setSearch] = useState("");
   const [targetAccount, setTargetAccount] = useState<SnsAccount | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -34,10 +36,19 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
   const activeCount = accounts.filter((a) => a.status === "active").length;
   const endedCount = accounts.filter((a) => a.status === "ended").length;
 
+  const isFiltered = search !== "" || selectedPlatform !== "all" || filter !== "active";
+
+  const handleResetFilters = () => {
+    setSearch("");
+    setSelectedPlatform("all");
+    setFilter("active");
+  };
+
   const q = search.trim().toLowerCase();
   const filteredAccounts = accounts.filter((a) => {
     if (filter === "active" && a.status !== "active") return false;
     if (filter === "ended" && a.status !== "ended") return false;
+    if (selectedPlatform !== "all" && a.platform !== selectedPlatform) return false;
     if (q) {
       return (
         a.company_name.toLowerCase().includes(q) ||
@@ -80,12 +91,12 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
       </div>
 
       {/* Filter Tabs and Search */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-surface/50 p-2.5 sm:p-3 rounded-2xl border border-border">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setFilter("active")}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
               filter === "active"
                 ? "bg-accent2 text-white shadow-sm"
                 : "bg-surface text-text-sub hover:text-text border border-border"
@@ -96,7 +107,7 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
           <button
             type="button"
             onClick={() => setFilter("all")}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
               filter === "all"
                 ? "bg-accent2 text-white shadow-sm"
                 : "bg-surface text-text-sub hover:text-text border border-border"
@@ -118,17 +129,60 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
               <span>계약종료/보관 ({endedCount})</span>
             </button>
           )}
+
+          <div className="h-4 w-px bg-border mx-1 hidden sm:block" />
+
+          {/* Platform Filter */}
+          <select
+            value={selectedPlatform}
+            onChange={(e) => setSelectedPlatform(e.target.value as "all" | SnsPlatform)}
+            className="px-2.5 py-1.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-accent2 font-medium"
+            title="플랫폼 필터"
+          >
+            <option value="all">전체 플랫폼</option>
+            <option value="instagram">Instagram</option>
+            <option value="youtube">YouTube</option>
+            <option value="tiktok">TikTok</option>
+            <option value="other">기타 채널</option>
+          </select>
+
+          {isFiltered && (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="px-2.5 py-1.5 rounded-xl bg-surface2 hover:bg-surface3 text-text-muted hover:text-text text-xs transition inline-flex items-center gap-1 border border-border"
+              title="필터 초기화"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>초기화</span>
+            </button>
+          )}
         </div>
 
-        <div className="relative w-full sm:w-64">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="브랜드명, 핸들(@...) 검색..."
-            className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-accent2"
-          />
-          <Search className="w-3.5 h-3.5 text-text-muted absolute left-2.5 top-2.5" />
+        <div className="flex items-center gap-2">
+          <div className="relative w-full sm:w-64">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="브랜드명, 핸들(@...) 검색..."
+              className="w-full pl-8 pr-7 py-1.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-accent2"
+            />
+            <Search className="w-3.5 h-3.5 text-text-muted absolute left-2.5 top-2.5" />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-2 text-text-muted hover:text-text p-0.5"
+                title="검색어 지우기"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          <span className="text-[11px] text-text-muted whitespace-nowrap font-mono shrink-0 hidden lg:inline">
+            총 {filteredAccounts.length}건
+          </span>
         </div>
       </div>
 
@@ -138,9 +192,20 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
           <p className="text-text-sub text-xs sm:text-sm">
             {filter === "ended"
               ? "계약 종료되어 보관된 SNS 계정이 없습니다."
+              : isFiltered
+              ? "검색 및 필터 조건에 일치하는 SNS 계정이 없습니다."
               : "등록된 SNS 대행 계정이 없습니다."}
           </p>
-          {filter === "active" && (
+          {isFiltered ? (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface2 hover:bg-surface3 border border-border text-xs text-text font-medium transition"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-text-sub" />
+              <span>필터 초기화</span>
+            </button>
+          ) : filter === "active" && (
             <p className="text-text-muted text-xs">상단의 [새 계정 등록] 버튼을 눌러 인스타그램/유튜브 대행 계정을 등록하세요.</p>
           )}
         </div>

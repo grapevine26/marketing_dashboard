@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Campaign, CAMPAIGN_STATUS_LABELS } from "@/lib/db/types";
+import { Campaign, CampaignType, CampaignStatus, CAMPAIGN_STATUS_LABELS } from "@/lib/db/types";
 import { deleteCampaignAction } from "./[id]/actions";
 import {
   FolderKanban,
@@ -16,6 +16,7 @@ import {
   X,
   Search,
   Archive,
+  RotateCcw,
 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
 
@@ -27,6 +28,8 @@ export default function CampaignsListClient({ initialCampaigns }: CampaignsListC
   const router = useRouter();
   const [campaigns, setCampaigns] = useState<Campaign[]>(initialCampaigns);
   const [filter, setFilter] = useState<"active" | "all" | "completed">("active");
+  const [selectedType, setSelectedType] = useState<"all" | CampaignType>("all");
+  const [selectedStatus, setSelectedStatus] = useState<"all" | CampaignStatus>("all");
   const [search, setSearch] = useState("");
   const [targetCampaign, setTargetCampaign] = useState<Campaign | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -35,10 +38,26 @@ export default function CampaignsListClient({ initialCampaigns }: CampaignsListC
   const activeCount = campaigns.filter((c) => c.status !== "completed").length;
   const completedCount = campaigns.filter((c) => c.status === "completed").length;
 
+  const isFiltered = search !== "" || selectedType !== "all" || selectedStatus !== "all" || filter !== "active";
+
+  const handleResetFilters = () => {
+    setSearch("");
+    setSelectedType("all");
+    setSelectedStatus("all");
+    setFilter("active");
+  };
+
   const q = search.trim().toLowerCase();
   const filteredCampaigns = campaigns.filter((c) => {
-    if (filter === "active" && c.status === "completed") return false;
-    if (filter === "completed" && c.status !== "completed") return false;
+    if (selectedStatus !== "all") {
+      if (c.status !== selectedStatus) return false;
+    } else {
+      if (filter === "active" && c.status === "completed") return false;
+      if (filter === "completed" && c.status !== "completed") return false;
+    }
+
+    if (selectedType !== "all" && c.campaign_type !== selectedType) return false;
+
     if (q) {
       return (
         c.name.toLowerCase().includes(q) ||
@@ -88,13 +107,16 @@ export default function CampaignsListClient({ initialCampaigns }: CampaignsListC
       </div>
 
       {/* Filter Tabs and Search */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-surface/50 p-2.5 sm:p-3 rounded-2xl border border-border">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => setFilter("active")}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${
-              filter === "active"
+            onClick={() => {
+              setFilter("active");
+              setSelectedStatus("all");
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+              filter === "active" && selectedStatus === "all"
                 ? "bg-blue-600 text-white shadow-sm"
                 : "bg-surface text-text-sub hover:text-text border border-border"
             }`}
@@ -103,9 +125,12 @@ export default function CampaignsListClient({ initialCampaigns }: CampaignsListC
           </button>
           <button
             type="button"
-            onClick={() => setFilter("all")}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${
-              filter === "all"
+            onClick={() => {
+              setFilter("all");
+              setSelectedStatus("all");
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+              filter === "all" && selectedStatus === "all"
                 ? "bg-blue-600 text-white shadow-sm"
                 : "bg-surface text-text-sub hover:text-text border border-border"
             }`}
@@ -115,9 +140,12 @@ export default function CampaignsListClient({ initialCampaigns }: CampaignsListC
           {completedCount > 0 && (
             <button
               type="button"
-              onClick={() => setFilter("completed")}
+              onClick={() => {
+                setFilter("completed");
+                setSelectedStatus("all");
+              }}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 ${
-                filter === "completed"
+                filter === "completed" && selectedStatus === "all"
                   ? "bg-zinc-700 text-white shadow-sm"
                   : "bg-surface text-text-muted hover:text-text border border-border"
               }`}
@@ -126,17 +154,82 @@ export default function CampaignsListClient({ initialCampaigns }: CampaignsListC
               <span>완료/보관 ({completedCount})</span>
             </button>
           )}
+
+          <div className="h-4 w-px bg-border mx-1 hidden sm:block" />
+
+          {/* Type Filter */}
+          <select
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value as "all" | CampaignType)}
+            className="px-2.5 py-1.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500 font-medium"
+            title="캠페인 유형 필터"
+          >
+            <option value="all">전체 유형</option>
+            <option value="shipping">배송형</option>
+            <option value="visit">방문형</option>
+          </select>
+
+          {/* Detailed Status Filter */}
+          <select
+            value={selectedStatus}
+            onChange={(e) => {
+              const val = e.target.value as "all" | CampaignStatus;
+              setSelectedStatus(val);
+              if (val === "completed") {
+                setFilter("completed");
+              } else if (val !== "all") {
+                setFilter("all");
+              }
+            }}
+            className="px-2.5 py-1.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500 font-medium"
+            title="캠페인 세부 단계 필터"
+          >
+            <option value="all">전체 세부단계</option>
+            <option value="draft">준비중</option>
+            <option value="recruiting">모집중</option>
+            <option value="selecting">선정중</option>
+            <option value="seeding">시딩 진행중</option>
+            <option value="reporting">보고서 작성</option>
+            <option value="completed">종료</option>
+          </select>
+
+          {isFiltered && (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="px-2.5 py-1.5 rounded-xl bg-surface2 hover:bg-surface3 text-text-muted hover:text-text text-xs transition inline-flex items-center gap-1 border border-border"
+              title="필터 초기화"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>초기화</span>
+            </button>
+          )}
         </div>
 
-        <div className="relative w-full sm:w-64">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="캠페인명, 브랜드 검색..."
-            className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500"
-          />
-          <Search className="w-3.5 h-3.5 text-text-muted absolute left-2.5 top-2.5" />
+        <div className="flex items-center gap-2">
+          <div className="relative w-full sm:w-64">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="캠페인명, 브랜드 검색..."
+              className="w-full pl-8 pr-7 py-1.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500"
+            />
+            <Search className="w-3.5 h-3.5 text-text-muted absolute left-2.5 top-2.5" />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-2 text-text-muted hover:text-text p-0.5"
+                title="검색어 지우기"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          <span className="text-[11px] text-text-muted whitespace-nowrap font-mono shrink-0 hidden lg:inline">
+            총 {filteredCampaigns.length}건
+          </span>
         </div>
       </div>
 
@@ -145,9 +238,20 @@ export default function CampaignsListClient({ initialCampaigns }: CampaignsListC
           <p className="text-text-sub">
             {filter === "completed"
               ? "완료되어 보관된 캠페인이 없습니다."
+              : isFiltered
+              ? "검색 및 필터 조건에 일치하는 캠페인이 없습니다."
               : "진행 중인 캠페인이 없습니다."}
           </p>
-          {filter === "active" && (
+          {isFiltered ? (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface2 hover:bg-surface3 border border-border text-xs text-text font-medium transition"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-text-sub" />
+              <span>필터 초기화</span>
+            </button>
+          ) : filter === "active" && (
             <Link
               href="/campaigns/new"
               className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:underline font-semibold"
