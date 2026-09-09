@@ -33,8 +33,11 @@ export default function DashboardLayout({
         {
           name: "통합 오버뷰 & 캘린더",
           href: "/",
+          // 오버뷰는 카테고리가 아니라 셋을 모두 덮는 화면이라 색을 주지 않는다.
+          // 파랑은 시딩, 남색은 행사, 분홍은 SNS 를 뜻하므로 여기에 쓰면 뜻이 어긋난다.
+          // 설정·가이드(text-text-sub)보다는 한 단계 밝게 둬서 보조 메뉴로 보이지 않게 한다.
           icon: Calendar,
-          color: "text-blue-500",
+          color: "text-text-2",
         },
       ],
     },
