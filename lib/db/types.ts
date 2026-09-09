@@ -92,7 +92,7 @@ export function templateStorageKey(templateId: string, version?: number): string
 
 export const MAX_PPT_TEMPLATE_BYTES = 15 * 1024 * 1024;
 
-// Subproject A: Seeding Types
+// 캠페인과 인플루언서 시딩
 export type CampaignType = "shipping" | "visit";
 export type CampaignStatus = "draft" | "recruiting" | "selecting" | "seeding" | "reporting" | "completed";
 export type ApplicantStatus = "applied" | "selected" | "reserved" | "rejected";
@@ -369,7 +369,7 @@ export interface PptTemplate {
   uploaded_at: string;
 }
 
-// Subproject B: Event Types (Belongs to Campaign)
+// 인플루언서 행사. 캠페인에 속한다.
 export type EventStatus = "preparing" | "done" | "canceled";
 export type EventRsvpStatus = "pending" | "attending" | "not_attending";
 
@@ -422,7 +422,7 @@ export interface EventPlan {
   updated_at: string;
 }
 
-// Subproject C: SNS Operation Types (Independent Accounts)
+// SNS 채널 운영. 캠페인과 무관한 독립 계정 단위다.
 export type SnsPlatform = "instagram" | "youtube" | "tiktok" | "other";
 export type SnsAccountStatus = "active" | "ended";
 export type SnsContentStatus =
@@ -552,7 +552,7 @@ export function toReviewableSnsContent(c: SnsContent): ReviewableSnsContent {
   };
 }
 
-// Audit Log Types (Backlog 2-6)
+// 감사 로그
 export type AuditActorType = "agency" | "company" | "public" | "system";
 
 export interface AuditLogEntry {

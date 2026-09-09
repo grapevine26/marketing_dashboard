@@ -787,7 +787,7 @@ export async function getAuditLogs(filter?: {
   return logs.slice(0, limit);
 }
 
-// ---------- 1. Campaigns & Seeding (Subproject A) ----------
+// ---------- 캠페인과 인플루언서 시딩 ----------
 
 export async function getCampaigns(): Promise<Campaign[]> {
   const db = await readDb();
@@ -1431,7 +1431,7 @@ export async function createReport(campaignId: string, title?: string): Promise<
   });
 }
 
-// ---------- 2. Shared PPT Templates (Subprojects B & C) ----------
+// ---------- 공유 PPT 템플릿 (행사·SNS 운영안이 함께 쓴다) ----------
 
 export async function getPptTemplates(kind?: PptTemplate["kind"]): Promise<PptTemplate[]> {
   const db = await readDb();
@@ -1755,7 +1755,7 @@ export async function deletePptTemplate(id: string): Promise<boolean> {
   return true;
 }
 
-// ---------- 3. Events (Subproject B) ----------
+// ---------- 인플루언서 행사 (캠페인에 속한다) ----------
 
 export async function getEventsByCampaignId(campaignId: string): Promise<MarketingEvent[]> {
   const db = await readDb();
@@ -2023,7 +2023,7 @@ export async function saveEventPlan(data: {
   });
 }
 
-// ---------- 4. SNS Accounts & Operations (Subproject C) ----------
+// ---------- SNS 채널 운영 (캠페인과 무관한 독립 계정) ----------
 
 export async function getSnsAccounts(): Promise<SnsAccount[]> {
   const db = await readDb();
@@ -2696,7 +2696,7 @@ export async function reviewSnsContent(data: {
   });
 }
 
-// Compatibility aliases for Subproject A
+// 예전 이름으로 부르던 곳을 위한 별칭.
 export { savePreSurveyResponse as upsertPreSurveyResponse };
 export { getFormConfig as getCampaignFormConfig };
 export { saveFormConfig as upsertCampaignFormConfig };
