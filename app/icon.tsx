@@ -20,9 +20,9 @@ export default function Icon() {
           borderRadius: "7px",
           border: "1px solid #292b34",
           color: "#ececf1",
-          fontFamily: "Georgia, 'Times New Roman', serif",
+          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
           fontSize: "20px",
-          fontWeight: 700,
+          fontWeight: 900,
         }}
       >
         M
