@@ -21,8 +21,9 @@ export type { UnifiedCalendarItem };
 
 const SOURCE_BADGE: Record<UnifiedCalendarItem["source"], { label: string; cls: string; Icon: typeof FolderKanban }> = {
   seeding: { label: "시딩", cls: "bg-blue-500/15 text-blue-400 border-blue-500/30", Icon: FolderKanban },
-  event: { label: "행사", cls: "bg-indigo-500/15 text-indigo-400 border-indigo-500/30", Icon: PartyPopper },
-  event_checklist: { label: "행사준비", cls: "bg-purple-500/15 text-purple-400 border-purple-500/30", Icon: Clock },
+  event: { label: "행사", cls: "bg-teal-500/15 text-teal-400 border-teal-500/30", Icon: PartyPopper },
+  // 행사준비는 행사의 하위 항목이다. 별개의 색을 주지 않고 행사 색의 연한 버전으로 둔다.
+  event_checklist: { label: "행사준비", cls: "bg-teal-500/10 text-teal-300 border-teal-500/20", Icon: Clock },
   sns: { label: "SNS", cls: "bg-accent2/15 text-accent2 border-accent2/30", Icon: Camera },
 };
 

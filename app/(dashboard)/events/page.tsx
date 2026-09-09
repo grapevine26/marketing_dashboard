@@ -30,7 +30,7 @@ export default async function AllEventsOverviewPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-xl sm:text-2xl font-bold text-text tracking-tight flex items-center gap-2">
-            <PartyPopper className="w-6 h-6 text-indigo-400" />
+            <PartyPopper className="w-6 h-6 text-teal-400" />
             <span>인플루언서 행사 관리 (전체)</span>
           </h1>
           <p className="text-xs sm:text-sm text-text-sub">
@@ -45,7 +45,7 @@ export default async function AllEventsOverviewPage() {
         <div className="flex flex-wrap gap-2">
           {campaigns.map((c) => (
             <Link key={c.id} href={`/campaigns/${c.id}/events`} className="px-3 py-1.5 rounded-xl bg-bg hover:bg-surface2 border border-border text-xs text-text inline-flex items-center gap-1.5 transition">
-              <Building2 className="w-3 h-3 text-indigo-400" />
+              <Building2 className="w-3 h-3 text-teal-400" />
               <span>{c.name}</span>
               <ArrowRight className="w-3 h-3 text-text-muted" />
             </Link>
@@ -65,12 +65,12 @@ export default async function AllEventsOverviewPage() {
             <Link
               key={ev.id}
               href={`/campaigns/${ev.campaign_id}/events/${ev.id}`}
-              className="group p-5 rounded-2xl bg-surface border border-border hover:border-indigo-500/40 hover:bg-surface2 transition flex flex-col justify-between space-y-4 shadow-md active:scale-[0.99]"
+              className="group p-5 rounded-2xl bg-surface border border-border hover:border-teal-500/40 hover:bg-surface2 transition flex flex-col justify-between space-y-4 shadow-md active:scale-[0.99]"
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                    ev.status === "preparing" ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
+                    ev.status === "preparing" ? "bg-teal-500/10 text-teal-400 border-teal-500/20"
                     : ev.status === "done" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                     : "bg-surface3 text-text-sub border-border"
                   }`}>
@@ -84,7 +84,7 @@ export default async function AllEventsOverviewPage() {
 
                 <div>
                   <span className="text-[11px] text-text-muted font-medium block">{camp?.company_name || "캠페인"}</span>
-                  <h2 className="text-base font-bold text-text group-hover:text-indigo-400 transition leading-snug">{ev.name}</h2>
+                  <h2 className="text-base font-bold text-text group-hover:text-teal-400 transition leading-snug">{ev.name}</h2>
                   <p className="text-xs text-text-sub mt-1 flex items-center gap-1.5">
                     <MapPin className="w-3.5 h-3.5 text-text-muted shrink-0" />
                     <span className="truncate">{ev.venue || "장소 미정"}</span>
@@ -98,7 +98,7 @@ export default async function AllEventsOverviewPage() {
                   <span>참석확정 <strong className="text-blue-400">{attendingCount}</strong></span>
                   <span>입장 <strong className="text-emerald-400">{attendedCount}</strong></span>
                 </div>
-                <ArrowRight className="w-4 h-4 text-text-muted group-hover:text-indigo-400 group-hover:translate-x-0.5 transition" />
+                <ArrowRight className="w-4 h-4 text-text-muted group-hover:text-teal-400 group-hover:translate-x-0.5 transition" />
               </div>
             </Link>
           ))}

@@ -54,7 +54,7 @@ export default function DashboardLayout({
           name: "인플루언서 행사",
           href: "/events",
           icon: PartyPopper,
-          color: "text-indigo-500",
+          color: "text-teal-500",
         },
         {
           name: "SNS 채널 운영",

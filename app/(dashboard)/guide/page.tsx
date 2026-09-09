@@ -276,7 +276,7 @@ export default function GuidePage() {
           </div>
 
           <div className="p-5 rounded-2xl bg-surface border border-border space-y-2.5">
-            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-extrabold text-sm">2</div>
+            <div className="w-8 h-8 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center font-extrabold text-sm">2</div>
             <h3 className="text-sm font-bold text-text">행사·팝업 초청을 할 때</h3>
             <p className="text-xs text-text-sub leading-relaxed">
               캠페인을 먼저 만든 뒤 [인플루언서 행사] → [새 행사 개설]에서 그 캠페인을 고릅니다. 초청 명단은 캠페인 지원자에서
@@ -450,7 +450,7 @@ export default function GuidePage() {
       {/* SECTION 2: 행사 */}
       <section id="events" className="space-y-6 pt-6 border-t border-border">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 text-xs font-bold text-indigo-400">
+          <div className="inline-flex items-center gap-2 text-xs font-bold text-teal-400">
             <PartyPopper className="w-4 h-4" />
             <span>왼쪽 메뉴 · 인플루언서 행사</span>
           </div>
@@ -462,7 +462,7 @@ export default function GuidePage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-5 rounded-2xl bg-surface border border-border space-y-2.5">
-            <div className="flex items-center gap-2 text-xs font-bold text-indigo-400">
+            <div className="flex items-center gap-2 text-xs font-bold text-teal-400">
               <Users className="w-4 h-4" />
               <span>1. 초청 명단과 현장 체크</span>
             </div>
@@ -475,7 +475,7 @@ export default function GuidePage() {
           </div>
 
           <div className="p-5 rounded-2xl bg-surface border border-border space-y-2.5">
-            <div className="flex items-center gap-2 text-xs font-bold text-indigo-400">
+            <div className="flex items-center gap-2 text-xs font-bold text-teal-400">
               <Presentation className="w-4 h-4" />
               <span>2. 운영안과 PPT</span>
             </div>
@@ -488,7 +488,7 @@ export default function GuidePage() {
           </div>
 
           <div className="p-5 rounded-2xl bg-surface border border-border space-y-2.5">
-            <div className="flex items-center gap-2 text-xs font-bold text-indigo-400">
+            <div className="flex items-center gap-2 text-xs font-bold text-teal-400">
               <CheckSquare className="w-4 h-4" />
               <span>3. 준비 체크리스트</span>
             </div>

@@ -46,7 +46,7 @@ export default async function CampaignEventsPage({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-text tracking-tight flex items-center gap-2">
-            <PartyPopper className="w-6 h-6 text-indigo-400" />
+            <PartyPopper className="w-6 h-6 text-teal-400" />
             <span>캠페인 연계 인플루언서 행사</span>
           </h1>
           <p className="text-xs sm:text-sm text-text-sub">
@@ -69,12 +69,12 @@ export default async function CampaignEventsPage({
             <Link
               key={ev.id}
               href={`/campaigns/${campaign.id}/events/${ev.id}`}
-              className="group p-5 rounded-2xl bg-surface border border-border hover:border-indigo-500/40 hover:bg-surface2 transition flex flex-col justify-between space-y-4 shadow-md active:scale-[0.99]"
+              className="group p-5 rounded-2xl bg-surface border border-border hover:border-teal-500/40 hover:bg-surface2 transition flex flex-col justify-between space-y-4 shadow-md active:scale-[0.99]"
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                    ev.status === "preparing" ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
+                    ev.status === "preparing" ? "bg-teal-500/10 text-teal-400 border-teal-500/20"
                     : ev.status === "done" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                     : "bg-surface3 text-text-sub border-border"
                   }`}>
@@ -87,7 +87,7 @@ export default async function CampaignEventsPage({
                 </div>
 
                 <div>
-                  <h2 className="text-base font-bold text-text group-hover:text-indigo-400 transition leading-snug">{ev.name}</h2>
+                  <h2 className="text-base font-bold text-text group-hover:text-teal-400 transition leading-snug">{ev.name}</h2>
                   <p className="text-xs text-text-sub mt-1 flex items-center gap-1.5">
                     <MapPin className="w-3.5 h-3.5 text-text-muted shrink-0" />
                     <span className="truncate">{ev.venue || "장소 미정"}</span>
@@ -102,7 +102,7 @@ export default async function CampaignEventsPage({
                   <span>현장참석 <strong className="text-emerald-400">{attendedCount}</strong></span>
                   <span>체크리스트 <strong className="text-text">{doneChecklists}/{totalChecklists}</strong></span>
                 </div>
-                <ArrowRight className="w-4 h-4 text-text-muted group-hover:text-indigo-400 group-hover:translate-x-0.5 transition" />
+                <ArrowRight className="w-4 h-4 text-text-muted group-hover:text-teal-400 group-hover:translate-x-0.5 transition" />
               </div>
             </Link>
           ))}

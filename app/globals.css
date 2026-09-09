@@ -95,6 +95,9 @@ html.light,
   */
   --color-blue-400: #1d4ed8;
   --color-blue-300: #1d4ed8;
+  /* 행사. -300 은 행사준비(연한 단계)에 쓰는데, 흰 배경에서는 더 밝게 하면 읽히지 않아 같은 값을 쓴다. */
+  --color-teal-400: #0f766e;
+  --color-teal-300: #0f766e;
   --color-indigo-400: #4338ca;
   --color-indigo-300: #4338ca;
   --color-purple-400: #7e22ce;

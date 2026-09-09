@@ -330,7 +330,7 @@ export default function EventDetailClient({
       type="button"
       onClick={() => setActiveTab(key)}
       className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-        activeTab === key ? "bg-indigo-600/15 text-indigo-400 border border-indigo-500/30" : "text-text-sub hover:text-white"
+        activeTab === key ? "bg-teal-600/15 text-teal-400 border border-teal-500/30" : "text-text-sub hover:text-white"
       }`}
     >
       {icon}
@@ -358,7 +358,7 @@ export default function EventDetailClient({
                   value={event.status}
                   disabled={statusSaving}
                   onChange={(e) => handleStatusChange(e.target.value as EventStatus)}
-                  className="px-3 py-2 rounded-xl bg-bg border border-border text-indigo-400 text-xs font-bold focus:outline-none focus:border-indigo-500"
+                  className="px-3 py-2 rounded-xl bg-bg border border-border text-teal-400 text-xs font-bold focus:outline-none focus:border-teal-500"
                 >
                   {(Object.keys(EVENT_STATUS_LABELS) as EventStatus[]).map((s) => (
                     <option key={s} value={s}>{EVENT_STATUS_LABELS[s]}</option>
@@ -375,12 +375,12 @@ export default function EventDetailClient({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-border text-xs text-text-2">
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-indigo-400 shrink-0" />
+                <Calendar className="w-4 h-4 text-teal-400 shrink-0" />
                 <span className="text-text-sub">일시(KST):</span>
                 <span className="font-semibold font-mono">{formatKstDateTime(event.event_at) || "일시 미정"}</span>
               </div>
               <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-indigo-400 shrink-0" />
+                <MapPin className="w-4 h-4 text-teal-400 shrink-0" />
                 <span className="text-text-sub">장소:</span>
                 <span className="font-semibold">{event.venue || "장소 미정"}</span>
               </div>
@@ -398,21 +398,21 @@ export default function EventDetailClient({
               value={infoForm.name}
               onChange={(e) => setInfoForm({ ...infoForm, name: e.target.value })}
               placeholder="행사명 *"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-indigo-500"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-teal-500"
             />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <input
                 type="datetime-local"
                 value={infoForm.event_at}
                 onChange={(e) => setInfoForm({ ...infoForm, event_at: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-indigo-500"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-teal-500"
               />
               <input
                 type="text"
                 value={infoForm.venue}
                 onChange={(e) => setInfoForm({ ...infoForm, venue: e.target.value })}
                 placeholder="행사 장소"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-indigo-500"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-teal-500"
               />
             </div>
             <textarea
@@ -420,11 +420,11 @@ export default function EventDetailClient({
               value={infoForm.memo}
               onChange={(e) => setInfoForm({ ...infoForm, memo: e.target.value })}
               placeholder="행사 메모 / 기획 의도"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-indigo-500"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-teal-500"
             />
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setEditingInfo(false)} className="px-4 py-2 rounded-xl bg-surface2 text-text-2 text-xs">취소</button>
-              <button type="submit" disabled={savingInfo} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50">
+              <button type="submit" disabled={savingInfo} className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50">
                 {savingInfo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 저장
               </button>
             </div>
@@ -464,7 +464,7 @@ export default function EventDetailClient({
               <h2 className="text-sm sm:text-base font-bold text-text">초청 인플루언서 명단</h2>
               <p className="text-xs text-text-sub">캠페인 지원자 목록에서 가져오거나 직접 추가하여 RSVP 상태를 기록합니다.</p>
             </div>
-            <button type="button" onClick={() => setImportModalOpen(true)} className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition active:scale-95">
+            <button type="button" onClick={() => setImportModalOpen(true)} className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition active:scale-95">
               <UserPlus className="w-3.5 h-3.5" />
               <span>캠페인 지원자에서 가져오기</span>
             </button>
@@ -473,11 +473,11 @@ export default function EventDetailClient({
           <form onSubmit={handleAddDirect} className="p-4 rounded-2xl bg-bg border border-border space-y-3">
             <span className="text-xs font-bold text-text-2 block">초대자 직접 추가</span>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-              <input type="text" required placeholder="이름 *" value={directName} onChange={(e) => setDirectName(e.target.value)} className="px-3 py-2 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-indigo-500" />
-              <input type="url" placeholder="SNS URL" value={directSns} onChange={(e) => setDirectSns(e.target.value)} className="px-3 py-2 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-indigo-500" />
-              <input type="text" placeholder="연락처" value={directContact} onChange={(e) => setDirectContact(e.target.value)} className="px-3 py-2 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-indigo-500" />
+              <input type="text" required placeholder="이름 *" value={directName} onChange={(e) => setDirectName(e.target.value)} className="px-3 py-2 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-teal-500" />
+              <input type="url" placeholder="SNS URL" value={directSns} onChange={(e) => setDirectSns(e.target.value)} className="px-3 py-2 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-teal-500" />
+              <input type="text" placeholder="연락처" value={directContact} onChange={(e) => setDirectContact(e.target.value)} className="px-3 py-2 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-teal-500" />
               <div className="flex gap-2">
-                <input type="text" placeholder="메모" value={directMemo} onChange={(e) => setDirectMemo(e.target.value)} className="flex-1 px-3 py-2 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-indigo-500" />
+                <input type="text" placeholder="메모" value={directMemo} onChange={(e) => setDirectMemo(e.target.value)} className="flex-1 px-3 py-2 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-teal-500" />
                 <button type="submit" disabled={addingDirect} className="px-4 py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text text-xs font-semibold shrink-0 disabled:opacity-50">
                   {addingDirect ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "추가"}
                 </button>
@@ -522,7 +522,7 @@ export default function EventDetailClient({
                         <select
                           value={inv.rsvp_status}
                           onChange={(e) => handleRsvpChange(inv, e.target.value as EventRsvpStatus)}
-                          className="px-2.5 py-1 rounded-lg bg-bg border border-border text-text text-xs focus:outline-none focus:border-indigo-500 font-semibold"
+                          className="px-2.5 py-1 rounded-lg bg-bg border border-border text-text text-xs focus:outline-none focus:border-teal-500 font-semibold"
                         >
                           <option value="pending">미응답 (대기)</option>
                           <option value="attending">참석 확정 ✓</option>
@@ -538,7 +538,7 @@ export default function EventDetailClient({
                           defaultValue={inv.memo || ""}
                           placeholder="메모"
                           onBlur={(e) => handleMemoBlur(inv, e.target.value)}
-                          className="w-36 px-2 py-1 rounded-lg bg-bg border border-border text-text-2 text-xs focus:outline-none focus:border-indigo-500"
+                          className="w-36 px-2 py-1 rounded-lg bg-bg border border-border text-text-2 text-xs focus:outline-none focus:border-teal-500"
                         />
                       </td>
                       <td className="p-3.5 text-right">
@@ -582,7 +582,7 @@ export default function EventDetailClient({
                     <select
                       value={inv.rsvp_status}
                       onChange={(e) => handleRsvpChange(inv, e.target.value as EventRsvpStatus)}
-                      className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-indigo-500 font-semibold"
+                      className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-teal-500 font-semibold"
                     >
                       <option value="pending">미응답 (대기)</option>
                       <option value="attending">참석 확정 ✓</option>
@@ -592,7 +592,7 @@ export default function EventDetailClient({
 
                   <label className="flex items-center justify-between gap-2 py-1 cursor-pointer">
                     <span className="text-[11px] text-text-muted">당일 현장 참석</span>
-                    <input type="checkbox" checked={inv.attended} onChange={() => handleToggleCheckin(inv)} className="w-5 h-5 accent-indigo-600 rounded" />
+                    <input type="checkbox" checked={inv.attended} onChange={() => handleToggleCheckin(inv)} className="w-5 h-5 accent-teal-600 rounded" />
                   </label>
 
                   <div className="space-y-1.5">
@@ -602,7 +602,7 @@ export default function EventDetailClient({
                       defaultValue={inv.memo || ""}
                       placeholder="메모"
                       onBlur={(e) => handleMemoBlur(inv, e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border text-text-2 text-xs focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border text-text-2 text-xs focus:outline-none focus:border-teal-500"
                     />
                   </div>
                 </div>
@@ -639,7 +639,7 @@ export default function EventDetailClient({
                                 if (alreadyInvited) return;
                                 setSelectedApplicantIds((prev) => (e.target.checked ? [...prev, app.id] : prev.filter((id) => id !== app.id)));
                               }}
-                              className="w-4 h-4 accent-indigo-600 rounded"
+                              className="w-4 h-4 accent-teal-600 rounded"
                             />
                             <div>
                               <div className="font-bold text-xs text-text">
@@ -660,7 +660,7 @@ export default function EventDetailClient({
 
                 <div className="pt-3 border-t border-border flex justify-end gap-2">
                   <button type="button" onClick={() => setImportModalOpen(false)} className="px-4 py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs">취소</button>
-                  <button type="button" disabled={importing || selectedApplicantIds.length === 0} onClick={handleImportApplicants} className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md disabled:opacity-50">
+                  <button type="button" disabled={importing || selectedApplicantIds.length === 0} onClick={handleImportApplicants} className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold shadow-md disabled:opacity-50">
                     {importing ? "불러오는 중..." : `${selectedApplicantIds.length}명 초청 명단에 추가`}
                   </button>
                 </div>
@@ -680,11 +680,11 @@ export default function EventDetailClient({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <button type="button" disabled={loadingAiAll || !selectedTemplate} onClick={handleAiEmptyFields} className="px-3.5 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-xs font-semibold inline-flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50">
+              <button type="button" disabled={loadingAiAll || !selectedTemplate} onClick={handleAiEmptyFields} className="px-3.5 py-2 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border border-teal-500/30 text-xs font-semibold inline-flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50">
                 {loadingAiAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                 <span>빈 항목만 AI로 채우기</span>
               </button>
-              <button type="button" disabled={savingPlan || !selectedTemplate} onClick={handleSavePlan} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-md transition active:scale-95 disabled:opacity-50">
+              <button type="button" disabled={savingPlan || !selectedTemplate} onClick={handleSavePlan} className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-md transition active:scale-95 disabled:opacity-50">
                 {savingPlan ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                 <span>운영안 저장{planDirty ? " *" : ""}</span>
               </button>
@@ -701,7 +701,7 @@ export default function EventDetailClient({
             <select
               value={selectedTemplateId}
               onChange={(e) => { setSelectedTemplateId(e.target.value); setPlanDirty(true); }}
-              className="w-full sm:w-96 px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-indigo-500 font-semibold"
+              className="w-full sm:w-96 px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-teal-500 font-semibold"
             >
               {templates.map((t) => (
                 <option key={t.id} value={t.id}>{t.builtin ? "[기본] " : ""}{t.name} (치환 항목 {t.placeholders.length}개)</option>
@@ -715,8 +715,8 @@ export default function EventDetailClient({
             {selectedTemplate?.placeholders.map((ph) => (
               <div key={ph} className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-indigo-400 font-mono">{`{{${ph}}}`}</label>
-                  <button type="button" disabled={loadingAiField === ph} onClick={() => handleAiField(ph)} className="px-2 py-0.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-[10px] font-semibold inline-flex items-center gap-1 disabled:opacity-50">
+                  <label className="text-xs font-bold text-teal-400 font-mono">{`{{${ph}}}`}</label>
+                  <button type="button" disabled={loadingAiField === ph} onClick={() => handleAiField(ph)} className="px-2 py-0.5 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 border border-teal-500/20 text-[10px] font-semibold inline-flex items-center gap-1 disabled:opacity-50">
                     {loadingAiField === ph ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} AI 초안
                   </button>
                 </div>
@@ -724,7 +724,7 @@ export default function EventDetailClient({
                   rows={LONG_FIELDS.has(ph) ? 4 : 2}
                   value={fieldValues[ph] || ""}
                   onChange={(e) => setField(ph, e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-indigo-500 leading-relaxed font-sans"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-teal-500 leading-relaxed font-sans"
                 />
               </div>
             ))}
@@ -743,11 +743,11 @@ export default function EventDetailClient({
           <form onSubmit={handleAddChecklist} className="p-4 rounded-2xl bg-bg border border-border space-y-3">
             <span className="text-xs font-bold text-text-2 block">새 준비 항목 추가</span>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-              <input type="text" required placeholder="할 일 항목 내용 *" value={newChecklistLabel} onChange={(e) => setNewChecklistLabel(e.target.value)} className="col-span-1 sm:col-span-2 px-3 py-2 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-indigo-500" />
-              <input type="date" value={newChecklistDueDate} onChange={(e) => setNewChecklistDueDate(e.target.value)} className="px-3 py-2 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-indigo-500" />
+              <input type="text" required placeholder="할 일 항목 내용 *" value={newChecklistLabel} onChange={(e) => setNewChecklistLabel(e.target.value)} className="col-span-1 sm:col-span-2 px-3 py-2 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-teal-500" />
+              <input type="date" value={newChecklistDueDate} onChange={(e) => setNewChecklistDueDate(e.target.value)} className="px-3 py-2 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-teal-500" />
               <div className="flex gap-2">
-                <input type="text" placeholder="담당자" value={newChecklistAssignee} onChange={(e) => setNewChecklistAssignee(e.target.value)} className="flex-1 px-3 py-2 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-indigo-500" />
-                <button type="submit" disabled={addingChecklist} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shrink-0 disabled:opacity-50">
+                <input type="text" placeholder="담당자" value={newChecklistAssignee} onChange={(e) => setNewChecklistAssignee(e.target.value)} className="flex-1 px-3 py-2 rounded-xl bg-surface border border-border text-text text-xs focus:outline-none focus:border-teal-500" />
+                <button type="submit" disabled={addingChecklist} className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold shrink-0 disabled:opacity-50">
                   {addingChecklist ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "등록"}
                 </button>
               </div>
@@ -763,7 +763,7 @@ export default function EventDetailClient({
                 return (
                   <div key={c.id} className={`p-3.5 rounded-2xl border transition flex items-center justify-between gap-3 ${c.done ? "bg-bg/50 border-surface2 opacity-60" : "bg-bg border-border"}`}>
                     <div className="flex items-center gap-3 min-w-0">
-                      <input type="checkbox" checked={c.done} onChange={() => handleToggleChecklistDone(c)} className="w-4 h-4 accent-indigo-600 rounded cursor-pointer shrink-0" />
+                      <input type="checkbox" checked={c.done} onChange={() => handleToggleChecklistDone(c)} className="w-4 h-4 accent-teal-600 rounded cursor-pointer shrink-0" />
                       <span className={`text-xs font-medium text-text truncate ${c.done ? "line-through text-text-muted" : ""}`}>{c.label}</span>
                     </div>
 

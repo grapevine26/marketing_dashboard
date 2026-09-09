@@ -44,7 +44,7 @@ export default function NewCampaignEventModal({ campaignId }: { campaignId: stri
       <button
         type="button"
         onClick={() => { setErrorMsg(null); setOpen(true); }}
-        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold shadow-md transition active:scale-95 shrink-0"
+        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs sm:text-sm font-semibold shadow-md transition active:scale-95 shrink-0"
       >
         <Plus className="w-4 h-4" />
         <span>새 행사 개설</span>
@@ -55,7 +55,7 @@ export default function NewCampaignEventModal({ campaignId }: { campaignId: stri
           <div className="w-full max-w-lg bg-surface border-t sm:border border-border rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto font-sans">
             <div className="flex items-center justify-between pb-2 border-b border-border">
               <div className="flex items-center gap-2">
-                <PartyPopper className="w-5 h-5 text-indigo-400" />
+                <PartyPopper className="w-5 h-5 text-teal-400" />
                 <h2 className="text-base font-bold text-text">신규 인플루언서 행사 개설</h2>
               </div>
               <button type="button" onClick={() => setOpen(false)} className="p-1.5 rounded-lg text-text-sub hover:text-text transition">
@@ -76,7 +76,7 @@ export default function NewCampaignEventModal({ campaignId }: { campaignId: stri
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="예: 2026 하이드라 앰플 런칭 VIP 프라이빗 뷰티 나잇"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-indigo-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-teal-500"
                 />
               </div>
 
@@ -87,7 +87,7 @@ export default function NewCampaignEventModal({ campaignId }: { campaignId: stri
                     type="datetime-local"
                     value={formData.event_at}
                     onChange={(e) => setFormData({ ...formData, event_at: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-teal-500"
                   />
                 </div>
                 <div className="space-y-1">
@@ -97,7 +97,7 @@ export default function NewCampaignEventModal({ campaignId }: { campaignId: stri
                     value={formData.venue}
                     onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
                     placeholder="예: 서울 성동구 성수이로 88 보테가 성수 2F"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-teal-500"
                   />
                 </div>
               </div>
@@ -109,7 +109,7 @@ export default function NewCampaignEventModal({ campaignId }: { campaignId: stri
                   value={formData.memo}
                   onChange={(e) => setFormData({ ...formData, memo: e.target.value })}
                   placeholder="예: 최상위 뷰티 크리에이터 30인 초청, 신제품 앰플 체험 바 및 럭키드로우 운영"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-indigo-500 leading-relaxed"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-teal-500 leading-relaxed"
                 />
               </div>
 
@@ -120,7 +120,7 @@ export default function NewCampaignEventModal({ campaignId }: { campaignId: stri
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold shadow-md transition disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
                 >
                   {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>행사 개설하기</span>
