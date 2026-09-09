@@ -113,9 +113,9 @@ export default function DashboardLayout({
       <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-sidebar/95 backdrop-blur-md border-b border-border">
         <Link href="/" className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center font-bold text-accent-on text-xs shadow-sm">
-            M
+            모
           </div>
-          <span className="font-bold text-text text-sm tracking-tight">마케팅 올인원</span>
+          <span className="font-bold text-text text-sm tracking-tight">모아</span>
         </Link>
 
         <div className="flex items-center gap-2">
@@ -148,10 +148,10 @@ export default function DashboardLayout({
         <div className="px-2 flex items-center justify-between">
           <Link href="/" onClick={closeMenu} className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-accent flex items-center justify-center font-bold text-accent-on shadow-sm">
-              M
+              모
             </div>
             <div>
-              <span className="font-bold text-text text-sm tracking-tight">마케팅 올인원</span>
+              <span className="font-bold text-text text-sm tracking-tight">모아</span>
             </div>
           </Link>
 

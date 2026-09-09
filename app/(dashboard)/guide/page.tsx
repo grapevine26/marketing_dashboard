@@ -114,12 +114,12 @@ export default function GuidePage() {
       <div className="p-8 sm:p-10 rounded-3xl bg-surface border border-border space-y-4">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-bold">
           <BookOpen className="w-3.5 h-3.5" />
-          <span>마케팅 올인원 사용 매뉴얼</span>
+          <span>모아 사용 매뉴얼</span>
         </div>
 
         <h1 className="text-2xl sm:text-4xl font-extrabold text-text tracking-tight leading-tight">
           처음 오셨나요? <br />
-          마케팅 올인원 대시보드 사용 가이드
+          모아 사용 가이드
         </h1>
 
         <p className="text-xs sm:text-sm text-text-2 leading-relaxed max-w-3xl">
@@ -300,7 +300,7 @@ export default function GuidePage() {
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 text-xs font-bold text-blue-400">
             <FolderKanban className="w-4 h-4" />
-            <span>서브프로젝트 A</span>
+            <span>왼쪽 메뉴 · 인플루언서 시딩</span>
           </div>
           <h2 className="text-xl font-bold text-text">1. 인플루언서 시딩 5단계</h2>
           <p className="text-xs text-text-sub">
@@ -452,7 +452,7 @@ export default function GuidePage() {
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 text-xs font-bold text-indigo-400">
             <PartyPopper className="w-4 h-4" />
-            <span>서브프로젝트 B</span>
+            <span>왼쪽 메뉴 · 인플루언서 행사</span>
           </div>
           <h2 className="text-xl font-bold text-text">2. 인플루언서 행사</h2>
           <p className="text-xs text-text-sub">
@@ -509,7 +509,7 @@ export default function GuidePage() {
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 text-xs font-bold text-accent2">
             <Camera className="w-4 h-4" />
-            <span>서브프로젝트 C</span>
+            <span>왼쪽 메뉴 · SNS 채널 운영</span>
           </div>
           <h2 className="text-xl font-bold text-text">3. SNS 공식 채널 대행 운영</h2>
           <p className="text-xs text-text-sub">
@@ -574,7 +574,7 @@ export default function GuidePage() {
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 text-xs font-bold text-blue-400">
             <Calendar className="w-4 h-4" />
-            <span>서브프로젝트 D</span>
+            <span>왼쪽 메뉴 · 통합 오버뷰 &amp; 캘린더</span>
           </div>
           <h2 className="text-xl font-bold text-text">4. 통합 오버뷰와 캘린더</h2>
           <p className="text-xs text-text-sub">진행 중인 모든 일정을 한 화면에 모아 놓친 마감을 막습니다.</p>

@@ -4,8 +4,8 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 
 export const metadata: Metadata = {
-  title: "마케팅 올인원 | 통합 인플루언서 & 마케팅 플랫폼",
-  description: "인플루언서 시딩, 오프라인 VIP 행사, 공식 SNS 채널 통합 관리 솔루션",
+  title: "모아 | 인플루언서 마케팅 운영",
+  description: "인플루언서 시딩, 오프라인 행사, 공식 SNS 채널을 한곳에 모아 운영합니다.",
 };
 
 export const viewport: Viewport = {

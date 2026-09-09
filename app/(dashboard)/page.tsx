@@ -8,7 +8,7 @@ import { ArrowUpRight } from "lucide-react";
 export const revalidate = 0;
 
 /**
- * 통합 오버뷰 (서브프로젝트 D).
+ * 통합 오버뷰. 홈 화면.
  * - 오늘/D-day/캘린더 셀은 전부 서버에서 KST로 계산해 props로 내려보낸다.
  * - 월 이동은 `/?month=YYYY-MM` 쿼리 파라미터. 형식이 잘못되면 오늘이 속한 달로 폴백.
  * - 소스별 조회 실패는 배너로 알리고 나머지 데이터는 정상 렌더링한다.
