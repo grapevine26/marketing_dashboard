@@ -4,11 +4,11 @@ import { collectOverviewItems, collectHomeSummary } from "@/lib/overview/collect
 import { getAuditLogs, getCampaigns, getSnsAccounts } from "@/lib/db";
 import CalendarOverviewClient, { UrgentItemsWidget } from "./CalendarOverviewClient";
 import PendingApprovalSnsCard from "./PendingApprovalSnsCard";
+import ScheduledSnsThisWeekCard from "./ScheduledSnsThisWeekCard";
 import {
   ArrowUpRight,
   FolderKanban,
   PartyPopper,
-  Camera,
   Activity,
 } from "lucide-react";
 
@@ -41,9 +41,6 @@ export default async function DashboardOverviewPage({
 
   const urgentItems = items.filter((item) => item.daysDiff <= 3);
   const monthItems = items.filter((item) => item.dateStr.startsWith(currentMonth));
-  const contentDueThisWeek = items.filter(
-    (item) => item.source === "sns" && item.daysDiff >= 0 && item.daysDiff <= 6
-  ).length;
   const grid = buildMonthGrid(currentMonth, todayKst);
 
   const campaignNameById = new Map(campaigns.map((c) => [c.id, c.name]));
@@ -101,26 +98,11 @@ export default async function DashboardOverviewPage({
           items={summary.pendingApprovalSnsContents}
         />
 
-        {/* 이번주 발행 예정 */}
-        <Link
-          href="/sns"
-          className="p-4 sm:p-5 rounded-3xl bg-surface border border-border hover:border-accent-link/40 hover:bg-surface2/30 transition duration-150 group flex flex-col justify-between space-y-3 shadow-xs"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-accent-link group-hover:text-text transition">
-              이번주 발행 예정
-            </span>
-            <div className="w-7 h-7 rounded-xl bg-accent2/10 border border-accent2/20 text-accent2 flex items-center justify-center shrink-0">
-              <Camera className="w-3.5 h-3.5" />
-            </div>
-          </div>
-          <div>
-            <div className="font-mono tabular-nums text-2xl sm:text-3xl font-bold text-accent-link">
-              {contentDueThisWeek}
-            </div>
-            <p className="text-[11px] text-text-sub mt-0.5">SNS 공식 채널 피드/릴스</p>
-          </div>
-        </Link>
+        {/* 이번주 발행 예정 (클릭 시 모달 팝업) */}
+        <ScheduledSnsThisWeekCard
+          count={summary.scheduledSnsThisWeekCount}
+          items={summary.scheduledSnsThisWeek}
+        />
       </div>
 
       {/* 2. 데스크톱 2단 스플릿 메인 대시보드 */}

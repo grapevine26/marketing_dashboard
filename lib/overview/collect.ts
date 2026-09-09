@@ -7,7 +7,12 @@ import {
   getAllSnsContents,
   getApplicantsByCampaignId,
 } from "@/lib/db";
-import { CAMPAIGN_STATUS_LABELS, type CampaignType } from "@/lib/db/types";
+import {
+  CAMPAIGN_STATUS_LABELS,
+  SNS_CONTENT_STATUS_LABELS,
+  type CampaignType,
+  type SnsContentStatus,
+} from "@/lib/db/types";
 import { daysUntilDeadline, isoToKstDateString } from "@/lib/seeding/dday";
 
 export type OverviewSource = "seeding" | "event" | "event_checklist" | "sns";
@@ -143,7 +148,7 @@ export async function collectOverviewItems(todayKst: string): Promise<OverviewDa
         source: "sns",
         title: `${c.title} · @${acc.handle}`,
         dateStr: c.scheduled_on,
-        linkUrl: `/sns/${c.account_id}`,
+        linkUrl: `/sns/${c.account_id}?tab=list&contentId=${c.id}`,
         brandName: acc.company_name,
         extraInfo: c.status === "pending_approval" ? "승인대기" : c.status === "approved" ? "승인완료" : c.status === "producing" ? "제작중" : "기획중",
         daysDiff: daysUntilDeadline(c.scheduled_on, todayKst),
@@ -179,6 +184,21 @@ export interface PendingApprovalSnsItem {
   createdAt: string;
 }
 
+export interface ScheduledSnsItem {
+  id: string;
+  accountId: string;
+  accountCompanyName: string;
+  accountHandle: string;
+  platform: string;
+  title: string;
+  scheduledOn: string;
+  daysDiff: number;
+  status: SnsContentStatus;
+  statusLabel: string;
+  assignee: string | null;
+  mediaCount: number;
+}
+
 export interface HomeSummary {
   activeCampaignCount: number;
   newApplicantsThisMonth: number;
@@ -186,6 +206,8 @@ export interface HomeSummary {
   preparingEventCount: number;
   pendingApprovalSnsCount: number;
   pendingApprovalSnsContents: PendingApprovalSnsItem[];
+  scheduledSnsThisWeekCount: number;
+  scheduledSnsThisWeek: ScheduledSnsItem[];
   /** 최근 생성된 진행중(모집중~보고서 작성) 캠페인 최대 3개. 홈 화면 카드 목록용. */
   activeCampaigns: HomeCampaignSummary[];
 }
@@ -267,6 +289,32 @@ export async function collectHomeSummary(todayKst: string): Promise<HomeSummary>
       return b.createdAt.localeCompare(a.createdAt);
     });
 
+  const scheduledSnsThisWeek: ScheduledSnsItem[] = snsContents
+    .filter((c) => {
+      if (!c.scheduled_on || c.status === "posted") return false;
+      const diff = daysUntilDeadline(c.scheduled_on, todayKst);
+      return diff >= 0 && diff <= 6;
+    })
+    .map((c) => {
+      const acc = accountMap.get(c.account_id);
+      const diff = daysUntilDeadline(c.scheduled_on!, todayKst);
+      return {
+        id: c.id,
+        accountId: c.account_id,
+        accountCompanyName: acc?.company_name || "미지정 계정",
+        accountHandle: acc?.handle || "",
+        platform: acc?.platform || "instagram",
+        title: c.title,
+        scheduledOn: c.scheduled_on!,
+        daysDiff: diff,
+        status: c.status,
+        statusLabel: SNS_CONTENT_STATUS_LABELS[c.status] || c.status,
+        assignee: c.assignee,
+        mediaCount: c.media_attachments?.length || 0,
+      };
+    })
+    .sort((a, b) => a.daysDiff - b.daysDiff || a.scheduledOn.localeCompare(b.scheduledOn));
+
   return {
     activeCampaignCount: campaigns.filter((c) => isActive(c.status)).length,
     newApplicantsThisMonth,
@@ -274,6 +322,8 @@ export async function collectHomeSummary(todayKst: string): Promise<HomeSummary>
     preparingEventCount,
     pendingApprovalSnsCount: pendingApprovalSnsContents.length,
     pendingApprovalSnsContents,
+    scheduledSnsThisWeekCount: scheduledSnsThisWeek.length,
+    scheduledSnsThisWeek,
     activeCampaigns,
   };
 }
