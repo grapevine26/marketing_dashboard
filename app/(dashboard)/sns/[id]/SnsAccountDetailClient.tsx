@@ -68,6 +68,14 @@ const STATUS_TONE: Record<SnsContentStatus, string> = {
   posted: "text-emerald-400",
 };
 
+const STATUS_DOT: Record<SnsContentStatus, string> = {
+  planning: "bg-text-sub",
+  producing: "bg-amber-400",
+  pending_approval: "bg-accent2",
+  approved: "bg-blue-400",
+  posted: "bg-emerald-400",
+};
+
 interface ContentForm {
   title: string;
   scheduled_on: string;
@@ -139,6 +147,7 @@ export default function SnsAccountDetailClient({
   const [calendarMonth, setCalendarMonth] = useState(todayKst.slice(0, 7));
   const grid = useMemo(() => buildMonthGrid(calendarMonth, todayKst), [calendarMonth, todayKst]);
   const [calYear, calMonth] = calendarMonth.split("-").map((v) => parseInt(v, 10));
+  const [mobileSelectedDate, setMobileSelectedDate] = useState<string | null>(null);
 
   // Account edit
   const [editingAccount, setEditingAccount] = useState(false);
@@ -727,7 +736,7 @@ export default function SnsAccountDetailClient({
       {notice && <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-semibold">{notice}</div>}
 
       {/* Monthly performance */}
-      <div className="p-5 rounded-3xl bg-surface border border-border space-y-3 shadow-xl">
+      <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-3 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-accent2" />
@@ -764,7 +773,7 @@ export default function SnsAccountDetailClient({
 
       {/* Calendar */}
       {activeTab === "calendar" && (
-        <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-border space-y-4 shadow-xl">
+        <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-4 shadow-xl">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-text flex items-center gap-2">
               <Calendar className="w-5 h-5 text-accent2" /> {calYear}년 {calMonth}월 SNS 콘텐츠 발행 스케줄
@@ -781,21 +790,44 @@ export default function SnsAccountDetailClient({
               <div className="text-red-400">일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div className="text-blue-400">토</div>
             </div>
             <div className="grid grid-cols-7 divide-x divide-y divide-border">
-              {Array.from({ length: grid.leadingBlanks }).map((_, idx) => <div key={`blank-${idx}`} className="h-28 sm:h-32 bg-bg/40" />)}
+              {Array.from({ length: grid.leadingBlanks }).map((_, idx) => <div key={`blank-${idx}`} className="min-h-[56px] sm:h-32 bg-bg/40" />)}
               {grid.cells.map((cell) => {
                 const items = contents.filter((c) => c.scheduled_on === cell.dateStr);
                 return (
                   <div
                     key={cell.dateStr}
-                    onClick={() => openCreate(cell.dateStr)}
-                    className={`h-28 sm:h-32 p-1.5 sm:p-2 flex flex-col justify-between hover:bg-surface2 cursor-pointer transition group ${cell.isToday ? "bg-accent2/10" : ""}`}
+                    onClick={() => {
+                      if (typeof window !== "undefined" && window.innerWidth < 640 && items.length > 0) {
+                        setMobileSelectedDate(cell.dateStr);
+                      } else {
+                        openCreate(cell.dateStr);
+                      }
+                    }}
+                    className={`min-h-[56px] sm:h-32 p-1 sm:p-2 flex flex-col justify-between hover:bg-surface2 cursor-pointer transition group ${cell.isToday ? "bg-accent2/10" : ""}`}
                     title="클릭하여 이 날짜에 새 콘텐츠 기획"
                   >
                     <div className="flex items-center justify-between">
-                      <span className={`text-xs font-mono font-bold ${cell.isToday ? "text-accent2 underline" : "text-text-2"} group-hover:text-accent2`}>{cell.dayNum}</span>
-                      {items.length > 0 && <span className="w-4 h-4 rounded-full bg-accent2/20 text-accent2 text-[10px] font-bold flex items-center justify-center font-mono">{items.length}</span>}
+                      <span className={`text-[11px] sm:text-xs font-mono font-bold ${cell.isToday ? "text-accent2 underline" : "text-text-2"} group-hover:text-accent2`}>{cell.dayNum}</span>
+                      {items.length > 0 && <span className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-accent2/20 text-accent2 text-[9px] sm:text-[10px] font-bold flex items-center justify-center font-mono">{items.length}</span>}
                     </div>
-                    <div className="space-y-1 overflow-y-auto max-h-20">
+
+                    {/* 모바일 뷰 (sm:hidden): 상태 색상 도트 인디케이터 */}
+                    {items.length > 0 && (
+                      <div className="sm:hidden flex items-center justify-center gap-0.5 mt-0.5 py-1 flex-wrap">
+                        {items.slice(0, 3).map((item) => (
+                          <span
+                            key={item.id}
+                            className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[item.status] || "bg-accent2"}`}
+                          />
+                        ))}
+                        {items.length > 3 && (
+                          <span className="text-[8px] font-mono text-text-muted">+{items.length - 3}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 데스크톱 뷰 (hidden sm:block): 기존 상세 텍스트 카드 */}
+                    <div className="hidden sm:block space-y-1 overflow-y-auto max-h-20">
                       {items.map((item) => (
                         <div
                           key={item.id}
@@ -810,6 +842,73 @@ export default function SnsAccountDetailClient({
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 모바일 캘린더 일자 상세 모달 */}
+      {mobileSelectedDate && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in">
+          <div className="w-full max-w-md bg-surface border border-border rounded-t-3xl sm:rounded-3xl p-5 space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-border shrink-0">
+              <div>
+                <h3 className="text-sm font-bold text-text flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-accent2" />
+                  <span>{mobileSelectedDate} 일정 ({contents.filter((c) => c.scheduled_on === mobileSelectedDate).length}건)</span>
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileSelectedDate(null)}
+                className="p-1 rounded-lg text-text-muted hover:text-text"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2.5 overflow-y-auto flex-1">
+              {contents.filter((c) => c.scheduled_on === mobileSelectedDate).map((item) => (
+                <div
+                  key={item.id}
+                  className="p-3 rounded-xl bg-bg border border-border space-y-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`text-[10px] font-bold ${STATUS_TONE[item.status]}`}>
+                      {SNS_CONTENT_STATUS_LABELS[item.status]}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileSelectedDate(null);
+                        openEdit(item);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-surface2 text-text text-xs font-semibold"
+                    >
+                      수정
+                    </button>
+                  </div>
+                  <h4 className="text-xs font-bold text-text">{item.title}</h4>
+                  {item.assignee && (
+                    <span className="text-[10px] text-text-sub">담당: {item.assignee}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 border-t border-border shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  const date = mobileSelectedDate;
+                  setMobileSelectedDate(null);
+                  openCreate(date);
+                }}
+                className="w-full py-2.5 rounded-xl bg-accent2 text-black text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition"
+              >
+                <Plus className="w-4 h-4" />
+                <span>이 날짜에 새 콘텐츠 기획</span>
+              </button>
             </div>
           </div>
         </div>
@@ -919,7 +1018,7 @@ export default function SnsAccountDetailClient({
                 <div
                   key={c.id}
                   id={`content-${c.id}`}
-                  className={`p-5 rounded-3xl bg-surface border transition duration-300 space-y-4 shadow-md ${
+                  className={`p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-surface border transition duration-300 space-y-4 shadow-md ${
                     highlightContentId === c.id
                       ? "border-amber-500/80 ring-2 ring-amber-500/30 bg-surface2/30"
                       : "border-border"

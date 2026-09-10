@@ -27,9 +27,9 @@ export default async function SnsApprovalPublicPage({
     .map(toReviewableSnsContent);
 
   return (
-    <div className="min-h-screen bg-bg text-text p-4 sm:p-8 font-sans">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="p-6 rounded-3xl bg-surface border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xl">
+    <div className="min-h-screen bg-bg text-text py-6 px-3 sm:p-8 font-sans">
+      <div className="max-w-4xl mx-auto space-y-5 sm:space-y-6">
+        <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-surface border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xl">
           <div className="space-y-1">
             <span className="px-2.5 py-0.5 rounded-full bg-accent2/10 text-accent2 border border-accent2/20 text-xs font-semibold">광고주 시안 컨펌</span>
             <h1 className="text-xl sm:text-2xl font-extrabold text-text">{account.company_name} SNS 콘텐츠 시안 검토 및 승인</h1>

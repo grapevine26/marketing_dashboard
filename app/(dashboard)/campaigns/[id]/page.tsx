@@ -110,7 +110,7 @@ export default async function CampaignDetailPage({
   return (
     <div className="space-y-6 max-w-6xl mx-auto font-sans">
       {/* Campaign Header */}
-      <div className="p-6 rounded-3xl bg-surface border border-border flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
+      <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-surface border border-border flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-semibold">
@@ -121,7 +121,7 @@ export default async function CampaignDetailPage({
               {campaign.company_name}
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-text">{campaign.name}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-text">{campaign.name}</h1>
         </div>
 
         <div className="grid grid-cols-2 gap-3 w-full md:w-auto md:flex md:items-center md:gap-4">
@@ -146,7 +146,7 @@ export default async function CampaignDetailPage({
       <TokenShareBox campaign={campaign} />
 
       {/* Event Section Entry */}
-      <div className="p-5 rounded-3xl bg-surface border border-teal-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-surface border border-teal-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
           <div className="w-10 h-10 rounded-2xl bg-teal-500/15 border border-teal-500/30 text-teal-400 flex items-center justify-center shrink-0">
             <PartyPopper className="w-5 h-5" />
@@ -184,7 +184,7 @@ export default async function CampaignDetailPage({
               <Link
                 key={step.href}
                 href={step.href}
-                className="p-5 rounded-2xl bg-surface border border-border hover:border-blue-500/40 hover:bg-surface2 transition flex flex-col justify-between space-y-4 group"
+                className="p-4 sm:p-5 rounded-2xl bg-surface border border-border hover:border-blue-500/40 hover:bg-surface2 transition flex flex-col justify-between space-y-4 group"
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">

@@ -80,7 +80,7 @@ export default function PreSurveyPublicForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="p-5 sm:p-8 rounded-3xl bg-surface border border-border space-y-6 shadow-2xl font-sans">
+    <form onSubmit={handleSubmit} className="p-4 sm:p-8 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-6 shadow-2xl font-sans">
       {initialAnswers && (
         <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-300 text-xs">
           이전에 제출한 답변이 있습니다. 수정 후 다시 제출하면 덮어씁니다.

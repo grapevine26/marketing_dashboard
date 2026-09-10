@@ -76,7 +76,7 @@ export default function TokenShareBox({ campaign }: { campaign: Campaign }) {
   };
 
   return (
-    <div className="p-5 sm:p-7 rounded-3xl bg-surface border border-border space-y-4 shadow-xl font-sans">
+    <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-4 shadow-xl font-sans">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm font-bold text-text">
           <Share2 className="w-4 h-4 text-blue-400" />
@@ -174,7 +174,7 @@ export default function TokenShareBox({ campaign }: { campaign: Campaign }) {
       {/* 보안 재발급 확인 모달 */}
       {confirmTarget && (
         <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-md bg-surface border border-amber-500/30 rounded-3xl p-6 space-y-4 shadow-2xl">
+          <div className="w-full max-w-md bg-surface border border-amber-500/30 rounded-2xl sm:rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5 text-warn">
                 <ShieldAlert className="w-5 h-5" />

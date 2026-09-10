@@ -328,7 +328,7 @@ export default function ApplicantTable({
   );
 
   return (
-    <div className="p-5 sm:p-8 rounded-3xl bg-surface border border-border space-y-5 sm:space-y-6 shadow-xl font-sans">
+    <div className="p-4 sm:p-8 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-5 sm:space-y-6 shadow-xl font-sans">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1">
           <div className="relative flex-1 sm:max-w-xs">
@@ -390,7 +390,7 @@ export default function ApplicantTable({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
           <a
             href={`${csvHref}&format=xlsx`}
             className="w-full sm:w-auto text-center justify-center px-3.5 py-2.5 sm:py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-medium inline-flex items-center gap-1.5 transition border border-border active:scale-95"
@@ -711,8 +711,8 @@ export default function ApplicantTable({
       {/* Message Template Modal */}
       {msgModalApp && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-surface border border-border rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-border">
+          <div className="bg-surface border border-border rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-border shrink-0">
               <div>
                 <h3 className="text-sm font-bold text-text flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-blue-400" />
@@ -731,7 +731,7 @@ export default function ApplicantTable({
               </button>
             </div>
 
-            <div className="p-4 sm:p-5 space-y-4">
+            <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
               {/* Template Type Selector Tabs */}
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
                 {(

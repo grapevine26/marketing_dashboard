@@ -237,7 +237,7 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
                         setTargetAccount(acc);
                         setDeleteError(null);
                       }}
-                      className="p-1.5 rounded-lg text-text-muted hover:text-rose-400 hover:bg-rose-500/10 transition opacity-0 group-hover:opacity-100 focus:opacity-100"
+                      className="p-1.5 rounded-lg text-text-muted hover:text-rose-400 hover:bg-rose-500/10 transition opacity-80 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

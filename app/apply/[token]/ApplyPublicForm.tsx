@@ -77,7 +77,7 @@ export default function ApplyPublicForm({
 
   if (submitted) {
     return (
-      <div className="p-6 sm:p-8 rounded-3xl bg-surface border border-border text-center space-y-3 shadow-2xl font-sans">
+      <div className="p-4 sm:p-8 rounded-2xl sm:rounded-3xl bg-surface border border-border text-center space-y-3 shadow-2xl font-sans">
         <div className="w-12 h-12 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center mx-auto">
           <CheckCircle2 className="w-6 h-6" />
         </div>
@@ -143,7 +143,7 @@ export default function ApplyPublicForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-5 sm:p-8 rounded-3xl bg-surface border border-border space-y-4 sm:space-y-5 shadow-2xl font-sans">
+    <form onSubmit={handleSubmit} className="p-4 sm:p-8 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-4 sm:space-y-5 shadow-2xl font-sans">
       {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">{error}</div>}
 
       <div className="space-y-1">

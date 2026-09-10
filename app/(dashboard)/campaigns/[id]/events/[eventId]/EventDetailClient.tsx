@@ -120,6 +120,8 @@ export default function EventDetailClient({
   const [directMemo, setDirectMemo] = useState("");
   const [importing, setImporting] = useState(false);
   const [addingDirect, setAddingDirect] = useState(false);
+  const toggleSelectApplicant = (id: string) =>
+    setSelectedApplicantIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   // Checklist
   const [newChecklistLabel, setNewChecklistLabel] = useState("");
@@ -358,7 +360,7 @@ export default function EventDetailClient({
   return (
     <div className="space-y-6 font-sans">
       {/* Header */}
-      <div className="p-5 sm:p-7 rounded-3xl bg-surface border border-border space-y-4 shadow-xl">
+      <div className="p-4 sm:p-7 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-4 shadow-xl">
         {!editingInfo ? (
           <>
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
@@ -393,20 +395,18 @@ export default function EventDetailClient({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-border text-xs text-text-2">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-teal-400 shrink-0" />
-                <span className="text-text-sub">일시(KST):</span>
-                <span className="font-semibold font-mono">{formatKstDateTime(event.event_at) || "일시 미정"}</span>
+                <span>{event.event_at ? formatKstDateTime(event.event_at) : "일시 미정"}</span>
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-teal-400 shrink-0" />
-                <span className="text-text-sub">장소:</span>
-                <span className="font-semibold">{event.venue || "장소 미정"}</span>
+                <span>{event.venue || "장소 미정"}</span>
               </div>
             </div>
           </>
         ) : (
           <form onSubmit={handleSaveInfo} className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-text">행사 기본 정보 수정</h2>
+              <span className="text-xs font-bold text-text-2">행사 기본 정보 수정</span>
               <button type="button" onClick={() => setEditingInfo(false)} className="text-text-sub hover:text-text"><X className="w-4 h-4" /></button>
             </div>
             <input
@@ -453,15 +453,15 @@ export default function EventDetailClient({
       {notice && <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-semibold">{notice}</div>}
 
       {/* KPI */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {[
           { label: "총 초청 인원", value: invitees.length, cls: "text-text" },
           { label: "참석 확정 (RSVP)", value: attendingCount, cls: "text-text" },
           { label: "현장 참석 체크인", value: attendedCount, cls: "text-text" },
         ].map((k) => (
-          <div key={k.label} className="p-4 rounded-2xl bg-surface border border-border text-center sm:text-left">
-            <div className="text-[11px] text-text-muted font-medium">{k.label}</div>
-            <div className={`text-lg sm:text-2xl font-bold mt-0.5 font-mono tabular-nums ${k.cls}`}>{k.value}명</div>
+          <div key={k.label} className="p-3 sm:p-4 rounded-2xl bg-surface border border-border text-center sm:text-left">
+            <div className="text-[10px] sm:text-[11px] text-text-muted font-medium truncate">{k.label}</div>
+            <div className={`text-base sm:text-2xl font-bold mt-0.5 font-mono tabular-nums ${k.cls}`}>{k.value}명</div>
           </div>
         ))}
       </div>
@@ -475,7 +475,7 @@ export default function EventDetailClient({
 
       {/* TAB 1: Invitees */}
       {activeTab === "invitees" && (
-        <div className="p-5 sm:p-7 rounded-3xl bg-surface border border-border space-y-5 shadow-xl">
+        <div className="p-4 sm:p-7 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-5 shadow-xl">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-sm sm:text-base font-bold text-text">초청 인플루언서 명단</h2>
@@ -629,7 +629,7 @@ export default function EventDetailClient({
 
           {importModalOpen && (
             <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
-              <div className="w-full max-w-lg bg-surface border border-border rounded-3xl p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col font-sans">
+              <div className="w-full max-w-lg bg-surface border border-border rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col font-sans">
                 <div className="flex items-center justify-between pb-2 border-b border-border">
                   <div>
                     <h3 className="text-base font-bold text-text">캠페인 지원자 목록에서 초청자 불러오기</h3>
@@ -643,40 +643,41 @@ export default function EventDetailClient({
                     <div className="p-6 text-center text-text-muted text-xs">캠페인에 접수된 지원자가 없습니다.</div>
                   ) : (
                     applicants.map((app) => {
-                      const alreadyInvited = alreadyInvitedApplicantIds.has(app.id);
-                      const isChecked = selectedApplicantIds.includes(app.id);
+                      const already = alreadyInvitedApplicantIds.has(app.id);
+                      const checked = selectedApplicantIds.includes(app.id);
                       return (
-                        <label key={app.id} className={`flex items-center justify-between p-3 rounded-xl transition ${alreadyInvited ? "opacity-40 cursor-not-allowed bg-bg" : "cursor-pointer hover:bg-surface2"}`}>
-                          <div className="flex items-center gap-3">
+                        <label
+                          key={app.id}
+                          className={`pt-2 flex items-center justify-between gap-3 text-xs cursor-pointer ${
+                            already ? "opacity-40 cursor-not-allowed" : "hover:text-teal-300"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
                             <input
                               type="checkbox"
-                              disabled={alreadyInvited}
-                              checked={isChecked}
-                              onChange={(e) => {
-                                if (alreadyInvited) return;
-                                setSelectedApplicantIds((prev) => (e.target.checked ? [...prev, app.id] : prev.filter((id) => id !== app.id)));
-                              }}
+                              disabled={already}
+                              checked={checked}
+                              onChange={() => toggleSelectApplicant(app.id)}
                               className="w-4 h-4 accent-teal-600 rounded"
                             />
-                            <div>
-                              <div className="font-bold text-xs text-text">
-                                {app.name}
-                                <span className="ml-1.5 text-[10px] text-text-muted font-normal">
-                                  {app.status === "selected" ? "최종선정" : app.status === "reserved" ? "예비선정" : app.status === "rejected" ? "미선정" : "대기"}
-                                </span>
-                              </div>
-                              <div className="text-[11px] text-text-sub">{app.sns_link} ({app.contact})</div>
+                            <div className="min-w-0">
+                              <span className="font-bold text-text block truncate">{app.name}</span>
+                              <span className="text-[11px] text-text-sub truncate block">{app.sns_link}</span>
                             </div>
                           </div>
-                          {alreadyInvited && <span className="text-[10px] px-2 py-0.5 rounded bg-surface2 text-text-muted font-medium">이미 초청됨</span>}
+                          {already ? (
+                            <span className="text-[10px] text-text-muted shrink-0">이미 초청됨</span>
+                          ) : (
+                            <span className="text-[10px] text-teal-400 shrink-0 font-semibold">{app.status === "selected" ? "최종선정" : "지원자"}</span>
+                          )}
                         </label>
                       );
                     })
                   )}
                 </div>
 
-                <div className="pt-3 border-t border-border flex justify-end gap-2">
-                  <button type="button" onClick={() => setImportModalOpen(false)} className="px-4 py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs">취소</button>
+                <div className="flex items-center justify-between pt-3 border-t border-border">
+                  <span className="text-xs text-text-sub">{selectedApplicantIds.length}명 선택됨</span>
                   <button type="button" disabled={importing || selectedApplicantIds.length === 0} onClick={handleImportApplicants} className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold shadow-md disabled:opacity-50">
                     {importing ? "불러오는 중..." : `${selectedApplicantIds.length}명 초청 명단에 추가`}
                   </button>
@@ -689,7 +690,7 @@ export default function EventDetailClient({
 
       {/* TAB 2: Plan */}
       {activeTab === "plan" && (
-        <div className="p-5 sm:p-7 rounded-3xl bg-surface border border-border space-y-5 shadow-xl">
+        <div className="p-4 sm:p-7 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-5 shadow-xl">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-sm sm:text-base font-bold text-text">행사 운영안 기획 & 파워포인트 생성</h2>
@@ -751,7 +752,7 @@ export default function EventDetailClient({
 
       {/* TAB 3: Checklist */}
       {activeTab === "checklist" && (
-        <div className="p-5 sm:p-7 rounded-3xl bg-surface border border-border space-y-5 shadow-xl">
+        <div className="p-4 sm:p-7 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-5 shadow-xl">
           <div>
             <h2 className="text-sm sm:text-base font-bold text-text">행사 준비 체크리스트 & 할 일</h2>
             <p className="text-xs text-text-sub">마감일(D-day)과 담당자를 지정하여 행사 준비 진행 상황을 누락 없이 관리합니다.</p>
@@ -782,7 +783,7 @@ export default function EventDetailClient({
                   <div
                     key={c.id}
                     id={`checklist-${c.id}`}
-                    className={`p-3.5 rounded-2xl border transition duration-300 flex items-center justify-between gap-3 ${
+                    className={`p-3.5 rounded-2xl border transition duration-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 ${
                       isHighlighted
                         ? "bg-teal-500/15 border-teal-400 ring-2 ring-teal-400/40 shadow-md"
                         : c.done
@@ -792,7 +793,7 @@ export default function EventDetailClient({
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <input type="checkbox" checked={c.done} onChange={() => handleToggleChecklistDone(c)} className="w-4 h-4 accent-teal-600 rounded cursor-pointer shrink-0" />
-                      <span className={`text-xs font-medium truncate ${c.done ? "line-through text-text-muted" : isHighlighted ? "text-teal-300 font-bold" : "text-text"}`}>{c.label}</span>
+                      <span className={`text-xs font-medium ${c.done ? "line-through text-text-muted" : isHighlighted ? "text-teal-300 font-bold" : "text-text"}`}>{c.label}</span>
                       {isHighlighted && (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/30 shrink-0 animate-pulse">
                           선택된 준비항목
@@ -800,17 +801,19 @@ export default function EventDetailClient({
                       )}
                     </div>
 
-                    <div className="flex items-center gap-3 shrink-0 text-xs">
+                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 text-xs pl-7 sm:pl-0">
                       {c.due_date && (
                         <div className="flex items-center gap-1.5 font-mono tabular-nums">
-                          <span className="text-text-muted">{c.due_date}</span>
+                          <span className="text-text-muted text-[11px] sm:text-xs">{c.due_date}</span>
                           {!c.done && <span className={ddayToneClass(ddayInfo.dday ?? 99)}>({ddayInfo.label})</span>}
                         </div>
                       )}
-                      {c.assignee && <span className="px-2 py-0.5 rounded bg-surface border border-border text-text-sub text-[10px]">{c.assignee}</span>}
-                      <button type="button" onClick={() => handleDeleteChecklist(c.id)} className="p-1 rounded text-text-muted hover:text-red-400">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {c.assignee && <span className="px-2 py-0.5 rounded bg-surface border border-border text-text-sub text-[10px]">{c.assignee}</span>}
+                        <button type="button" onClick={() => handleDeleteChecklist(c.id)} className="p-1 rounded text-text-muted hover:text-red-400">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );

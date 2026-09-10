@@ -29,8 +29,8 @@ export default async function SnsIntakePublicPage({
     : <Camera className="w-6 h-6 text-accent2" />;
 
   return (
-    <div className="min-h-screen bg-bg text-text flex flex-col items-center justify-center p-4 sm:p-6 md:p-10 font-sans">
-      <div className="w-full max-w-2xl bg-surface border border-border rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
+    <div className="min-h-screen bg-bg text-text flex flex-col items-center justify-center py-6 px-3 sm:p-6 md:p-10 font-sans">
+      <div className="w-full max-w-2xl bg-surface border border-border rounded-2xl sm:rounded-3xl p-4 sm:p-8 space-y-6 shadow-2xl">
         <div className="text-center space-y-3 pb-5 border-b border-border">
           <div className="w-14 h-14 rounded-2xl bg-bg border border-border flex items-center justify-center mx-auto shadow-inner">{icon}</div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent2/10 border border-accent2/20 text-accent2 text-xs font-bold uppercase tracking-wider">

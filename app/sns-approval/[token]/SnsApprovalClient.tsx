@@ -58,12 +58,12 @@ export default function SnsApprovalClient({
       )}
 
       {contents.length === 0 ? (
-        <div className="p-12 text-center rounded-3xl bg-surface border border-dashed border-border text-text-muted text-xs">
+        <div className="p-8 sm:p-12 text-center rounded-2xl sm:rounded-3xl bg-surface border border-dashed border-border text-text-muted text-xs">
           현재 {account.company_name} 계정에 검토 대기 중인 콘텐츠 시안이 없습니다.
         </div>
       ) : (
         contents.map((c) => (
-          <div key={c.id} className="p-6 rounded-3xl border bg-surface border-accent2/40 transition space-y-5 shadow-xl">
+          <div key={c.id} className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl border bg-surface border-accent2/40 transition space-y-4 sm:space-y-5 shadow-xl">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-accent2/15 text-accent2 border border-accent2/30">광고주 승인 대기중</span>
