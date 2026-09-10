@@ -15,16 +15,17 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import { toast } from "@/components/Toast";
 
 interface CampaignIntegrationsCardProps {
   campaignId: string;
-  initialWebhookUrl?: string;
+  initialWebhookUrl?: string | null;
   auditLogs: AuditLogEntry[];
 }
 
 export default function CampaignIntegrationsCard({
   campaignId,
-  initialWebhookUrl = "",
+  initialWebhookUrl,
   auditLogs,
 }: CampaignIntegrationsCardProps) {
   const [webhookUrl, setWebhookUrl] = useState(initialWebhookUrl || "");
@@ -42,9 +43,12 @@ export default function CampaignIntegrationsCard({
     setIsSaving(false);
     if (res.ok) {
       setSaveSuccess(true);
+      toast.success("웹훅 연동 설정이 저장되었습니다.");
       setTimeout(() => setSaveSuccess(false), 2500);
     } else {
-      setTestResult({ ok: false, message: res.error || "웹훅 저장 실패" });
+      const errMsg = res.error || "웹훅 저장 실패";
+      setTestResult({ ok: false, message: errMsg });
+      toast.error(errMsg);
     }
   };
 

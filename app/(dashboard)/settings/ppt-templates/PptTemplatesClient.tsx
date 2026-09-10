@@ -21,6 +21,7 @@ import {
 } from "./actions";
 import { Upload, Trash2, Loader2, Lock, Pencil, Download, RefreshCw, Check, X, RotateCcw } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import { toast } from "@/components/Toast";
 
 const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
@@ -98,15 +99,20 @@ export default function PptTemplatesClient({
       const res = clientUpload ? await uploadDirect() : await safeCall(uploadPptTemplateAction(fd));
       if (!res.ok) {
         setError(res.error);
+        toast.error(res.error || "템플릿 등록에 실패했습니다.");
         return;
       }
       setTemplates((prev) => [...prev, res.data.template]);
       setName("");
       setFile(null);
       setFileKey((k) => k + 1);
-      setNotice(res.data.warning || `템플릿이 등록되었습니다. 감지된 치환 항목 ${res.data.template.placeholders.length}개.`);
+      const noticeMsg = res.data.warning || `템플릿이 등록되었습니다. 감지된 치환 항목 ${res.data.template.placeholders.length}개.`;
+      setNotice(noticeMsg);
+      toast.success("새 PPT 템플릿이 성공적으로 등록되었습니다.");
     } catch (err) {
-      setError(`업로드 중 오류가 발생했습니다. (${err instanceof Error ? err.message : String(err)})`);
+      const errMsg = `업로드 중 오류가 발생했습니다. (${err instanceof Error ? err.message : String(err)})`;
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setUploading(false);
     }
@@ -122,10 +128,12 @@ export default function PptTemplatesClient({
     const res = await safeCall(deletePptTemplateAction(t.id));
     if (!res.ok) {
       setError(res.error);
+      toast.error(res.error || "템플릿 삭제에 실패했습니다.");
       return;
     }
     setTemplates((prev) => prev.filter((x) => x.id !== t.id));
     if (t.builtin) setHiddenBuiltinCount((n) => n + 1);
+    toast.info(`"${t.name}" 템플릿이 목록에서 삭제되었습니다.`);
   };
 
   const handleRestoreBuiltins = async () => {
@@ -133,10 +141,12 @@ export default function PptTemplatesClient({
     const res = await safeCall(restoreBuiltinPptTemplatesAction());
     if (!res.ok) {
       setError(res.error);
+      toast.error(res.error || "기본 템플릿 복원에 실패했습니다.");
       return;
     }
     setHiddenBuiltinCount(0);
     setNotice(`기본 템플릿 ${res.data.restored}개를 되살렸습니다. 새로고침하면 목록에 나타납니다.`);
+    toast.success(`기본 템플릿 ${res.data.restored}개를 되살렸습니다.`);
     router.refresh();
   };
 
@@ -156,11 +166,13 @@ export default function PptTemplatesClient({
       const res = await safeCall(updatePptTemplateMetaAction({ id: t.id, name: editName.trim(), kind: editKind }));
       if (!res.ok) {
         setError(res.error);
+        toast.error(res.error || "템플릿 정보 수정에 실패했습니다.");
         return;
       }
       setTemplates((prev) => prev.map((x) => (x.id === t.id ? res.data : x)));
       setEditingId(null);
       setNotice("템플릿 정보를 수정했습니다.");
+      toast.success("템플릿 정보가 수정되었습니다.");
     } finally {
       setSavingEdit(false);
     }

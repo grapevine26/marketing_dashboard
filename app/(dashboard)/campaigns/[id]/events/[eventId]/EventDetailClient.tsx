@@ -44,6 +44,7 @@ import {
   X,
 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import { toast } from "@/components/Toast";
 
 export interface TemplateOption {
   id: string;
@@ -179,9 +180,13 @@ export default function EventDetailClient({
       },
     }));
     setSavingInfo(false);
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) {
+      toast.error(res.error || "행사 정보 수정에 실패했습니다.");
+      return setError(res.error);
+    }
     setEvent(res.data);
     setEditingInfo(false);
+    toast.success("행사 기본 정보가 수정되었습니다.");
     router.refresh();
   };
 
@@ -339,10 +344,16 @@ export default function EventDetailClient({
       fieldValues,
     }));
     setSavingPlan(false);
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) {
+      toast.error(res.error || "운영안 저장에 실패했습니다.");
+      return setError(res.error);
+    }
     setPlanSaved(true);
     setPlanDirty(false);
     setNotice("운영안이 저장되었습니다. 이제 PPT를 다운로드할 수 있습니다.");
+    toast.success("행사 운영안이 저장되었습니다.", {
+      description: "이제 상단 버튼에서 PPT 제안서를 다운로드할 수 있습니다.",
+    });
   };
 
   const attendingCount = invitees.filter((i) => i.rsvp_status === "attending").length;

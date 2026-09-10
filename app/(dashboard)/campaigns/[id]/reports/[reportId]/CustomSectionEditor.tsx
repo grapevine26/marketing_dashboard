@@ -5,6 +5,7 @@ import { CustomSection } from "@/lib/db/types";
 import { saveReportSectionsAction } from "../actions";
 import { Plus, Trash2, Save, CheckCircle2, Loader2 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import { toast } from "@/components/Toast";
 
 export default function CustomSectionEditor({
   reportId,
@@ -41,9 +42,11 @@ export default function CustomSectionEditor({
     setSaving(false);
     if (!res.ok) {
       setError(res.error);
+      toast.error(res.error || "섹션 저장에 실패했습니다.");
       return;
     }
     setSaved(true);
+    toast.success("보고서 맞춤 섹션이 저장되었습니다.");
     setTimeout(() => setSaved(false), 3000);
   };
 

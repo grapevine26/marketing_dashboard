@@ -6,6 +6,7 @@ import { saveFormConfigAction, generateAiIntroAction } from "./actions";
 import { Sparkles, Save, Plus, Trash2, ArrowLeft, Loader2, CheckCircle2, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { safeCall } from "@/lib/actions/safeCall";
+import { toast } from "@/components/Toast";
 
 const TYPE_LABELS: Record<CustomQuestionType, string> = {
   text: "단답/서술",
@@ -80,10 +81,14 @@ export default function ApplyFormEditor({
     setSaving(false);
     if (!res.ok) {
       setError(res.error);
+      toast.error(res.error || "신청폼 저장에 실패했습니다.");
       return;
     }
     setCustomQuestions(res.data.custom_questions);
     setSaved(true);
+    toast.success("인플루언서 신청폼 설정이 저장되었습니다.", {
+      description: "공개 지원 페이지에 즉시 적용됩니다.",
+    });
     setTimeout(() => setSaved(false), 3000);
   };
 

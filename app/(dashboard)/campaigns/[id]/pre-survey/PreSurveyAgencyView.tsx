@@ -6,6 +6,7 @@ import { saveAgencyPreSurveyAction, getAiAssistAction } from "./actions";
 import { Sparkles, Save, CheckCircle2, ArrowLeft, Loader2, Sliders } from "lucide-react";
 import Link from "next/link";
 import { safeCall } from "@/lib/actions/safeCall";
+import { toast } from "@/components/Toast";
 
 export default function PreSurveyAgencyView({
   campaign,
@@ -56,9 +57,11 @@ export default function PreSurveyAgencyView({
     setSaving(false);
     if (!res.ok) {
       setError(res.error);
+      toast.error(res.error || "답변 저장에 실패했습니다.");
       return;
     }
     setSaved(true);
+    toast.success("사전조사 답변이 저장되었습니다.");
     setTimeout(() => setSaved(false), 3000);
   };
 

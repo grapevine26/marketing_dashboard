@@ -6,6 +6,7 @@ import { SnsIntakeTemplate, PreSurveyQuestion } from "@/lib/db/types";
 import { updateSnsIntakeTemplateAction } from "../../sns/actions";
 import { Plus, Trash2, Save, CheckCircle2, Loader2, HelpCircle, MessageSquareText, FileQuestion, ArrowUp, ArrowDown } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import { toast } from "@/components/Toast";
 
 export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTemplate: SnsIntakeTemplate }) {
   const router = useRouter();
@@ -33,6 +34,7 @@ export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTe
   const handleRemove = (id: string) => {
     if (questions.length <= 1) {
       setError("최소 1개 이상의 사전설문 질문이 필요합니다.");
+      toast.warning("최소 1개 이상의 사전설문 질문이 필요합니다.");
       return;
     }
     setQuestions((prev) => prev.filter((q) => q.id !== id));
@@ -45,11 +47,15 @@ export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTe
     setSaving(false);
     if (!res.ok) {
       setError(res.error);
+      toast.error(res.error || "템플릿 저장에 실패했습니다.");
       return;
     }
     setQuestions(res.data.questions);
     router.refresh();
     setSaved(true);
+    toast.success("SNS 사전설문 표준 템플릿이 저장되었습니다.", {
+      description: "기본 문항으로 설정되어 모든 SNS 계정에 즉시 적용됩니다.",
+    });
     setTimeout(() => setSaved(false), 3000);
   };
 

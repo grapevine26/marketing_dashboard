@@ -58,6 +58,7 @@ import {
   Sliders,
 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import { toast } from "@/components/Toast";
 import SnsIntakeQuestionEditor from "./SnsIntakeQuestionEditor";
 
 const STATUS_TONE: Record<SnsContentStatus, string> = {
@@ -282,9 +283,13 @@ export default function SnsAccountDetailClient({
       ends_on: accountForm.ends_on || null,
     }));
     setSavingAccount(false);
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) {
+      toast.error(res.error || "계정 정보 저장에 실패했습니다.");
+      return setError(res.error);
+    }
     setAccount(res.data);
     setEditingAccount(false);
+    toast.success("계정 정보가 수정되었습니다.");
     router.refresh();
   };
 
@@ -463,8 +468,12 @@ export default function SnsAccountDetailClient({
         media_note: form.media_note || null,
       }));
       setSaving(false);
-      if (!res.ok) return setError(res.error);
+      if (!res.ok) {
+        toast.error(res.error || "콘텐츠 수정에 실패했습니다.");
+        return setError(res.error);
+      }
       setContents((prev) => prev.map((c) => (c.id === editingId ? res.data : c)));
+      toast.success("콘텐츠가 수정되었습니다.");
     } else {
       const res = await safeCall(createSnsContentAction({
         accountId: account.id,
@@ -477,6 +486,7 @@ export default function SnsAccountDetailClient({
       }));
       if (!res.ok) {
         setSaving(false);
+        toast.error(res.error || "콘텐츠 등록에 실패했습니다.");
         return setError(res.error);
       }
       let createdContent = res.data;
@@ -495,6 +505,7 @@ export default function SnsAccountDetailClient({
       }
       setSaving(false);
       setContents((prev) => [createdContent, ...prev]);
+      toast.success("새 콘텐츠가 등록되었습니다.");
     }
     setModalOpen(false);
     router.refresh();
@@ -582,7 +593,10 @@ export default function SnsAccountDetailClient({
     setSavingPerfId(c.id);
     const res = await safeCall(updateSnsContentAction(c.id, account.id, patch));
     setSavingPerfId(null);
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) {
+      toast.error(res.error || "성과 저장에 실패했습니다.");
+      return setError(res.error);
+    }
     setContents((prev) => prev.map((x) => (x.id === c.id ? res.data : x)));
     setPerfInputs((prev) => {
       const next = { ...prev };
@@ -590,6 +604,7 @@ export default function SnsAccountDetailClient({
       return next;
     });
     setNotice("성과 수치가 저장되었습니다.");
+    toast.success("성과 수치가 저장되었습니다.");
   };
 
   const platformLabel = (p: SnsPlatform) => p.toUpperCase();

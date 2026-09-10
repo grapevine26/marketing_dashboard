@@ -7,6 +7,7 @@ import { saveSnsPlanAction, generateSnsAiPlanAction } from "../../actions";
 import DownloadFileButton from "@/components/DownloadFileButton";
 import { Sparkles, Save, Loader2, FileText } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import { toast } from "@/components/Toast";
 
 interface TemplateOption {
   id: string;
@@ -96,10 +97,18 @@ export default function SnsPlanEditorClient({
     setError(null);
     const res = await safeCall(saveSnsPlanAction({ accountId: account.id, templateId: selectedTemplateId, fieldValues }));
     setSaving(false);
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) {
+      setError(res.error);
+      toast.error(res.error || "운영안 저장에 실패했습니다.");
+      return;
+    }
     setSaved(true);
     setDirty(false);
-    setNotice(selectedTemplateId ? "운영안이 저장되었습니다. PPT를 다운로드할 수 있습니다." : "운영안이 저장되었습니다. (템플릿 미선택 — 웹에서만 사용)");
+    const msg = selectedTemplateId ? "운영안이 저장되었습니다. PPT를 다운로드할 수 있습니다." : "운영안이 저장되었습니다. (템플릿 미선택 — 웹에서만 사용)";
+    setNotice(msg);
+    toast.success("SNS 채널 운영안이 저장되었습니다.", {
+      description: selectedTemplateId ? "이제 상단 버튼에서 PPT를 다운로드할 수 있습니다." : undefined,
+    });
     router.refresh();
   };
 

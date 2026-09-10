@@ -6,6 +6,7 @@ import { PreSurveyTemplate, PreSurveyQuestion } from "@/lib/db/types";
 import { saveTemplateAction } from "./actions";
 import { Plus, Trash2, Save, CheckCircle2, Loader2, HelpCircle, MessageSquareText, FileQuestion, ArrowUp, ArrowDown } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import { toast } from "@/components/Toast";
 
 export default function PreSurveyTemplateEditor({
   initialTemplate,
@@ -40,6 +41,7 @@ export default function PreSurveyTemplateEditor({
   const handleRemove = (id: string) => {
     if (questions.length <= 1) {
       setError("최소 1개 이상의 사전조사 질문이 필요합니다.");
+      toast.warning("최소 1개 이상의 사전조사 질문이 필요합니다.");
       return;
     }
     setQuestions((prev) => prev.filter((q) => q.id !== id));
@@ -52,11 +54,15 @@ export default function PreSurveyTemplateEditor({
     setSaving(false);
     if (!res.ok) {
       setError(res.error);
+      toast.error(res.error || "템플릿 저장에 실패했습니다.");
       return;
     }
     setQuestions(res.data.questions);
     router.refresh();
     setSaved(true);
+    toast.success("사전조사 표준 템플릿이 저장되었습니다.", {
+      description: "기본 문항으로 설정되어 모든 캠페인에 즉시 적용됩니다.",
+    });
     setTimeout(() => setSaved(false), 3000);
   };
 

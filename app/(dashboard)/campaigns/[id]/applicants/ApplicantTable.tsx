@@ -36,6 +36,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import { toast } from "@/components/Toast";
 
 type Mode = "agency" | "company";
 
@@ -165,9 +166,10 @@ export default function ApplicantTable({
     if (res.ok) {
       setTemplates(updated);
       setSavedTemplate(true);
+      toast.success("안내 메시지 템플릿이 저장되었습니다.");
       setTimeout(() => setSavedTemplate(false), 2000);
     } else {
-      alert(res.error || "템플릿 저장 실패");
+      toast.error(res.error || "템플릿 저장에 실패했습니다.");
     }
   };
 
@@ -180,8 +182,10 @@ export default function ApplicantTable({
         prev.map((a) => (a.id === applicantId ? { ...a, agency_memo: memoDraft } : a))
       );
       setMemoEditingId(null);
+      toast.success("인플루언서 관리 메모가 저장되었습니다.");
     } else {
       setError(res.error);
+      toast.error(res.error || "메모 저장에 실패했습니다.");
     }
   };
 

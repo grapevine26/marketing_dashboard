@@ -19,6 +19,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import { toast } from "@/components/Toast";
 
 interface SnsIntakeQuestionEditorProps {
   accountId: string;
@@ -72,6 +73,7 @@ export default function SnsIntakeQuestionEditor({
   const handleRemove = (id: string) => {
     if (questions.length <= 1) {
       setError("최소 1개 이상의 사전설문 질문이 필요합니다.");
+      toast.warning("최소 1개 이상의 사전설문 질문이 필요합니다.");
       return;
     }
     setQuestions((prev) => prev.filter((q) => q.id !== id));
@@ -82,6 +84,7 @@ export default function SnsIntakeQuestionEditor({
     const emptyQ = questions.find((q) => !q.question.trim());
     if (emptyQ) {
       setError("모든 문항의 질문 내용을 입력해주세요.");
+      toast.warning("모든 문항의 질문 내용을 입력해주세요.");
       return;
     }
 
@@ -93,7 +96,9 @@ export default function SnsIntakeQuestionEditor({
     setSaving(false);
 
     if (!res.ok) {
-      setError(res.error || "문항 저장에 실패했습니다.");
+      const errMsg = res.error || "문항 저장에 실패했습니다.";
+      setError(errMsg);
+      toast.error(errMsg);
       return;
     }
 
@@ -101,6 +106,9 @@ export default function SnsIntakeQuestionEditor({
     setQuestions(res.data.questions);
     router.refresh();
     setSaved(true);
+    toast.success("SNS 계정 맞춤 사전설문 문항이 저장되었습니다.", {
+      description: "이 계정의 사전설문 링크에 즉시 적용됩니다.",
+    });
     setTimeout(() => setSaved(false), 3000);
   };
 
@@ -119,7 +127,9 @@ export default function SnsIntakeQuestionEditor({
     setResetting(false);
 
     if (!res.ok) {
-      setError(res.error || "기본 템플릿 초기화에 실패했습니다.");
+      const errMsg = res.error || "기본 템플릿 초기화에 실패했습니다.";
+      setError(errMsg);
+      toast.error(errMsg);
       return;
     }
 
@@ -127,6 +137,7 @@ export default function SnsIntakeQuestionEditor({
     setQuestions(defaultTemplateQuestions);
     router.refresh();
     setSaved(true);
+    toast.info("공통 기본 템플릿 문항으로 초기화되었습니다.");
     setTimeout(() => setSaved(false), 3000);
   };
 

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { ToastContainer } from "@/components/Toast";
 
 export const metadata: Metadata = {
   title: "MOA (모아) | 인플루언서 마케팅 & 올인원 캠페인 운영",
@@ -38,7 +39,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ko" className="dark" data-theme="dark" suppressHydrationWarning>
       <body className="min-h-screen antialiased flex flex-col selection:bg-accent selection:text-accent-on font-sans">
         <Script id="theme-init" strategy="beforeInteractive">{themeInitScript}</Script>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          {children}
+          <ToastContainer />
+        </ThemeProvider>
       </body>
     </html>
   );
