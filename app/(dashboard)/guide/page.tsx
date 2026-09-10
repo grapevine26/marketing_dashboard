@@ -26,7 +26,7 @@ const SHARE_LINKS = [
     group: "시딩 캠페인",
     name: "1. 광고주 사전조사 회신 링크",
     to: "광고주",
-    can: "브랜드·제품 정보를 답변. [AI 추천받기]로 초안 작성 가능",
+    can: "브랜드·제품 정보를 답변. [AI 추천받기]로 초안 작성 가능 (문항당 최대 3회)",
     hidden: "다른 링크의 주소, 지원자 정보",
   },
   {
@@ -54,7 +54,7 @@ const SHARE_LINKS = [
     group: "SNS 운영",
     name: "1. 광고주 자료요청 / 사전설문 링크",
     to: "광고주",
-    can: "톤앤매너·금기 키워드 답변. [AI 추천 답변] 사용 가능",
+    can: "톤앤매너·금기 키워드 답변. [AI 추천 답변] 사용 가능 (문항당 최대 3회)",
     hidden: "콘텐츠 목록, 성과 수치",
   },
   {
@@ -382,6 +382,10 @@ export default function GuidePage() {
                       <td className="p-2.5">예비선정</td>
                       <td className="p-2.5">최종선정 승격 / 예비 취소</td>
                     </tr>
+                    <tr>
+                      <td className="p-2.5">미선정</td>
+                      <td className="p-2.5">대기로 복구</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -662,9 +666,9 @@ export default function GuidePage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-5 rounded-2xl bg-surface border border-border space-y-2">
-            <h3 className="text-sm font-bold text-text">마감 알림 웹훅</h3>
+            <h3 className="text-sm font-bold text-text">실시간 알림 웹훅 연동</h3>
             <p className="text-xs text-text-2 leading-relaxed">
-              캠페인 허브 아래쪽에서 슬랙이나 디스코드의 수신 웹훅 주소를 넣으면 마감 알림을 그 채널로 보냅니다.
+              캠페인 허브 아래쪽에서 슬랙이나 디스코드의 수신 웹훅 주소를 등록하면 <strong>새 인플루언서 지원 접수</strong> 및 <strong>최종선정 알림</strong>을 해당 채널로 실시간 전송합니다.
               <strong> [테스트 발송]</strong>으로 먼저 확인하세요. 보안을 위해 슬랙과 디스코드 주소만 등록됩니다.
             </p>
           </div>
