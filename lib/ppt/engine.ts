@@ -323,78 +323,221 @@ export type BuiltinKind = "event" | "sns" | "report";
 
 /**
  * 시스템 기본 내장 PPT 템플릿 생성기 (kind: event | sns | report)
+ * - event / sns: 세련된 딥 네이비 슬레이트 바탕의 다크 에디토리얼 테마 & 2단 분할 카드 레이아웃
+ * - report: 광고주 임원 보고용 프리미엄 오프화이트 & 코발트 블루 대시보드 테마
  */
 export async function generateDefaultPptBuffer(kind: BuiltinKind): Promise<Buffer> {
   const pptx = new pptxgen();
-  // 아래 좌표(x 0.8 + w 11.7 등)는 13.33 x 7.5 인치 기준. LAYOUT_16x9(10 x 5.625)로 두면 오른쪽이 잘린다.
   pptx.layout = "LAYOUT_WIDE";
 
+  const fontKo = "Malgun Gothic";
+
   if (kind === "event") {
+    // [EVENT OPERATION PLAN] - Deep Midnight Obsidian Theme
+    const bgDark = "0B0F17";
+    const cardBg = "161F30";
+    const cardBorder = "22324D";
+
+    // Slide 1: Cover
     const slide1 = pptx.addSlide();
-    slide1.background = { color: "090A0C" };
-    slide1.addText("EVENT OPERATION PLAN", { x: 0.8, y: 1.8, w: 11.5, h: 0.4, fontSize: 13, color: "38BDF8", bold: true });
-    slide1.addText("{{브랜드명}} - {{행사명}}", { x: 0.8, y: 2.3, w: 11.7, h: 1.5, fontSize: 28, color: "FFFFFF", bold: true, valign: "middle" });
-    slide1.addText("행사 일시: {{행사일시}}   |   장소: {{행사장소}}", { x: 0.8, y: 4.2, w: 11.5, h: 0.6, fontSize: 14, color: "94A3B8" });
+    slide1.background = { color: bgDark };
 
+    slide1.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 1.4, w: 2.6, h: 0.36, fill: { color: "0D9488" }, rectRadius: 0.18 });
+    slide1.addText("EVENT OPERATION PLAN", { x: 0.8, y: 1.4, w: 2.6, h: 0.36, fontSize: 10, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: fontKo });
+
+    slide1.addText("{{브랜드명}} VIP INFLUENCER EVENT", { x: 0.8, y: 1.95, w: 11.7, h: 0.4, fontSize: 13, bold: true, color: "38BDF8", fontFace: fontKo });
+    slide1.addText("{{행사명}}", { x: 0.8, y: 2.45, w: 11.7, h: 1.6, fontSize: 32, bold: true, color: "FFFFFF", valign: "middle", fontFace: fontKo });
+
+    slide1.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 4.4, w: 11.7, h: 1.2, fill: { color: cardBg }, line: { color: cardBorder, width: 1 }, rectRadius: 0.1 });
+    slide1.addText("행사 일시   |   {{행사일시}}", { x: 1.2, y: 4.6, w: 5.4, h: 0.8, fontSize: 13, color: "E2E8F0", bold: true, valign: "middle", fontFace: fontKo });
+    slide1.addText("개최 장소   |   {{행사장소}}", { x: 6.8, y: 4.6, w: 5.4, h: 0.8, fontSize: 13, color: "E2E8F0", bold: true, valign: "middle", fontFace: fontKo });
+
+    slide1.addText("CONFIDENTIAL  |  PREPARED BY INFLUENCER MARKETING TEAM", { x: 0.8, y: 6.6, w: 11.7, h: 0.3, fontSize: 10, color: "475569", fontFace: fontKo });
+
+    // Slide 2: Overview & Direction
     const slide2 = pptx.addSlide();
-    slide2.background = { color: "0D0E12" };
-    slide2.addText("01. 행사 개요 및 기획 의도", { x: 0.8, y: 0.8, w: 11.5, h: 0.5, fontSize: 20, color: "38BDF8", bold: true });
-    slide2.addText("{{행사개요}}", { x: 0.8, y: 1.6, w: 11.7, h: 5.0, fontSize: 14, color: "F1F5F9", lineSpacing: 26, valign: "top" });
+    slide2.background = { color: bgDark };
 
+    slide2.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 0.5, w: 2.2, h: 0.3, fill: { color: "0284C7" }, rectRadius: 0.15 });
+    slide2.addText("01. CONCEPT", { x: 0.8, y: 0.5, w: 2.2, h: 0.3, fontSize: 10, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: fontKo });
+    slide2.addText("행사 개요 및 핵심 기획 의도", { x: 0.8, y: 0.9, w: 11.7, h: 0.5, fontSize: 22, bold: true, color: "FFFFFF", fontFace: fontKo });
+    slide2.addText("브랜드 메시지 전달과 VIP 인플루언서 경험 극대화를 위한 종합 기획 방향", { x: 0.8, y: 1.4, w: 11.7, h: 0.3, fontSize: 11, color: "94A3B8", fontFace: fontKo });
+
+    // Left Card: Concept & Message
+    slide2.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 1.9, w: 5.7, h: 5.0, fill: { color: cardBg }, line: { color: cardBorder, width: 1 }, rectRadius: 0.1 });
+    slide2.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 1.9, w: 5.7, h: 0.6, fill: { color: "0369A1" }, rectRadius: 0.1 });
+    slide2.addText("■ 행사 기획 방향 & 콘셉트 요약", { x: 1.1, y: 1.9, w: 5.1, h: 0.6, fontSize: 12, bold: true, color: "FFFFFF", valign: "middle", fontFace: fontKo });
+    slide2.addText("{{행사개요}}", { x: 1.1, y: 2.7, w: 5.1, h: 4.0, fontSize: 13, color: "F1F5F9", lineSpacing: 24, valign: "top", fontFace: fontKo });
+
+    // Right Card: Basic info
+    slide2.addShape(pptx.ShapeType.roundRect, { x: 6.8, y: 1.9, w: 5.7, h: 5.0, fill: { color: cardBg }, line: { color: cardBorder, width: 1 }, rectRadius: 0.1 });
+    slide2.addShape(pptx.ShapeType.roundRect, { x: 6.8, y: 1.9, w: 5.7, h: 0.6, fill: { color: "0F766E" }, rectRadius: 0.1 });
+    slide2.addText("■ 행사 기본 정보 & 체크포인트", { x: 7.1, y: 1.9, w: 5.1, h: 0.6, fontSize: 12, bold: true, color: "FFFFFF", valign: "middle", fontFace: fontKo });
+
+    slide2.addShape(pptx.ShapeType.roundRect, { x: 7.1, y: 2.7, w: 5.1, h: 1.1, fill: { color: bgDark }, line: { color: "1E293B", width: 1 }, rectRadius: 0.08 });
+    slide2.addText("행사 일시", { x: 7.3, y: 2.8, w: 4.7, h: 0.3, fontSize: 10, color: "38BDF8", bold: true, fontFace: fontKo });
+    slide2.addText("{{행사일시}}", { x: 7.3, y: 3.1, w: 4.7, h: 0.6, fontSize: 13, color: "FFFFFF", bold: true, fontFace: fontKo });
+
+    slide2.addShape(pptx.ShapeType.roundRect, { x: 7.1, y: 4.0, w: 5.1, h: 1.1, fill: { color: bgDark }, line: { color: "1E293B", width: 1 }, rectRadius: 0.08 });
+    slide2.addText("개최 장소", { x: 7.3, y: 4.1, w: 4.7, h: 0.3, fontSize: 10, color: "14B8A6", bold: true, fontFace: fontKo });
+    slide2.addText("{{행사장소}}", { x: 7.3, y: 4.4, w: 4.7, h: 0.6, fontSize: 13, color: "FFFFFF", bold: true, fontFace: fontKo });
+
+    slide2.addShape(pptx.ShapeType.roundRect, { x: 7.1, y: 5.3, w: 5.1, h: 1.3, fill: { color: bgDark }, line: { color: "1E293B", width: 1 }, rectRadius: 0.08 });
+    slide2.addText("주최 브랜드", { x: 7.3, y: 5.4, w: 4.7, h: 0.3, fontSize: 10, color: "F59E0B", bold: true, fontFace: fontKo });
+    slide2.addText("{{브랜드명}} 공식 주최 행사", { x: 7.3, y: 5.7, w: 4.7, h: 0.7, fontSize: 12, color: "E2E8F0", fontFace: fontKo });
+
+    // Slide 3: Program Timetable
     const slide3 = pptx.addSlide();
-    slide3.background = { color: "0D0E12" };
-    slide3.addText("02. 주요 프로그램 & VIP 세션 타임테이블", { x: 0.8, y: 0.8, w: 11.5, h: 0.5, fontSize: 20, color: "818CF8", bold: true });
-    slide3.addText("{{프로그램}}", { x: 0.8, y: 1.6, w: 11.7, h: 5.2, fontSize: 13, color: "F1F5F9", lineSpacing: 24, valign: "top" });
+    slide3.background = { color: bgDark };
+
+    slide3.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 0.5, w: 2.2, h: 0.3, fill: { color: "6366F1" }, rectRadius: 0.15 });
+    slide3.addText("02. TIMETABLE", { x: 0.8, y: 0.5, w: 2.2, h: 0.3, fontSize: 10, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: fontKo });
+    slide3.addText("주요 프로그램 & VIP 세션 타임테이블", { x: 0.8, y: 0.9, w: 11.7, h: 0.5, fontSize: 22, bold: true, color: "FFFFFF", fontFace: fontKo });
+    slide3.addText("시간대별 행사 진행 순서 및 현장 참여 인터랙션 계획", { x: 0.8, y: 1.4, w: 11.7, h: 0.3, fontSize: 11, color: "94A3B8", fontFace: fontKo });
+
+    slide3.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 1.9, w: 11.7, h: 5.0, fill: { color: cardBg }, line: { color: cardBorder, width: 1 }, rectRadius: 0.1 });
+    slide3.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 1.9, w: 11.7, h: 0.6, fill: { color: "4F46E5" }, rectRadius: 0.1 });
+    slide3.addText("■ 상세 타임라인 및 세션별 운영 계획", { x: 1.1, y: 1.9, w: 11.1, h: 0.6, fontSize: 12, bold: true, color: "FFFFFF", valign: "middle", fontFace: fontKo });
+    slide3.addText("{{프로그램}}", { x: 1.2, y: 2.7, w: 10.9, h: 4.0, fontSize: 13, color: "F1F5F9", lineSpacing: 24, valign: "top", fontFace: fontKo });
   } else if (kind === "sns") {
+    // [SNS OPERATION STRATEGY] - Tech Midnight Navy Theme
+    const bgDark = "0A0E1A";
+    const cardBg = "141C2E";
+    const cardBorder = "1F2D4A";
+
+    // Slide 1: Cover
     const slide1 = pptx.addSlide();
-    slide1.background = { color: "090A0C" };
-    slide1.addText("SNS OPERATION STRATEGY", { x: 0.8, y: 1.8, w: 11.5, h: 0.4, fontSize: 13, color: "0EA5E9", bold: true });
-    slide1.addText("{{브랜드명}} 공식 SNS 채널 운영 제안서", { x: 0.8, y: 2.3, w: 11.7, h: 1.5, fontSize: 28, color: "FFFFFF", bold: true, valign: "middle" });
-    slide1.addText("운영 채널: {{채널명}}   |   계약 기간: {{계약기간}}", { x: 0.8, y: 4.2, w: 11.5, h: 0.6, fontSize: 14, color: "94A3B8" });
+    slide1.background = { color: bgDark };
 
+    slide1.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 1.4, w: 2.6, h: 0.36, fill: { color: "0284C7" }, rectRadius: 0.18 });
+    slide1.addText("SNS STRATEGY PROPOSAL", { x: 0.8, y: 1.4, w: 2.6, h: 0.36, fontSize: 10, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: fontKo });
+
+    slide1.addText("{{브랜드명}} 공식 소셜 미디어 채널 육성 및 콘텐츠 전략", { x: 0.8, y: 1.95, w: 11.7, h: 0.4, fontSize: 13, bold: true, color: "38BDF8", fontFace: fontKo });
+    slide1.addText("{{브랜드명}} 공식 SNS 운영 제안서", { x: 0.8, y: 2.45, w: 11.7, h: 1.6, fontSize: 32, bold: true, color: "FFFFFF", valign: "middle", fontFace: fontKo });
+
+    slide1.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 4.4, w: 11.7, h: 1.2, fill: { color: cardBg }, line: { color: cardBorder, width: 1 }, rectRadius: 0.1 });
+    slide1.addText("운영 채널   |   {{채널명}}", { x: 1.2, y: 4.6, w: 5.4, h: 0.8, fontSize: 13, color: "E2E8F0", bold: true, valign: "middle", fontFace: fontKo });
+    slide1.addText("계약 기간   |   {{계약기간}}", { x: 6.8, y: 4.6, w: 5.4, h: 0.8, fontSize: 13, color: "E2E8F0", bold: true, valign: "middle", fontFace: fontKo });
+
+    slide1.addText("CONFIDENTIAL  |  PREPARED BY SOCIAL MEDIA MARKETING AGENCY", { x: 0.8, y: 6.6, w: 11.7, h: 0.3, fontSize: 10, color: "475569", fontFace: fontKo });
+
+    // Slide 2: Goals & Target Audience
     const slide2 = pptx.addSlide();
-    slide2.background = { color: "0D0E12" };
-    slide2.addText("01. 운영 목표 & 핵심 타겟", { x: 0.8, y: 0.8, w: 11.5, h: 0.5, fontSize: 20, color: "0EA5E9", bold: true });
-    slide2.addText("■ 운영 목표\n{{운영목표}}\n\n■ 핵심 타겟 오디언스\n{{타겟오디언스}}", { x: 0.8, y: 1.6, w: 11.7, h: 5.0, fontSize: 13, color: "F1F5F9", lineSpacing: 24, valign: "top" });
+    slide2.background = { color: bgDark };
 
+    slide2.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 0.5, w: 2.2, h: 0.3, fill: { color: "0284C7" }, rectRadius: 0.15 });
+    slide2.addText("01. STRATEGY", { x: 0.8, y: 0.5, w: 2.2, h: 0.3, fontSize: 10, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: fontKo });
+    slide2.addText("운영 목표 및 핵심 타겟 오디언스 정의", { x: 0.8, y: 0.9, w: 11.7, h: 0.5, fontSize: 22, bold: true, color: "FFFFFF", fontFace: fontKo });
+    slide2.addText("채널 성장 KPI 지표 수립 및 타겟 고객 페르소나 분석", { x: 0.8, y: 1.4, w: 11.7, h: 0.3, fontSize: 11, color: "94A3B8", fontFace: fontKo });
+
+    // Left Card (Goals)
+    slide2.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 1.9, w: 5.7, h: 5.0, fill: { color: cardBg }, line: { color: cardBorder, width: 1 }, rectRadius: 0.1 });
+    slide2.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 1.9, w: 5.7, h: 0.6, fill: { color: "0369A1" }, rectRadius: 0.1 });
+    slide2.addText("■ 정량/정성 운영 목표 & KPI", { x: 1.1, y: 1.9, w: 5.1, h: 0.6, fontSize: 12, bold: true, color: "FFFFFF", valign: "middle", fontFace: fontKo });
+    slide2.addText("{{운영목표}}", { x: 1.1, y: 2.7, w: 5.1, h: 4.0, fontSize: 13, color: "F1F5F9", lineSpacing: 24, valign: "top", fontFace: fontKo });
+
+    // Right Card (Target Audience)
+    slide2.addShape(pptx.ShapeType.roundRect, { x: 6.8, y: 1.9, w: 5.7, h: 5.0, fill: { color: cardBg }, line: { color: cardBorder, width: 1 }, rectRadius: 0.1 });
+    slide2.addShape(pptx.ShapeType.roundRect, { x: 6.8, y: 1.9, w: 5.7, h: 0.6, fill: { color: "4338CA" }, rectRadius: 0.1 });
+    slide2.addText("■ 핵심 타겟 오디언스 & 페르소나", { x: 7.1, y: 1.9, w: 5.1, h: 0.6, fontSize: 12, bold: true, color: "FFFFFF", valign: "middle", fontFace: fontKo });
+    slide2.addText("{{타겟오디언스}}", { x: 7.1, y: 2.7, w: 5.1, h: 4.0, fontSize: 13, color: "F1F5F9", lineSpacing: 24, valign: "top", fontFace: fontKo });
+
+    // Slide 3: Content Direction & Monthly Roadmap
     const slide3 = pptx.addSlide();
-    slide3.background = { color: "0D0E12" };
-    slide3.addText("02. 콘텐츠 방향성 & 월간 발행 계획", { x: 0.8, y: 0.8, w: 11.5, h: 0.5, fontSize: 20, color: "38BDF8", bold: true });
-    slide3.addText("■ 콘텐츠 기획 및 비주얼 방향성\n{{콘텐츠방향성}}\n\n■ 월별 주요 프로모션 및 발행 계획\n{{월별계획}}", { x: 0.8, y: 1.6, w: 11.7, h: 5.0, fontSize: 13, color: "F1F5F9", lineSpacing: 24, valign: "top" });
+    slide3.background = { color: bgDark };
+
+    slide3.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 0.5, w: 2.2, h: 0.3, fill: { color: "0D9488" }, rectRadius: 0.15 });
+    slide3.addText("02. ROADMAP", { x: 0.8, y: 0.5, w: 2.2, h: 0.3, fontSize: 10, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: fontKo });
+    slide3.addText("콘텐츠 비주얼 방향성 및 월별 실행 계획", { x: 0.8, y: 0.9, w: 11.7, h: 0.5, fontSize: 22, bold: true, color: "FFFFFF", fontFace: fontKo });
+    slide3.addText("차별화된 비주얼 톤앤매너와 월별 프로모션/피드 구성 계획", { x: 0.8, y: 1.4, w: 11.7, h: 0.3, fontSize: 11, color: "94A3B8", fontFace: fontKo });
+
+    // Left Card (Content Direction)
+    slide3.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 1.9, w: 5.7, h: 5.0, fill: { color: cardBg }, line: { color: cardBorder, width: 1 }, rectRadius: 0.1 });
+    slide3.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 1.9, w: 5.7, h: 0.6, fill: { color: "0F766E" }, rectRadius: 0.1 });
+    slide3.addText("■ 콘텐츠 기획 및 비주얼 방향성", { x: 1.1, y: 1.9, w: 5.1, h: 0.6, fontSize: 12, bold: true, color: "FFFFFF", valign: "middle", fontFace: fontKo });
+    slide3.addText("{{콘텐츠방향성}}", { x: 1.1, y: 2.7, w: 5.1, h: 4.0, fontSize: 13, color: "F1F5F9", lineSpacing: 24, valign: "top", fontFace: fontKo });
+
+    // Right Card (Monthly Schedule)
+    slide3.addShape(pptx.ShapeType.roundRect, { x: 6.8, y: 1.9, w: 5.7, h: 5.0, fill: { color: cardBg }, line: { color: cardBorder, width: 1 }, rectRadius: 0.1 });
+    slide3.addShape(pptx.ShapeType.roundRect, { x: 6.8, y: 1.9, w: 5.7, h: 0.6, fill: { color: "0369A1" }, rectRadius: 0.1 });
+    slide3.addText("■ 월별 주요 프로모션 및 발행 계획", { x: 7.1, y: 1.9, w: 5.1, h: 0.6, fontSize: 12, bold: true, color: "FFFFFF", valign: "middle", fontFace: fontKo });
+    slide3.addText("{{월별계획}}", { x: 7.1, y: 2.7, w: 5.1, h: 4.0, fontSize: 13, color: "F1F5F9", lineSpacing: 24, valign: "top", fontFace: fontKo });
   } else {
-    // 결과보고서: 표지 → KPI → 총평 → 차트 → 인플루언서 표
-    const dark = "1E293B";
+    // [CAMPAIGN RESULT REPORT] - Executive Off-White & Navy Theme
+    const navyCover = "0F172A";
+    const lightBg = "F8FAFC";
+    const cardLine = "E2E8F0";
+
+    // Slide 1: Cover
     const slide1 = pptx.addSlide();
-    slide1.background = { color: dark };
-    slide1.addText("CAMPAIGN RESULT REPORT", { x: 0.8, y: 1.8, w: 11.5, h: 0.4, fontSize: 13, color: "60A5FA", bold: true });
-    slide1.addText("{{보고서제목}}", { x: 0.8, y: 2.3, w: 11.7, h: 1.5, fontSize: 30, color: "FFFFFF", bold: true, valign: "middle" });
-    slide1.addText("브랜드: {{브랜드명}}   |   캠페인: {{캠페인명}} ({{캠페인유형}})   |   생성일: {{생성일시}}", { x: 0.8, y: 4.2, w: 11.7, h: 0.6, fontSize: 14, color: "94A3B8" });
+    slide1.background = { color: navyCover };
 
+    slide1.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 1.4, w: 2.8, h: 0.36, fill: { color: "2563EB" }, rectRadius: 0.18 });
+    slide1.addText("CAMPAIGN RESULT REPORT", { x: 0.8, y: 1.4, w: 2.8, h: 0.36, fontSize: 10, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: fontKo });
+
+    slide1.addText("브랜드: {{브랜드명}}   |   캠페인: {{캠페인명}} ({{캠페인유형}})", { x: 0.8, y: 1.95, w: 11.7, h: 0.4, fontSize: 13, bold: true, color: "60A5FA", fontFace: fontKo });
+    slide1.addText("{{보고서제목}}", { x: 0.8, y: 2.45, w: 11.7, h: 1.6, fontSize: 32, bold: true, color: "FFFFFF", valign: "middle", fontFace: fontKo });
+
+    slide1.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 4.4, w: 11.7, h: 1.2, fill: { color: "1E293B" }, line: { color: "334155", width: 1 }, rectRadius: 0.1 });
+    slide1.addText("캠페인명: {{캠페인명}}   |   브랜드: {{브랜드명}}", { x: 1.2, y: 4.6, w: 6.0, h: 0.8, fontSize: 13, color: "E2E8F0", bold: true, valign: "middle", fontFace: fontKo });
+    slide1.addText("보고서 생성일: {{생성일시}}", { x: 7.4, y: 4.6, w: 4.7, h: 0.8, fontSize: 13, color: "94A3B8", align: "right", valign: "middle", fontFace: fontKo });
+
+    slide1.addText("CONFIDENTIAL  |  INFLUENCER SEEDING CAMPAIGN FINAL PERFORMANCE AUDIT", { x: 0.8, y: 6.6, w: 11.7, h: 0.3, fontSize: 10, color: "64748B", fontFace: fontKo });
+
+    // Slide 2: Performance Summary & Insights
     const slide2 = pptx.addSlide();
-    slide2.addText("캠페인 핵심 성과 요약", { x: 0.8, y: 0.6, w: 11.5, h: 0.6, fontSize: 24, bold: true, color: dark });
-    const kpis: [string, string][] = [
-      ["총 지원자 수", "{{총지원자}}명"],
-      ["최종 선정 (예비)", "{{최종선정}}명 ({{예비선정}})"],
-      ["업로드 완료", "{{업로드완료}}건"],
-      ["총 누적 조회수", "{{총조회수}}회"],
-      ["인게이지먼트 (비율)", "{{총인게이지먼트}} ({{인게이지먼트율}}%)"],
+    slide2.background = { color: lightBg };
+
+    slide2.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 0.45, w: 2.2, h: 0.28, fill: { color: "2563EB" }, rectRadius: 0.14 });
+    slide2.addText("01. SUMMARY", { x: 0.8, y: 0.45, w: 2.2, h: 0.28, fontSize: 9, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: fontKo });
+    slide2.addText("캠페인 핵심 성과 대시보드 및 총평", { x: 0.8, y: 0.78, w: 11.7, h: 0.45, fontSize: 21, bold: true, color: "0F172A", fontFace: fontKo });
+    slide2.addText("지원자 풀 규모, 최종 선정 크리에이터 완주율 및 누적 도달 성과 종합", { x: 0.8, y: 1.25, w: 11.7, h: 0.28, fontSize: 11, color: "64748B", fontFace: fontKo });
+
+    // 5 KPI Cards
+    const kpis: [string, string, string][] = [
+      ["총 지원자 수", "{{총지원자}}명", "2563EB"],
+      ["최종 선정 (예비)", "{{최종선정}}명 ({{예비선정}})", "0284C7"],
+      ["업로드 완료", "{{업로드완료}}건", "059669"],
+      ["총 누적 조회수", "{{총조회수}}회", "D97706"],
+      ["인게이지먼트 (비율)", "{{총인게이지먼트}} ({{인게이지먼트율}}%)", "7C3AED"],
     ];
-    kpis.forEach(([label, val], idx) => {
-      const x = 0.8 + idx * 2.4;
-      slide2.addShape(pptx.ShapeType.rect, { x, y: 1.6, w: 2.2, h: 1.8, fill: { color: "F8FAFC" }, line: { color: "E2E8F0", width: 1 } });
-      slide2.addText(label, { x, y: 1.8, w: 2.2, h: 0.4, fontSize: 12, color: "64748B", align: "center" });
-      slide2.addText(val, { x, y: 2.3, w: 2.2, h: 0.7, fontSize: 18, bold: true, color: "0F172A", align: "center", valign: "middle" });
+    kpis.forEach(([label, val, accent], idx) => {
+      const x = 0.8 + idx * 2.42;
+      slide2.addShape(pptx.ShapeType.roundRect, { x, y: 1.6, w: 2.22, h: 1.65, fill: { color: "FFFFFF" }, line: { color: cardLine, width: 1 }, rectRadius: 0.08 });
+      slide2.addShape(pptx.ShapeType.rect, { x, y: 1.6, w: 2.22, h: 0.06, fill: { color: accent } });
+      slide2.addText(label, { x, y: 1.78, w: 2.22, h: 0.35, fontSize: 11, color: "64748B", align: "center", fontFace: fontKo });
+      slide2.addText(val, { x, y: 2.15, w: 2.22, h: 0.8, fontSize: 16, bold: true, color: "0F172A", align: "center", valign: "middle", fontFace: fontKo });
     });
-    slide2.addText("성과 분석 및 총평", { x: 0.8, y: 3.9, w: 11.5, h: 0.4, fontSize: 16, bold: true, color: "334155" });
-    slide2.addText("{{총평}}", { x: 0.8, y: 4.35, w: 11.7, h: 2.8, fontSize: 12, color: "475569", valign: "top", lineSpacing: 20 });
 
+    // Summary Card
+    slide2.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 3.45, w: 11.7, h: 3.6, fill: { color: "FFFFFF" }, line: { color: cardLine, width: 1 }, rectRadius: 0.1 });
+    slide2.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 3.45, w: 11.7, h: 0.5, fill: { color: "F1F5F9" }, rectRadius: 0.1 });
+    slide2.addText("■ 캠페인 종합 성과 분석 및 전략적 시사점", { x: 1.1, y: 3.45, w: 11.1, h: 0.5, fontSize: 12, bold: true, color: "1E293B", valign: "middle", fontFace: fontKo });
+    slide2.addText("{{총평}}", { x: 1.1, y: 4.1, w: 11.1, h: 2.8, fontSize: 12, color: "334155", valign: "top", lineSpacing: 22, fontFace: fontKo });
+
+    // Slide 3: Chart
     const slide3 = pptx.addSlide();
-    slide3.addText("인플루언서별 성과 (조회수 / 인게이지먼트)", { x: 0.8, y: 0.6, w: 11.5, h: 0.6, fontSize: 24, bold: true, color: dark });
-    slide3.addText("{{차트:성과}}", { x: 0.8, y: 1.4, w: 11.7, h: 5.6, fontSize: 12, color: "94A3B8" });
+    slide3.background = { color: lightBg };
 
+    slide3.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 0.45, w: 2.2, h: 0.28, fill: { color: "2563EB" }, rectRadius: 0.14 });
+    slide3.addText("02. CHARTS", { x: 0.8, y: 0.45, w: 2.2, h: 0.28, fontSize: 9, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: fontKo });
+    slide3.addText("인플루언서별 성과 분석 (조회수 / 인게이지먼트 TOP 10)", { x: 0.8, y: 0.78, w: 11.7, h: 0.45, fontSize: 21, bold: true, color: "0F172A", fontFace: fontKo });
+    slide3.addText("상위 성과 크리에이터 순위 및 게시물 반응 지표 비교 분석", { x: 0.8, y: 1.25, w: 11.7, h: 0.28, fontSize: 11, color: "64748B", fontFace: fontKo });
+
+    slide3.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 1.6, w: 11.7, h: 5.4, fill: { color: "FFFFFF" }, line: { color: cardLine, width: 1 }, rectRadius: 0.1 });
+    slide3.addText("{{차트:성과}}", { x: 1.0, y: 1.8, w: 11.3, h: 5.0, fontSize: 12, color: "94A3B8" });
+
+    // Slide 4: Table
     const slide4 = pptx.addSlide();
-    slide4.addText("참여 인플루언서 리스트", { x: 0.8, y: 0.6, w: 11.5, h: 0.6, fontSize: 24, bold: true, color: dark });
-    slide4.addText("{{표:인플루언서}}", { x: 0.8, y: 1.4, w: 11.7, h: 5.6, fontSize: 12, color: "94A3B8" });
+    slide4.background = { color: lightBg };
+
+    slide4.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 0.45, w: 2.2, h: 0.28, fill: { color: "2563EB" }, rectRadius: 0.14 });
+    slide4.addText("03. CREATORS", { x: 0.8, y: 0.45, w: 2.2, h: 0.28, fontSize: 9, bold: true, color: "FFFFFF", align: "center", valign: "middle", fontFace: fontKo });
+    slide4.addText("캠페인 참여 인플루언서 전체 명단 및 성과 현황", { x: 0.8, y: 0.78, w: 11.7, h: 0.45, fontSize: 21, bold: true, color: "0F172A", fontFace: fontKo });
+    slide4.addText("최종 선정 인플루언서의 콘텐츠 게시 링크 및 세부 정량 성과 기록", { x: 0.8, y: 1.25, w: 11.7, h: 0.28, fontSize: 11, color: "64748B", fontFace: fontKo });
+
+    slide4.addShape(pptx.ShapeType.roundRect, { x: 0.8, y: 1.6, w: 11.7, h: 5.4, fill: { color: "FFFFFF" }, line: { color: cardLine, width: 1 }, rectRadius: 0.1 });
+    slide4.addText("{{표:인플루언서}}", { x: 1.0, y: 1.8, w: 11.3, h: 5.0, fontSize: 12, color: "94A3B8" });
   }
 
   const out = await pptx.write({ outputType: "nodebuffer" });
