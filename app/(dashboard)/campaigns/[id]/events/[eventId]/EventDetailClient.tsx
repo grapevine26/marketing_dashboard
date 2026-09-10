@@ -150,13 +150,18 @@ export default function EventDetailClient({
 
   // ---------- Header ----------
   const handleStatusChange = async (status: EventStatus) => {
+    if (event.status === status) return;
+    const prevEvent = event;
     setStatusSaving(true);
     setError(null);
+    setEvent((prev) => ({ ...prev, status }));
     const res = await safeCall(updateEventAction({ eventId: event.id, campaignId: campaign.id, patch: { status } }));
     setStatusSaving(false);
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) {
+      setEvent(prevEvent);
+      return setError(res.error);
+    }
     setEvent(res.data);
-    router.refresh();
   };
 
   const handleSaveInfo = async (e: React.FormEvent) => {

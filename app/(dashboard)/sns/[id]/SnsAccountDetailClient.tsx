@@ -175,6 +175,7 @@ export default function SnsAccountDetailClient({
   // Performance inputs
   const [perfInputs, setPerfInputs] = useState<Record<string, { views: string; likes: string; comments: string; postUrl: string }>>({});
   const [savingPerfId, setSavingPerfId] = useState<string | null>(null);
+  const [savingStatusIds, setSavingStatusIds] = useState<Set<string>>(new Set());
 
   // List tab search & filter
   const [contentSearch, setContentSearch] = useState("");
@@ -508,11 +509,42 @@ export default function SnsAccountDetailClient({
   };
 
   const handleStatusChange = async (c: SnsContent, status: SnsContentStatus) => {
+    if (c.status === status) return;
+    const previousContents = contents;
     setError(null);
+
+    // 1. 낙관적 업데이트: 클릭 즉시 UI(배지 및 드롭다운)를 0ms 만에 변경
+    setContents((prev) =>
+      prev.map((x) =>
+        x.id === c.id
+          ? { ...x, status, status_changed_at: new Date().toISOString() }
+          : x
+      )
+    );
+
+    // 2. 백그라운드 비동기 저장 표시
+    setSavingStatusIds((prev) => {
+      const next = new Set(prev);
+      next.add(c.id);
+      return next;
+    });
+
     const res = await safeCall(updateSnsContentAction(c.id, account.id, { status }));
-    if (!res.ok) return setError(res.error);
+
+    setSavingStatusIds((prev) => {
+      const next = new Set(prev);
+      next.delete(c.id);
+      return next;
+    });
+
+    if (!res.ok) {
+      // 실패 시 이전 상태로 즉시 롤백
+      setContents(previousContents);
+      return setError(res.error);
+    }
+
+    // 서버의 최종 데이터로 동기화
     setContents((prev) => prev.map((x) => (x.id === c.id ? res.data : x)));
-    router.refresh();
   };
 
   const perfOf = (c: SnsContent) =>
@@ -1029,8 +1061,11 @@ export default function SnsAccountDetailClient({
                       <div className="flex flex-wrap items-center gap-2">
                         <select
                           value={c.status}
+                          disabled={savingStatusIds.has(c.id)}
                           onChange={(e) => handleStatusChange(c, e.target.value as SnsContentStatus)}
-                          className={`px-2.5 py-1 rounded-lg bg-bg border border-border text-xs font-bold focus:outline-none focus:border-accent2 ${STATUS_TONE[c.status]}`}
+                          className={`px-2.5 py-1 rounded-lg bg-bg border border-border text-xs font-bold focus:outline-none focus:border-accent2 transition-all duration-150 ${STATUS_TONE[c.status]} ${
+                            savingStatusIds.has(c.id) ? "opacity-75 cursor-wait" : "cursor-pointer"
+                          }`}
                         >
                           {SNS_CONTENT_STATUSES.map((s, i) => <option key={s} value={s}>{i + 1}. {SNS_CONTENT_STATUS_LABELS[s]}</option>)}
                         </select>
