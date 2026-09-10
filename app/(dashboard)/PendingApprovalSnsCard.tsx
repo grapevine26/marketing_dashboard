@@ -51,7 +51,7 @@ export default function PendingApprovalSnsCard({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-surface border border-border hover:border-accent-link/40 hover:bg-surface2/30 transition duration-150 group flex flex-col justify-between space-y-2.5 sm:space-y-3 shadow-xs text-left w-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent-link/30 min-h-[100px] sm:min-h-[116px]"
+        className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-surface border border-border hover:border-accent-link/40 hover:bg-surface2/30 transition duration-150 group flex flex-col justify-between space-y-2.5 sm:space-y-3 shadow-xs text-left w-full h-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent-link/30 min-h-[100px] sm:min-h-[116px] btn-press"
         aria-label="승인 대기 콘텐츠 목록 확인"
       >
         <div className="flex items-center justify-between w-full">

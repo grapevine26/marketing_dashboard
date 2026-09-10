@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Campaign,
@@ -360,18 +360,29 @@ export default function EventDetailClient({
   const attendedCount = invitees.filter((i) => i.attended).length;
   const alreadyInvitedApplicantIds = new Set(invitees.map((i) => i.applicant_id).filter(Boolean));
 
-  const tabBtn = (key: typeof activeTab, icon: React.ReactNode, label: string) => (
-    <button
-      type="button"
-      onClick={() => setActiveTab(key)}
-      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-        activeTab === key ? "bg-teal-600/15 text-teal-400 border border-teal-500/30" : "text-text-sub hover:text-white"
-      }`}
-    >
-      {icon}
-      <span>{label}</span>
-    </button>
-  );
+  const tabContainerRef = useRef<HTMLDivElement>(null);
+  const [tabIndicatorStyle, setTabIndicatorStyle] = useState<{ left: number; width: number; opacity: number }>({ left: 0, width: 0, opacity: 0 });
+  const tabButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  useEffect(() => {
+    const btn = tabButtonRefs.current[activeTab];
+    const container = tabContainerRef.current;
+    if (btn && container) {
+      const containerRect = container.getBoundingClientRect();
+      const btnRect = btn.getBoundingClientRect();
+      setTabIndicatorStyle({
+        left: btnRect.left - containerRect.left + container.scrollLeft,
+        width: btnRect.width,
+        opacity: 1,
+      });
+    }
+  }, [activeTab, invitees.length, checklists.length]);
+
+  const TABS: { key: typeof activeTab; icon: typeof Users; label: string }[] = [
+    { key: "invitees", icon: Users, label: `초대 및 참석 관리 (${invitees.length})` },
+    { key: "plan", icon: FileText, label: "운영안 작성 & PPT" },
+    { key: "checklist", icon: CheckSquare, label: `체크리스트 (${checklists.filter((c) => c.done).length}/${checklists.length})` },
+  ];
 
   return (
     <div className="space-y-6 font-sans">
@@ -482,16 +493,47 @@ export default function EventDetailClient({
         ))}
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-border pb-1 overflow-x-auto">
-        {tabBtn("invitees", <Users className="w-3.5 h-3.5" />, `초대 및 참석 관리 (${invitees.length})`)}
-        {tabBtn("plan", <FileText className="w-3.5 h-3.5" />, "운영안 작성 & PPT")}
-        {tabBtn("checklist", <CheckSquare className="w-3.5 h-3.5" />, `체크리스트 (${checklists.filter((c) => c.done).length}/${checklists.length})`)}
+      {/* Tabs with sliding indicator */}
+      <div
+        ref={tabContainerRef}
+        className="relative flex items-center gap-1 border border-border bg-surface2/50 p-1.5 rounded-2xl overflow-x-auto"
+      >
+        <span
+          className="absolute top-1.5 bottom-1.5 left-0 rounded-xl bg-teal-500/15 border border-teal-500/30 pointer-events-none transition-all duration-200"
+          style={{
+            transform: `translateX(${tabIndicatorStyle.left}px)`,
+            width: `${tabIndicatorStyle.width}px`,
+            opacity: tabIndicatorStyle.opacity,
+            transitionTimingFunction: "var(--ease-out)",
+            willChange: "transform, width, opacity",
+          }}
+        />
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              ref={(el) => { tabButtonRefs.current[tab.key] = el; }}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`relative z-10 px-4 py-2 rounded-xl text-xs font-bold transition-colors duration-160 flex items-center gap-1.5 btn-press shrink-0 ${
+                isActive ? "text-teal-400 font-extrabold" : "text-text-sub hover:text-text"
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* TAB 1: Invitees */}
       {activeTab === "invitees" && (
-        <div className="p-4 sm:p-7 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-5 shadow-xl">
+        <div
+          className="p-4 sm:p-7 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-5 shadow-xl animate-in fade-in zoom-in-99 duration-200"
+          style={{ animationTimingFunction: "var(--ease-out)" }}
+        >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-sm sm:text-base font-bold text-text">초청 인플루언서 명단</h2>
@@ -706,7 +748,10 @@ export default function EventDetailClient({
 
       {/* TAB 2: Plan */}
       {activeTab === "plan" && (
-        <div className="p-4 sm:p-7 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-5 shadow-xl">
+        <div
+          className="p-4 sm:p-7 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-5 shadow-xl animate-in fade-in zoom-in-99 duration-200"
+          style={{ animationTimingFunction: "var(--ease-out)" }}
+        >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-sm sm:text-base font-bold text-text">행사 운영안 기획 & 파워포인트 생성</h2>
@@ -768,7 +813,10 @@ export default function EventDetailClient({
 
       {/* TAB 3: Checklist */}
       {activeTab === "checklist" && (
-        <div className="p-4 sm:p-7 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-5 shadow-xl">
+        <div
+          className="p-4 sm:p-7 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-5 shadow-xl animate-in fade-in zoom-in-99 duration-200"
+          style={{ animationTimingFunction: "var(--ease-out)" }}
+        >
           <div>
             <h2 className="text-sm sm:text-base font-bold text-text">행사 준비 체크리스트 & 할 일</h2>
             <p className="text-xs text-text-sub">마감일(D-day)과 담당자를 지정하여 행사 준비 진행 상황을 누락 없이 관리합니다.</p>

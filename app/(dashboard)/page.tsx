@@ -53,7 +53,7 @@ export default async function DashboardOverviewPage({
         {/* 진행중 캠페인 */}
         <Link
           href="/campaigns"
-          className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-surface border border-border hover:border-accent-link/40 hover:bg-surface2/30 transition duration-150 group flex flex-col justify-between space-y-2.5 sm:space-y-3 shadow-xs min-h-[100px] sm:min-h-[116px]"
+          className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-surface border border-border hover:border-accent-link/40 hover:bg-surface2/30 transition duration-150 group flex flex-col justify-between space-y-2.5 sm:space-y-3 shadow-xs min-h-[100px] sm:min-h-[116px] btn-press stagger-item"
         >
           <div className="flex items-center justify-between">
             <span className="text-[11px] sm:text-xs font-semibold text-text-muted group-hover:text-text transition truncate">
@@ -74,7 +74,7 @@ export default async function DashboardOverviewPage({
         {/* 준비중인 행사 */}
         <Link
           href="/events"
-          className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-surface border border-border hover:border-accent-link/40 hover:bg-surface2/30 transition duration-150 group flex flex-col justify-between space-y-2.5 sm:space-y-3 shadow-xs min-h-[100px] sm:min-h-[116px]"
+          className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-surface border border-border hover:border-accent-link/40 hover:bg-surface2/30 transition duration-150 group flex flex-col justify-between space-y-2.5 sm:space-y-3 shadow-xs min-h-[100px] sm:min-h-[116px] btn-press stagger-item"
         >
           <div className="flex items-center justify-between">
             <span className="text-[11px] sm:text-xs font-semibold text-text-muted group-hover:text-text transition truncate">
@@ -93,16 +93,20 @@ export default async function DashboardOverviewPage({
         </Link>
 
         {/* 승인 대기 콘텐츠 (클릭 시 모달 팝업) */}
-        <PendingApprovalSnsCard
-          count={summary.pendingApprovalSnsCount}
-          items={summary.pendingApprovalSnsContents}
-        />
+        <div className="stagger-item h-full">
+          <PendingApprovalSnsCard
+            count={summary.pendingApprovalSnsCount}
+            items={summary.pendingApprovalSnsContents}
+          />
+        </div>
 
         {/* 이번주 발행 예정 (클릭 시 모달 팝업) */}
-        <ScheduledSnsThisWeekCard
-          count={summary.scheduledSnsThisWeekCount}
-          items={summary.scheduledSnsThisWeek}
-        />
+        <div className="stagger-item h-full">
+          <ScheduledSnsThisWeekCard
+            count={summary.scheduledSnsThisWeekCount}
+            items={summary.scheduledSnsThisWeek}
+          />
+        </div>
       </div>
 
       {/* 모바일 전용: 긴급 조치 일정 피드 (xl:hidden) - 마감 임박 또는 지연이 있을 때 캘린더 위에 우선 배치 */}
@@ -155,7 +159,7 @@ export default async function DashboardOverviewPage({
                   <Link
                     key={c.id}
                     href={`/campaigns/${c.id}`}
-                    className="flex flex-col justify-between gap-2.5 sm:gap-3 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-bg border border-border hover:border-accent-link/40 transition group"
+                    className="flex flex-col justify-between gap-2.5 sm:gap-3 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-bg border border-border hover:border-accent-link/40 transition group btn-press stagger-item"
                   >
                     <div className="space-y-1.5 min-w-0">
                       <div className="flex items-center justify-between gap-2">

@@ -166,7 +166,7 @@ export default async function CampaignDetailPage({
 
         <Link
           href={`/campaigns/${campaign.id}/events`}
-          className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition active:scale-95 shrink-0"
+          className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition btn-press shrink-0"
         >
           <span>행사 관리 허브 바로가기</span>
           <ArrowRight className="w-3.5 h-3.5" />
@@ -184,7 +184,7 @@ export default async function CampaignDetailPage({
               <Link
                 key={step.href}
                 href={step.href}
-                className="p-4 sm:p-5 rounded-2xl bg-surface border border-border hover:border-blue-500/40 hover:bg-surface2 transition flex flex-col justify-between space-y-4 group"
+                className="p-4 sm:p-5 rounded-2xl bg-surface border border-border hover:border-blue-500/40 hover:bg-surface2 transition flex flex-col justify-between space-y-4 group stagger-item"
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">

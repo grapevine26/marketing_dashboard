@@ -249,8 +249,8 @@ export default function ApplicantTable({
   const renderActions = (a: Applicant, compact: boolean) => {
     const busy = pendingId === a.id;
     const base = compact
-      ? "flex-1 py-2 rounded-xl text-xs font-semibold transition disabled:opacity-50"
-      : "px-2.5 py-1 rounded-lg text-xs font-semibold transition active:scale-95 disabled:opacity-50 inline-flex items-center gap-1";
+      ? "flex-1 py-2 rounded-xl text-xs font-semibold btn-press transition disabled:opacity-50"
+      : "px-2.5 py-1 rounded-lg text-xs font-semibold btn-press transition disabled:opacity-50 inline-flex items-center gap-1";
     const primary = `${base} bg-blue-600 hover:bg-blue-500 text-white shadow-sm`;
     /* 선정 상태 변경은 전부 되돌릴 수 있다. 빨강(위험)은 실제 삭제에만 쓰고 여기서는 무채색으로 둔다. */
     const secondary = `${base} bg-surface2 hover:bg-surface3 text-text-2 border border-border`;
@@ -270,7 +270,7 @@ export default function ApplicantTable({
         type="button"
         title="안내문 템플릿 복사"
         onClick={() => openMessageModal(a)}
-        className={`${compact ? "py-2 px-3 rounded-xl text-xs font-semibold" : "px-2.5 py-1 rounded-lg text-xs font-semibold"} bg-surface2 hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 inline-flex items-center justify-center gap-1 transition`}
+        className={`${compact ? "py-2 px-3 rounded-xl text-xs font-semibold" : "px-2.5 py-1 rounded-lg text-xs font-semibold"} btn-press bg-surface2 hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 inline-flex items-center justify-center gap-1 transition`}
       >
         <MessageSquare className="w-3.5 h-3.5" />
         <span>안내문</span>
@@ -397,7 +397,7 @@ export default function ApplicantTable({
         <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
           <a
             href={`${csvHref}&format=xlsx`}
-            className="w-full sm:w-auto text-center justify-center px-3.5 py-2.5 sm:py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-medium inline-flex items-center gap-1.5 transition border border-border active:scale-95"
+            className="w-full sm:w-auto text-center justify-center px-3.5 py-2.5 sm:py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-medium inline-flex items-center gap-1.5 transition border border-border btn-press"
             title="마이크로소프트 엑셀 서식 적용 파일 다운로드"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-text-sub" />
@@ -405,7 +405,7 @@ export default function ApplicantTable({
           </a>
           <a
             href={csvHref}
-            className="w-full sm:w-auto text-center justify-center px-3 py-2.5 sm:py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-medium inline-flex items-center gap-1.5 transition border border-border"
+            className="w-full sm:w-auto text-center justify-center px-3 py-2.5 sm:py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-medium inline-flex items-center gap-1.5 transition border border-border btn-press"
             title="표준 CSV 파일 다운로드"
           >
             <Download className="w-3.5 h-3.5 text-text-sub" />
@@ -659,7 +659,10 @@ export default function ApplicantTable({
                     {expanded && (
                       <tr className="bg-sidebar">
                         <td colSpan={mode === "agency" ? 7 : 6} className="p-3.5">
-                          <div className="flex items-start justify-between gap-3">
+                          <div
+                            className="overflow-hidden animate-in fade-in slide-in-from-top-1.5 duration-200 flex items-start justify-between gap-3"
+                            style={{ animationTimingFunction: "var(--ease-out)" }}
+                          >
                             {renderDetails(a)}
                             {dups.length > 0 && (
                               <div className="text-[11px] text-warn space-y-0.5 shrink-0">
@@ -689,7 +692,7 @@ export default function ApplicantTable({
               type="button"
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="px-3 py-1.5 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 disabled:opacity-40 border border-border font-medium transition"
+              className="px-3 py-1.5 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 disabled:opacity-40 border border-border font-medium transition btn-press"
             >
               이전
             </button>
@@ -700,7 +703,7 @@ export default function ApplicantTable({
               type="button"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="px-3 py-1.5 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 disabled:opacity-40 border border-border font-medium transition"
+              className="px-3 py-1.5 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 disabled:opacity-40 border border-border font-medium transition btn-press"
             >
               다음
             </button>

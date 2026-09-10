@@ -187,4 +187,44 @@ html.light select,
   transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out);
 }
 
+/* 물리적 버튼 클릭 피드백 (160ms ease-out, scale 0.97) */
+.btn-press {
+  transition: transform 160ms var(--ease-out);
+  will-change: transform;
+}
+.btn-press:active {
+  transform: scale(0.97);
+}
 
+/* 카드 순차(Stagger) 안착 애니메이션 */
+@keyframes enterCard {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.stagger-item {
+  animation: enterCard 260ms var(--ease-out) both;
+}
+.stagger-item:nth-child(1) { animation-delay: 0ms; }
+.stagger-item:nth-child(2) { animation-delay: 45ms; }
+.stagger-item:nth-child(3) { animation-delay: 90ms; }
+.stagger-item:nth-child(4) { animation-delay: 135ms; }
+.stagger-item:nth-child(5) { animation-delay: 180ms; }
+.stagger-item:nth-child(6) { animation-delay: 225ms; }
+.stagger-item:nth-child(7) { animation-delay: 270ms; }
+.stagger-item:nth-child(8) { animation-delay: 315ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

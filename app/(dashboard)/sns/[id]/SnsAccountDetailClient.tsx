@@ -610,18 +610,29 @@ export default function SnsAccountDetailClient({
   const platformLabel = (p: SnsPlatform) => p.toUpperCase();
   const inputCls = "w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-accent2";
 
-  const tabBtn = (key: typeof activeTab, icon: React.ReactNode, label: string) => (
-    <button
-      type="button"
-      onClick={() => setActiveTab(key)}
-      className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap ${
-        activeTab === key ? "bg-accent2/15 text-accent2 border border-accent2/30" : "text-text-sub hover:text-white"
-      }`}
-    >
-      {icon}
-      <span>{label}</span>
-    </button>
-  );
+  const tabContainerRef = useRef<HTMLDivElement>(null);
+  const [tabIndicatorStyle, setTabIndicatorStyle] = useState<{ left: number; width: number; opacity: number }>({ left: 0, width: 0, opacity: 0 });
+  const tabButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  useEffect(() => {
+    const btn = tabButtonRefs.current[activeTab];
+    const container = tabContainerRef.current;
+    if (btn && container) {
+      const containerRect = container.getBoundingClientRect();
+      const btnRect = btn.getBoundingClientRect();
+      setTabIndicatorStyle({
+        left: btnRect.left - containerRect.left + container.scrollLeft,
+        width: btnRect.width,
+        opacity: 1,
+      });
+    }
+  }, [activeTab, contents.length]);
+
+  const SNS_TABS = [
+    { key: "calendar" as const, icon: Calendar, label: "콘텐츠 캘린더 (월별 뷰)" },
+    { key: "list" as const, icon: List, label: `콘텐츠 목록 및 성과 관리 (${contents.length})` },
+    { key: "intake" as const, icon: FileText, label: "광고주 사전설문 답변" },
+  ];
 
   return (
     <div className="space-y-6 font-sans">
@@ -811,16 +822,47 @@ export default function SnsAccountDetailClient({
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-border pb-1 overflow-x-auto">
-        {tabBtn("calendar", <Calendar className="w-3.5 h-3.5" />, "콘텐츠 캘린더 (월별 뷰)")}
-        {tabBtn("list", <List className="w-3.5 h-3.5" />, `콘텐츠 목록 및 성과 관리 (${contents.length})`)}
-        {tabBtn("intake", <FileText className="w-3.5 h-3.5" />, "광고주 사전설문 답변")}
+      {/* Tabs with sliding indicator */}
+      <div
+        ref={tabContainerRef}
+        className="relative flex items-center gap-1 border border-border bg-surface2/50 p-1.5 rounded-2xl overflow-x-auto"
+      >
+        <span
+          className="absolute top-1.5 bottom-1.5 left-0 rounded-xl bg-accent2/15 border border-accent2/30 pointer-events-none transition-all duration-200"
+          style={{
+            transform: `translateX(${tabIndicatorStyle.left}px)`,
+            width: `${tabIndicatorStyle.width}px`,
+            opacity: tabIndicatorStyle.opacity,
+            transitionTimingFunction: "var(--ease-out)",
+            willChange: "transform, width, opacity",
+          }}
+        />
+        {SNS_TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              ref={(el) => { tabButtonRefs.current[tab.key] = el; }}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`relative z-10 px-4 py-2 rounded-xl text-xs font-bold transition-colors duration-160 flex items-center gap-1.5 btn-press whitespace-nowrap shrink-0 ${
+                isActive ? "text-accent2 font-extrabold" : "text-text-sub hover:text-text"
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Calendar */}
       {activeTab === "calendar" && (
-        <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-4 shadow-xl">
+        <div
+          className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-4 shadow-xl animate-in fade-in zoom-in-99 duration-200"
+          style={{ animationTimingFunction: "var(--ease-out)" }}
+        >
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-text flex items-center gap-2">
               <Calendar className="w-5 h-5 text-accent2" /> {calYear}년 {calMonth}월 SNS 콘텐츠 발행 스케줄
@@ -963,7 +1005,10 @@ export default function SnsAccountDetailClient({
 
       {/* List */}
       {activeTab === "list" && (
-        <div className="space-y-4">
+        <div
+          className="space-y-4 animate-in fade-in zoom-in-99 duration-200"
+          style={{ animationTimingFunction: "var(--ease-out)" }}
+        >
           {/* List Search and Filter Toolbar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface/50 p-2.5 sm:p-3 rounded-2xl border border-border">
             <div className="flex flex-wrap items-center gap-2">
@@ -1173,7 +1218,10 @@ export default function SnsAccountDetailClient({
 
       {/* Intake */}
       {activeTab === "intake" && (
-        <div className="space-y-4">
+        <div
+          className="space-y-4 animate-in fade-in zoom-in-99 duration-200"
+          style={{ animationTimingFunction: "var(--ease-out)" }}
+        >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-surface border border-border shadow-xs">
             <div className="flex items-center gap-2">
               <span className="text-xs text-text-sub">설문 문항 상태:</span>
