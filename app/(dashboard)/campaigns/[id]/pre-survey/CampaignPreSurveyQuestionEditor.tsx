@@ -228,11 +228,11 @@ export default function CampaignPreSurveyQuestionEditor({
               }`}
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex items-center justify-center w-7 h-7 rounded-xl bg-blue-600 text-white text-xs font-extrabold shadow-sm transition-transform">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/25 tracking-wide">
                     Q{idx + 1}
                   </span>
-                  <div className="flex items-center gap-1 bg-surface rounded-lg p-0.5 border border-border">
+                  <div className="flex items-center gap-0.5 bg-surface rounded-lg p-0.5 border border-border">
                     <button
                       type="button"
                       onClick={() => move(idx, -1)}

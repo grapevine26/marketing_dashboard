@@ -212,11 +212,11 @@ export default function SnsIntakeQuestionEditor({
               className="group p-5 rounded-2xl bg-bg border border-border hover:border-accent2/40 transition-all space-y-3.5 shadow-sm"
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex items-center justify-center w-7 h-7 rounded-xl bg-accent2 text-white text-xs font-extrabold shadow-sm">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-accent2/10 text-accent2 border border-accent2/25 tracking-wide">
                     Q{idx + 1}
                   </span>
-                  <div className="flex items-center gap-1 bg-surface rounded-lg p-0.5 border border-border">
+                  <div className="flex items-center gap-0.5 bg-surface rounded-lg p-0.5 border border-border">
                     <button
                       type="button"
                       onClick={() => move(idx, -1)}

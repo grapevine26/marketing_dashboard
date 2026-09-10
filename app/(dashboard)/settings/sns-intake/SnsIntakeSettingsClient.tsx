@@ -94,10 +94,14 @@ export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTe
           {questions.map((q, idx) => (
             <div key={q.id} className="group p-5 sm:p-6 rounded-2xl bg-bg border border-border hover:border-accent2/40 transition-all space-y-4 shadow-md">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex items-center justify-center w-7 h-7 rounded-xl bg-accent2 text-white text-xs font-extrabold shadow-sm">Q{idx + 1}</span>
-                  <button type="button" onClick={() => move(idx, -1)} disabled={idx === 0} className="p-1 text-text-muted hover:text-text disabled:opacity-30" title="위로"><ArrowUp className="w-3.5 h-3.5" /></button>
-                  <button type="button" onClick={() => move(idx, 1)} disabled={idx === questions.length - 1} className="p-1 text-text-muted hover:text-text disabled:opacity-30" title="아래로"><ArrowDown className="w-3.5 h-3.5" /></button>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-accent2/10 text-accent2 border border-accent2/25 tracking-wide">
+                    Q{idx + 1}
+                  </span>
+                  <div className="flex items-center gap-0.5 bg-surface rounded-lg p-0.5 border border-border">
+                    <button type="button" onClick={() => move(idx, -1)} disabled={idx === 0} className="p-1 text-text-muted hover:text-text disabled:opacity-20 rounded hover:bg-surface2 btn-press transition" title="위로 이동"><ArrowUp className="w-3.5 h-3.5" /></button>
+                    <button type="button" onClick={() => move(idx, 1)} disabled={idx === questions.length - 1} className="p-1 text-text-muted hover:text-text disabled:opacity-20 rounded hover:bg-surface2 btn-press transition" title="아래로 이동"><ArrowDown className="w-3.5 h-3.5" /></button>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-3">
