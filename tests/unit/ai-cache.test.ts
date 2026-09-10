@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { withCache, clearAiCache, aiCacheSize, cacheKey } from "@/lib/ai/cache";
+import { withCache, clearAiCache, aiCacheSize, cacheKey, invalidateAiCache } from "@/lib/ai/cache";
 
 describe("AI Cache (withCache)", () => {
   beforeEach(() => {
@@ -88,5 +88,47 @@ describe("AI Cache (withCache)", () => {
       await withCache("bulk", { index: i }, async () => `val-${i}`);
     }
     expect(aiCacheSize()).toBeLessThanOrEqual(200);
+  });
+
+  it("options.bypass가 true이면 기존 캐시를 건너뛰고 fetcher를 실행하여 갱신한다", async () => {
+    let callCount = 0;
+    const fetcher = async () => {
+      callCount++;
+      return `result-${callCount}`;
+    };
+
+    const res1 = await withCache("bypassTest", { q: "repeat" }, fetcher);
+    expect(res1).toBe("result-1");
+    expect(callCount).toBe(1);
+
+    // bypass 없이 호출하면 캐시 히트
+    const res2 = await withCache("bypassTest", { q: "repeat" }, fetcher);
+    expect(res2).toBe("result-1");
+    expect(callCount).toBe(1);
+
+    // bypass: true로 호출하면 새로 실행되어 새로운 결과 반환 및 캐시 갱신
+    const res3 = await withCache("bypassTest", { q: "repeat" }, fetcher, () => true, { bypass: true });
+    expect(res3).toBe("result-2");
+    expect(callCount).toBe(2);
+
+    // 다시 bypass 없이 호출하면 갱신된 결과 반환
+    const res4 = await withCache("bypassTest", { q: "repeat" }, fetcher);
+    expect(res4).toBe("result-2");
+    expect(callCount).toBe(2);
+  });
+
+  it("invalidateAiCache 호출 시 해당 키가 캐시에서 삭제된다", async () => {
+    let callCount = 0;
+    const fetcher = async () => {
+      callCount++;
+      return `count-${callCount}`;
+    };
+
+    await withCache("invTest", { id: 42 }, fetcher);
+    expect(callCount).toBe(1);
+
+    invalidateAiCache("invTest", { id: 42 });
+    await withCache("invTest", { id: 42 }, fetcher);
+    expect(callCount).toBe(2);
   });
 });

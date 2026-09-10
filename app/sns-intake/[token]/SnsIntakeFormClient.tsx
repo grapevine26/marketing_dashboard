@@ -22,21 +22,37 @@ export default function SnsIntakeFormClient({
   const [submitted, setSubmitted] = useState(false);
   const [honeypot, setHoneypot] = useState("");
   const [aiLoadingKey, setAiLoadingKey] = useState<string | null>(null);
+  const [aiGeneratedMap, setAiGeneratedMap] = useState<Record<string, boolean>>({});
   const [suggestions, setSuggestions] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const handleAiAssist = async (questionId: string) => {
+    const isAlreadyGenerated = Boolean(aiGeneratedMap[questionId]);
+    const currentText = answers[questionId]?.trim() || "";
+    const isRegen = isAlreadyGenerated || (Boolean(currentText) && Boolean(suggestions[questionId]));
+
     setAiLoadingKey(questionId);
     setError(null);
     setNotice(null);
-    const res = await safeCall(assistSnsIntakeAction({ token, questionId, userDraft: answers[questionId] }));
+
+    const res = await safeCall(
+      assistSnsIntakeAction({
+        token,
+        questionId,
+        userDraft: isRegen ? undefined : currentText,
+        previousDraft: isRegen ? currentText : undefined,
+        forceRefresh: isRegen,
+        isRegeneration: isRegen,
+      })
+    );
     setAiLoadingKey(null);
     if (!res.ok) return setError(res.error);
     if (res.data.fallback) {
       setNotice("AI 제안 실패 — 직접 입력해주세요.");
       return;
     }
+    setAiGeneratedMap((prev) => ({ ...prev, [questionId]: true }));
     setAnswers((prev) => ({ ...prev, [questionId]: res.data.recommendedDraft }));
     setSuggestions((prev) => ({ ...prev, [questionId]: res.data.suggestions }));
   };
@@ -110,7 +126,13 @@ export default function SnsIntakeFormClient({
                 className="px-2.5 py-1 rounded-lg bg-accent2/10 hover:bg-accent2/20 text-accent2 border border-accent2/20 text-[11px] font-semibold inline-flex items-center gap-1 transition active:scale-95 shrink-0 self-start sm:self-auto disabled:opacity-50"
               >
                 {aiLoadingKey === q.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                <span>AI 추천 답변</span>
+                <span>
+                  {aiGeneratedMap[q.id] || (Boolean(answers[q.id]?.trim()) && Boolean(suggestions[q.id]))
+                    ? "다른 답변 추천"
+                    : answers[q.id]?.trim()
+                      ? "AI 초안 다듬기"
+                      : "AI 추천 답변"}
+                </span>
               </button>
             </div>
 

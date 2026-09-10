@@ -38,17 +38,20 @@ export async function withCache<T>(
   scope: string,
   input: unknown,
   fn: () => Promise<T>,
-  shouldCache: (value: T) => boolean = () => true
+  shouldCache: (value: T) => boolean = () => true,
+  options?: { bypass?: boolean }
 ): Promise<T> {
   const map = store();
   const key = cacheKey(scope, input);
   const now = Date.now();
 
-  const hit = map.get(key);
-  if (hit && hit.expiresAt > now) {
-    return hit.value as T;
+  if (!options?.bypass) {
+    const hit = map.get(key);
+    if (hit && hit.expiresAt > now) {
+      return hit.value as T;
+    }
+    if (hit) map.delete(key);
   }
-  if (hit) map.delete(key);
 
   const value = await fn();
   if (shouldCache(value)) {
@@ -61,6 +64,11 @@ export async function withCache<T>(
     map.set(key, { value, expiresAt: now + TTL_MS });
   }
   return value;
+}
+
+export function invalidateAiCache(scope: string, input: unknown): void {
+  const map = store();
+  map.delete(cacheKey(scope, input));
 }
 
 /** 테스트용 */

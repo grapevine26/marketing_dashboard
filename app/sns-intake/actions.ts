@@ -39,6 +39,9 @@ export async function assistSnsIntakeAction(data: {
   token: string;
   questionId: string;
   userDraft?: string;
+  forceRefresh?: boolean;
+  isRegeneration?: boolean;
+  previousDraft?: string;
 }): Promise<ActionResult<SnsIntakeAssistResponse>> {
   const account = await getSnsAccountByToken("intake", data.token);
   if (!account) return fail("유효하지 않은 설문 링크입니다.");
@@ -50,6 +53,9 @@ export async function assistSnsIntakeAction(data: {
     assistSnsIntake({
       question: question.question,
       userDraft: data.userDraft,
+      forceRefresh: data.forceRefresh,
+      isRegeneration: data.isRegeneration,
+      previousDraft: data.previousDraft,
       context: {
         companyName: account.company_name,
         platform: account.platform,

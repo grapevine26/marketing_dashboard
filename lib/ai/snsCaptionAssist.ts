@@ -10,6 +10,7 @@ export interface SnsCaptionParams {
   title: string;
   scheduledOn?: string | null;
   mediaNote?: string | null;
+  forceRefresh?: boolean;
 }
 
 export interface SnsCaptionResult {
@@ -28,9 +29,19 @@ export async function generateSnsCaptionDraft(params: SnsCaptionParams): Promise
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return fallback();
 
+  const shouldBypass = Boolean(params.forceRefresh);
+  const cachePayload = {
+    brandName: params.brandName,
+    platform: params.platform,
+    handle: params.handle,
+    title: params.title,
+    scheduledOn: params.scheduledOn,
+    mediaNote: params.mediaNote,
+  };
+
   return withCache(
     "snsCaption",
-    params,
+    cachePayload,
     async () => {
       try {
         const ai = new GoogleGenAI({ apiKey });
@@ -40,6 +51,7 @@ export async function generateSnsCaptionDraft(params: SnsCaptionParams): Promise
           config: {
             responseMimeType: "application/json",
             maxOutputTokens: 800,
+            temperature: 0.8,
             thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
           },
         });
@@ -56,6 +68,7 @@ export async function generateSnsCaptionDraft(params: SnsCaptionParams): Promise
         return fallback();
       }
     },
-    (result) => !result.fallback
+    (result) => !result.fallback,
+    { bypass: shouldBypass }
   );
 }

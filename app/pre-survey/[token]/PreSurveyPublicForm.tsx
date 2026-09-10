@@ -19,6 +19,7 @@ export default function PreSurveyPublicForm({
 }) {
   const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers || {});
   const [loadingAiMap, setLoadingAiMap] = useState<Record<string, boolean>>({});
+  const [aiGeneratedMap, setAiGeneratedMap] = useState<Record<string, boolean>>({});
   const [suggestions, setSuggestions] = useState<Record<string, string[]>>({});
   const [usedAi, setUsedAi] = useState(false);
   const [honeypot, setHoneypot] = useState("");
@@ -28,9 +29,22 @@ export default function PreSurveyPublicForm({
   const [notice, setNotice] = useState<string | null>(null);
 
   const handleAiAssist = async (questionId: string) => {
+    const isAlreadyGenerated = Boolean(aiGeneratedMap[questionId]);
+    const currentText = answers[questionId]?.trim() || "";
+    const isRegen = isAlreadyGenerated || (Boolean(currentText) && Boolean(suggestions[questionId]));
+
     setLoadingAiMap((prev) => ({ ...prev, [questionId]: true }));
     setNotice(null);
-    const res = await safeCall(getPublicAiAssistAction({ token, questionId, userDraft: answers[questionId] || "" }));
+    const res = await safeCall(
+      getPublicAiAssistAction({
+        token,
+        questionId,
+        userDraft: isRegen ? undefined : currentText,
+        previousDraft: isRegen ? currentText : undefined,
+        forceRefresh: isRegen,
+        isRegeneration: isRegen,
+      })
+    );
     setLoadingAiMap((prev) => ({ ...prev, [questionId]: false }));
     if (!res.ok) {
       setError(res.error);
@@ -41,6 +55,7 @@ export default function PreSurveyPublicForm({
       return;
     }
     setUsedAi(true);
+    setAiGeneratedMap((prev) => ({ ...prev, [questionId]: true }));
     setAnswers((prev) => ({ ...prev, [questionId]: res.data.recommendedDraft }));
     setSuggestions((prev) => ({ ...prev, [questionId]: res.data.suggestions }));
   };
@@ -103,7 +118,13 @@ export default function PreSurveyPublicForm({
                 className="self-start sm:self-auto px-2.5 py-1.5 sm:py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center gap-1 disabled:opacity-50"
               >
                 {loadingAiMap[q.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                <span>AI 추천받기</span>
+                <span>
+                  {aiGeneratedMap[q.id] || (Boolean(answers[q.id]?.trim()) && Boolean(suggestions[q.id]))
+                    ? "다른 추천받기"
+                    : answers[q.id]?.trim()
+                      ? "AI 초안 다듬기"
+                      : "AI 추천받기"}
+                </span>
               </button>
             </div>
 

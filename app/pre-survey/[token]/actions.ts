@@ -45,6 +45,9 @@ export async function getPublicAiAssistAction(params: {
   token: string;
   questionId: string;
   userDraft?: string;
+  forceRefresh?: boolean;
+  isRegeneration?: boolean;
+  previousDraft?: string;
 }): Promise<ActionResult<PreSurveyAssistResponse>> {
   const campaign = await getCampaignByToken("pre_survey", params.token);
   if (!campaign) return fail("유효하지 않은 사전조사 링크입니다.");
@@ -56,6 +59,9 @@ export async function getPublicAiAssistAction(params: {
     assistPreSurvey({
       question: question.question,
       userDraft: params.userDraft,
+      forceRefresh: params.forceRefresh,
+      isRegeneration: params.isRegeneration,
+      previousDraft: params.previousDraft,
       context: {
         campaignName: campaign.name,
         companyName: campaign.company_name,

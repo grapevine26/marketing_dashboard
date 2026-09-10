@@ -28,7 +28,15 @@ export function preSurveyPrompt(params: {
   campaignName?: string;
   companyName?: string;
   campaignType?: string;
+  isRegeneration?: boolean;
+  previousDraft?: string;
 }): string {
+  const regenNotice = params.isRegeneration
+    ? `\n[대안 추천 요청]
+광고주가 기존 제안 내용과 다른 새로운 각도의 추천을 원하고 있습니다.
+기존 내용(${params.previousDraft ? `이전 추천: "${params.previousDraft}"` : "이전 답변"})과 문장 구조나 소구점이 중복되지 않도록, 색다른 시각이나 다른 톤앤매너(예: 더 감성적인 스토리텔링, 또는 직관적인 혜택 강조 등)의 차별화된 답변 초안을 작성하세요.\n`
+    : "";
+
   return `당신은 인플루언서 마케팅 전문 에이전시의 시니어 마케터입니다.
 
 [캠페인 정보]
@@ -41,7 +49,7 @@ ${params.question}
 
 [광고주가 이미 적어둔 내용]
 ${params.userDraft || "(없음)"}
-
+${regenNotice}
 위 질문에 광고주가 그대로 제출할 수 있는 구체적인 답변 초안 1개와, 참고할 핵심 키워드 3개를 작성하세요.
 
 ${COMMON_RULES}
@@ -157,7 +165,15 @@ export function snsIntakePrompt(params: {
   companyName?: string;
   platform?: string;
   handle?: string;
+  isRegeneration?: boolean;
+  previousDraft?: string;
 }): string {
+  const regenNotice = params.isRegeneration
+    ? `\n[대안 추천 요청]
+광고주가 기존 추천 내용과 다른 새로운 각도의 답변을 원하고 있습니다.
+기존 내용(${params.previousDraft ? `이전 추천: "${params.previousDraft}"` : "이전 답변"})과 문장 구조나 소구점이 중복되지 않도록, 색다른 시각이나 다른 톤앤매너(예: 트렌디하고 감성적인 톤, 혹은 실무적이고 전문적인 톤)의 차별화된 답변 초안을 작성하세요.\n`
+    : "";
+
   return `당신은 최고 수준의 SNS 전문 마케팅 디렉터입니다.
 광고주가 SNS 공식 채널 운영 대행을 위한 사전설문을 작성하고 있습니다.
 
@@ -171,7 +187,7 @@ ${params.question}
 
 [광고주가 이미 적어둔 내용]
 ${params.userDraft || "(없음)"}
-
+${regenNotice}
 위 질문에 광고주가 그대로 제출할 수 있는 답변 초안 1개와 핵심 키워드 3개를 작성하세요.
 
 ${COMMON_RULES}

@@ -99,4 +99,24 @@ describe("AI Prompts (lib/ai/prompts.ts)", () => {
     expect(prompt).toContain("실제로 포함되는 달");
     expect(prompt).toContain(COMMON_RULES);
   });
+
+  it("사전설문 및 사전조사에서 isRegeneration이 true이면 대안 추천 요청 안내가 프롬프트에 포함된다", () => {
+    const snsPrompt = snsIntakePrompt({
+      question: "주요 타겟 고객층은 누구인가요?",
+      companyName: "코스메틱",
+      isRegeneration: true,
+      previousDraft: "20대 초반 대학생 중심",
+    });
+    expect(snsPrompt).toContain("대안 추천 요청");
+    expect(snsPrompt).toContain("20대 초반 대학생 중심");
+
+    const prePrompt = preSurveyPrompt({
+      question: "차별화 포인트는 무엇인가요?",
+      companyName: "브랜드",
+      isRegeneration: true,
+      previousDraft: "천연 유기농 성분 100%",
+    });
+    expect(prePrompt).toContain("대안 추천 요청");
+    expect(prePrompt).toContain("천연 유기농 성분 100%");
+  });
 });
