@@ -126,6 +126,84 @@ const TYPE_CONFIG = {
   },
 };
 
+function ToastItemView({
+  toast: t,
+  onDismiss,
+}: {
+  toast: ToastItem;
+  onDismiss: (id: string) => void;
+}) {
+  const [mounted, setMounted] = React.useState(false);
+  const [exiting, setExiting] = React.useState(false);
+
+  React.useEffect(() => {
+    const raf = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const handleClose = React.useCallback(() => {
+    if (exiting) return;
+    setExiting(true);
+    setTimeout(() => {
+      onDismiss(t.id);
+    }, 160); // 160ms snappy exit budget
+  }, [exiting, onDismiss, t.id]);
+
+  React.useEffect(() => {
+    if (t.duration <= 0) return;
+    const timer = setTimeout(() => {
+      handleClose();
+    }, t.duration);
+    return () => clearTimeout(timer);
+  }, [t.duration, handleClose]);
+
+  const config = TYPE_CONFIG[t.type] || TYPE_CONFIG.info;
+  const Icon = config.icon;
+  const isVisible = mounted && !exiting;
+
+  return (
+    <div
+      role="status"
+      style={{
+        transition: "transform 240ms var(--ease-out), opacity 240ms var(--ease-out)",
+        transform: isVisible
+          ? "translateY(0) scale(1)"
+          : "translateY(-8px) scale(0.96)",
+        opacity: isVisible ? 1 : 0,
+        willChange: "transform, opacity",
+      }}
+      className={`pointer-events-auto flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl bg-surface/95 backdrop-blur-md border ${config.cardBorder} shadow-2xl shadow-black/25 text-xs`}
+    >
+      <div className={`p-1.5 rounded-xl shrink-0 ${config.bgBadge}`}>
+        <Icon className={`w-4 h-4 ${config.iconColor}`} />
+      </div>
+
+      <div className="flex-1 min-w-0 pt-0.5">
+        <p className="font-bold text-text text-xs sm:text-sm leading-snug break-words">
+          {t.message}
+        </p>
+        {t.description && (
+          <p className="text-text-sub text-[11px] sm:text-xs mt-0.5 leading-relaxed break-words">
+            {t.description}
+          </p>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={handleClose}
+        style={{
+          transition: "transform 160ms var(--ease-out), background-color 160ms var(--ease-out)",
+        }}
+        className="p-1 rounded-lg text-text-muted hover:text-text hover:bg-surface2 active:scale-95 shrink-0 ml-1"
+        aria-label="알림 닫기"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
+
 /**
  * 전역 토스트 렌더링 컨테이너
  * app/layout.tsx 또는 대시보드 레이아웃의 최상단에 마운트한다.
@@ -143,42 +221,10 @@ export function ToastContainer() {
       role="region"
       aria-label="알림 메시지"
     >
-      {activeToasts.map((t) => {
-        const config = TYPE_CONFIG[t.type] || TYPE_CONFIG.info;
-        const Icon = config.icon;
-
-        return (
-          <div
-            key={t.id}
-            role="status"
-            className={`pointer-events-auto flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl bg-surface/95 backdrop-blur-md border ${config.cardBorder} shadow-2xl shadow-black/25 text-xs transition-all duration-200 animate-in fade-in slide-in-from-top-3`}
-          >
-            <div className={`p-1.5 rounded-xl shrink-0 ${config.bgBadge}`}>
-              <Icon className={`w-4 h-4 ${config.iconColor}`} />
-            </div>
-
-            <div className="flex-1 min-w-0 pt-0.5">
-              <p className="font-bold text-text text-xs sm:text-sm leading-snug break-words">
-                {t.message}
-              </p>
-              {t.description && (
-                <p className="text-text-sub text-[11px] sm:text-xs mt-0.5 leading-relaxed break-words">
-                  {t.description}
-                </p>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => removeToast(t.id)}
-              className="p-1 rounded-lg text-text-muted hover:text-text hover:bg-surface2 transition shrink-0 ml-1"
-              aria-label="알림 닫기"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        );
-      })}
+      {activeToasts.map((t) => (
+        <ToastItemView key={t.id} toast={t} onDismiss={removeToast} />
+      ))}
     </div>
   );
 }
+

@@ -58,8 +58,14 @@ export default function NewGlobalEventModal({ campaigns }: { campaigns: Campaign
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="w-full max-w-lg bg-surface border-t sm:border border-border rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto font-sans">
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
+          style={{ animationTimingFunction: "var(--ease-out)" }}
+        >
+          <div
+            className="w-full max-w-lg bg-surface border-t sm:border border-border rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto font-sans animate-in zoom-in-95 duration-200"
+            style={{ animationTimingFunction: "var(--ease-out)" }}
+          >
             <div className="flex items-center justify-between pb-2 border-b border-border">
               <div className="flex items-center gap-2">
                 <PartyPopper className="w-5 h-5 text-teal-400" />
