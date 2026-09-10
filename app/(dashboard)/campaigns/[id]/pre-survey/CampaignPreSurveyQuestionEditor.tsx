@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
 import { toast } from "@/components/Toast";
+import { useFlipList } from "@/lib/hooks/useFlipList";
 
 interface CampaignPreSurveyQuestionEditorProps {
   campaignId: string;
@@ -36,25 +37,35 @@ export default function CampaignPreSurveyQuestionEditor({
 }: CampaignPreSurveyQuestionEditorProps) {
   const router = useRouter();
   const [questions, setQuestions] = useState<PreSurveyQuestion[]>(initialQuestions || []);
+  const [recentlyMovedId, setRecentlyMovedId] = useState<string | null>(null);
   const [isCustom, setIsCustom] = useState(initialIsCustom);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { registerRef } = useFlipList(questions);
+
   const update = (id: string, patch: Partial<PreSurveyQuestion>) => {
     setQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)));
     setError(null);
   };
 
-  const move = (idx: number, dir: -1 | 1) =>
+  const move = (idx: number, dir: -1 | 1) => {
+    const target = idx + dir;
+    if (target < 0 || target >= questions.length) return;
+    const movedItem = questions[idx];
+    if (movedItem) {
+      setRecentlyMovedId(movedItem.id);
+      setTimeout(() => setRecentlyMovedId(null), 500);
+    }
     setQuestions((prev) => {
       const next = [...prev];
-      const target = idx + dir;
       if (target < 0 || target >= next.length) return prev;
       [next[idx], next[target]] = [next[target], next[idx]];
       return next;
     });
+  };
 
   const handleAdd = () => {
     setQuestions((prev) => [
@@ -209,11 +220,16 @@ export default function CampaignPreSurveyQuestionEditor({
           {questions.map((q, idx) => (
             <div
               key={q.id}
-              className="group p-5 rounded-2xl bg-bg border border-border hover:border-blue-500/40 transition-all space-y-3.5 shadow-sm"
+              ref={registerRef(q.id)}
+              className={`group p-5 rounded-2xl bg-bg border space-y-3.5 shadow-sm transition-[border-color,box-shadow] duration-200 ${
+                recentlyMovedId === q.id
+                  ? "border-blue-500 ring-2 ring-blue-500/20 shadow-md"
+                  : "border-border hover:border-blue-500/40"
+              }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <span className="flex items-center justify-center w-7 h-7 rounded-xl bg-blue-600 text-white text-xs font-extrabold shadow-sm">
+                  <span className="flex items-center justify-center w-7 h-7 rounded-xl bg-blue-600 text-white text-xs font-extrabold shadow-sm transition-transform">
                     Q{idx + 1}
                   </span>
                   <div className="flex items-center gap-1 bg-surface rounded-lg p-0.5 border border-border">
@@ -221,7 +237,7 @@ export default function CampaignPreSurveyQuestionEditor({
                       type="button"
                       onClick={() => move(idx, -1)}
                       disabled={idx === 0}
-                      className="p-1 text-text-muted hover:text-text disabled:opacity-30 rounded hover:bg-surface2 transition"
+                      className="p-1 text-text-muted hover:text-text disabled:opacity-20 rounded hover:bg-surface2 btn-press"
                       title="위로 이동"
                     >
                       <ArrowUp className="w-3.5 h-3.5" />
@@ -230,7 +246,7 @@ export default function CampaignPreSurveyQuestionEditor({
                       type="button"
                       onClick={() => move(idx, 1)}
                       disabled={idx === questions.length - 1}
-                      className="p-1 text-text-muted hover:text-text disabled:opacity-30 rounded hover:bg-surface2 transition"
+                      className="p-1 text-text-muted hover:text-text disabled:opacity-20 rounded hover:bg-surface2 btn-press"
                       title="아래로 이동"
                     >
                       <ArrowDown className="w-3.5 h-3.5" />
