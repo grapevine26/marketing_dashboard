@@ -4,6 +4,7 @@ import { getCampaignByToken, getApplicantById, updateApplicantStatus } from "@/l
 import { Applicant, ApplicantStatus } from "@/lib/db/types";
 import { revalidatePath } from "next/cache";
 import { ActionResult, runAction, fail } from "@/lib/actions/result";
+import { sendWebhookNotification } from "@/lib/notifications/webhook";
 
 /**
  * 광고주 공유 링크(/applicants/[token])에서의 최종선정/예비선정.
@@ -28,6 +29,21 @@ export async function changeApplicantStatusByTokenAction(params: {
     return result.applicant;
   });
   if (!res.ok) return res;
+
+  if (params.status === "selected" && campaign.webhook_url) {
+    try {
+      await sendWebhookNotification(campaign.webhook_url, {
+        event: "applicant.selected",
+        title: "인플루언서 최종선정 완료",
+        message: `${applicant.name}님이 '${campaign.name}' 캠페인에 최종선정되었습니다. (광고주 선정)${applicant.sns_link ? ` (SNS: ${applicant.sns_link})` : ""}`,
+        campaign_id: campaign.id,
+        campaign_name: campaign.name,
+        data: { applicant_id: applicant.id, name: applicant.name, sns_link: applicant.sns_link },
+      });
+    } catch (err) {
+      console.warn("[webhook] 광고주 최종선정 웹훅 발송 오류:", err);
+    }
+  }
 
   revalidatePath(`/applicants/${params.token}`);
   revalidatePath(`/campaigns/${campaign.id}`);

@@ -89,12 +89,16 @@ export async function sendWebhookNotification(
   try {
     const res = await fetch(valid.url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "MOA-Marketing-Dashboard/1.0",
+      },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(5000),
     });
 
     if (!res.ok) {
+      console.warn(`[webhook] 발송 실패 (${res.status}): ${valid.url}`);
       return { ok: false, status: res.status, error: `HTTP ${res.status} 응답` };
     }
     return { ok: true, status: res.status };

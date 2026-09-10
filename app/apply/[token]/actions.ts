@@ -59,20 +59,24 @@ export async function submitApplicantAction(params: {
   });
   if (res.ok) {
     if (campaign.webhook_url) {
-      void sendWebhookNotification(campaign.webhook_url, {
-        event: "applicant.applied",
-        title: "새로운 인플루언서 지원 접수",
-        message: `${params.name}님이 '${campaign.name}' 캠페인에 지원했습니다. (SNS: ${params.sns_link})`,
-        campaign_id: campaign.id,
-        campaign_name: campaign.name,
-        data: {
-          applicant_id: res.data.id,
-          name: params.name,
-          sns_link: params.sns_link,
-          follower_count: params.follower_count,
-          category: params.category,
-        },
-      });
+      try {
+        await sendWebhookNotification(campaign.webhook_url, {
+          event: "applicant.applied",
+          title: "새로운 인플루언서 지원 접수",
+          message: `${params.name}님이 '${campaign.name}' 캠페인에 지원했습니다. (SNS: ${params.sns_link})`,
+          campaign_id: campaign.id,
+          campaign_name: campaign.name,
+          data: {
+            applicant_id: res.data.id,
+            name: params.name,
+            sns_link: params.sns_link,
+            follower_count: params.follower_count,
+            category: params.category,
+          },
+        });
+      } catch (err) {
+        console.warn("[webhook] 지원 접수 웹훅 발송 오류:", err);
+      }
     }
     revalidatePath(`/campaigns/${campaign.id}`);
     revalidatePath(`/campaigns/${campaign.id}/applicants`);

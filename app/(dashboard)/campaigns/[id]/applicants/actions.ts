@@ -1,9 +1,10 @@
 "use server";
 
-import { updateApplicantStatus, getApplicantById } from "@/lib/db";
+import { updateApplicantStatus, getApplicantById, getCampaignById } from "@/lib/db";
 import { ApplicantStatus, Applicant } from "@/lib/db/types";
 import { revalidatePath } from "next/cache";
 import { ActionResult, runAction, fail } from "@/lib/actions/result";
+import { sendWebhookNotification } from "@/lib/notifications/webhook";
 
 /**
  * 에이전시(대시보드)에서의 선정 상태 변경. 실행 주체는 서버에서 "agency"로 고정한다.
@@ -25,25 +26,21 @@ export async function changeApplicantStatusAction(params: {
 
   const campaignId = existing.campaign_id;
   if (params.status === "selected") {
-    void (async () => {
-      try {
-        const { getCampaignById } = await import("@/lib/db");
-        const { sendWebhookNotification } = await import("@/lib/notifications/webhook");
-        const camp = await getCampaignById(campaignId);
-        if (camp?.webhook_url) {
-          await sendWebhookNotification(camp.webhook_url, {
-            event: "applicant.selected",
-            title: "인플루언서 최종선정 완료",
-            message: `${existing.name}님이 '${camp.name}' 캠페인에 최종선정되었습니다.`,
-            campaign_id: camp.id,
-            campaign_name: camp.name,
-            data: { applicant_id: existing.id, name: existing.name, sns_link: existing.sns_link },
-          });
-        }
-      } catch {
-        // non-blocking
+    try {
+      const camp = await getCampaignById(campaignId);
+      if (camp?.webhook_url) {
+        await sendWebhookNotification(camp.webhook_url, {
+          event: "applicant.selected",
+          title: "인플루언서 최종선정 완료",
+          message: `${existing.name}님이 '${camp.name}' 캠페인에 최종선정되었습니다.${existing.sns_link ? ` (SNS: ${existing.sns_link})` : ""}`,
+          campaign_id: camp.id,
+          campaign_name: camp.name,
+          data: { applicant_id: existing.id, name: existing.name, sns_link: existing.sns_link },
+        });
       }
-    })();
+    } catch (err) {
+      console.warn("[webhook] 최종선정 웹훅 발송 오류:", err);
+    }
   }
 
   revalidatePath(`/campaigns/${campaignId}`);
