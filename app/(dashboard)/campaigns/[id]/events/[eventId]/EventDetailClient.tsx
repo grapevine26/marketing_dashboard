@@ -98,6 +98,15 @@ export default function EventDetailClient({
   }, [highlightChecklistId, activeTab]);
   const [invitees, setInvitees] = useState<EventInvitee[]>(initialInvitees);
   const [checklists, setChecklists] = useState<EventChecklistItem[]>(initialChecklists);
+
+  useEffect(() => {
+    setInvitees(initialInvitees);
+  }, [initialInvitees]);
+
+  useEffect(() => {
+    setChecklists(initialChecklists);
+  }, [initialChecklists]);
+
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -199,14 +208,26 @@ export default function EventDetailClient({
 
   // ---------- Invitees ----------
   const handleToggleCheckin = async (inv: EventInvitee) => {
-    const res = await safeCall(updateInviteeAction(inv.id, campaign.id, event.id, { attended: !inv.attended }));
-    if (!res.ok) return setError(res.error);
+    const nextAttended = !inv.attended;
+    setInvitees((prev) => prev.map((i) => (i.id === inv.id ? { ...i, attended: nextAttended } : i)));
+    const res = await safeCall(updateInviteeAction(inv.id, campaign.id, event.id, { attended: nextAttended }));
+    if (!res.ok) {
+      setInvitees((prev) => prev.map((i) => (i.id === inv.id ? { ...i, attended: inv.attended } : i)));
+      toast.error(res.error || "참석 상태 변경에 실패했습니다.");
+      return setError(res.error);
+    }
     setInvitees((prev) => prev.map((i) => (i.id === inv.id ? res.data : i)));
   };
 
   const handleRsvpChange = async (inv: EventInvitee, rsvp_status: EventRsvpStatus) => {
+    const prevRsvp = inv.rsvp_status;
+    setInvitees((prev) => prev.map((i) => (i.id === inv.id ? { ...i, rsvp_status } : i)));
     const res = await safeCall(updateInviteeAction(inv.id, campaign.id, event.id, { rsvp_status }));
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) {
+      setInvitees((prev) => prev.map((i) => (i.id === inv.id ? { ...i, rsvp_status: prevRsvp } : i)));
+      toast.error(res.error || "RSVP 상태 변경에 실패했습니다.");
+      return setError(res.error);
+    }
     setInvitees((prev) => prev.map((i) => (i.id === inv.id ? res.data : i)));
   };
 
@@ -220,9 +241,14 @@ export default function EventDetailClient({
 
   const handleDeleteInvitee = async (inviteeId: string) => {
     if (!confirm("초대 명단에서 삭제하시겠습니까?")) return;
+    const prev = invitees;
+    setInvitees((curr) => curr.filter((i) => i.id !== inviteeId));
     const res = await safeCall(deleteInviteeAction(inviteeId, campaign.id, event.id));
-    if (!res.ok) return setError(res.error);
-    setInvitees((prev) => prev.filter((i) => i.id !== inviteeId));
+    if (!res.ok) {
+      setInvitees(prev);
+      toast.error(res.error || "초대 명단 삭제에 실패했습니다.");
+      return setError(res.error);
+    }
   };
 
   const handleImportApplicants = async () => {
@@ -279,15 +305,28 @@ export default function EventDetailClient({
   };
 
   const handleToggleChecklistDone = async (c: EventChecklistItem) => {
-    const res = await safeCall(updateChecklistItemAction(c.id, campaign.id, event.id, { done: !c.done }));
-    if (!res.ok) return setError(res.error);
+    const nextDone = !c.done;
+    // 즉각적인 낙관적 업데이트 (0ms 지연)
+    setChecklists((prev) => prev.map((x) => (x.id === c.id ? { ...x, done: nextDone } : x)));
+    const res = await safeCall(updateChecklistItemAction(c.id, campaign.id, event.id, { done: nextDone }));
+    if (!res.ok) {
+      // 실패 시 롤백 및 에러 토스트
+      setChecklists((prev) => prev.map((x) => (x.id === c.id ? { ...x, done: c.done } : x)));
+      toast.error(res.error || "체크리스트 상태 변경에 실패했습니다.");
+      return setError(res.error);
+    }
     setChecklists((prev) => prev.map((x) => (x.id === c.id ? res.data : x)));
   };
 
   const handleDeleteChecklist = async (itemId: string) => {
+    const prev = checklists;
+    setChecklists((curr) => curr.filter((c) => c.id !== itemId));
     const res = await safeCall(deleteChecklistItemAction(itemId, campaign.id, event.id));
-    if (!res.ok) return setError(res.error);
-    setChecklists((prev) => prev.filter((c) => c.id !== itemId));
+    if (!res.ok) {
+      setChecklists(prev);
+      toast.error(res.error || "체크리스트 항목 삭제에 실패했습니다.");
+      return setError(res.error);
+    }
   };
 
   // ---------- Plan ----------
@@ -847,23 +886,30 @@ export default function EventDetailClient({
                   <div
                     key={c.id}
                     id={`checklist-${c.id}`}
-                    className={`p-3.5 rounded-2xl border transition duration-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 ${
+                    className={`p-3.5 rounded-2xl border transition duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 ${
                       isHighlighted
                         ? "bg-teal-500/15 border-teal-400 ring-2 ring-teal-400/40 shadow-md"
                         : c.done
                         ? "bg-bg/50 border-surface2 opacity-60"
-                        : "bg-bg border-border"
+                        : "bg-bg border-border hover:border-teal-500/30"
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <input type="checkbox" checked={c.done} onChange={() => handleToggleChecklistDone(c)} className="w-4 h-4 accent-teal-600 rounded cursor-pointer shrink-0" />
-                      <span className={`text-xs font-medium ${c.done ? "line-through text-text-muted" : isHighlighted ? "text-teal-300 font-bold" : "text-text"}`}>{c.label}</span>
+                    <label className="flex items-center gap-3 min-w-0 cursor-pointer select-none flex-1">
+                      <input
+                        type="checkbox"
+                        checked={c.done}
+                        onChange={() => handleToggleChecklistDone(c)}
+                        className="w-4 h-4 accent-teal-600 rounded cursor-pointer shrink-0"
+                      />
+                      <span className={`text-xs font-medium transition-colors ${c.done ? "line-through text-text-muted" : isHighlighted ? "text-teal-300 font-bold" : "text-text"}`}>
+                        {c.label}
+                      </span>
                       {isHighlighted && (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/30 shrink-0 animate-pulse">
                           선택된 준비항목
                         </span>
                       )}
-                    </div>
+                    </label>
 
                     <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 text-xs pl-7 sm:pl-0">
                       {c.due_date && (
@@ -874,7 +920,12 @@ export default function EventDetailClient({
                       )}
                       <div className="flex items-center gap-2">
                         {c.assignee && <span className="px-2 py-0.5 rounded bg-surface border border-border text-text-sub text-[10px]">{c.assignee}</span>}
-                        <button type="button" onClick={() => handleDeleteChecklist(c.id)} className="p-1 rounded text-text-muted hover:text-red-400">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteChecklist(c.id)}
+                          className="p-1 rounded text-text-muted hover:text-red-400 btn-press"
+                          title="체크리스트 항목 삭제"
+                        >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
