@@ -33,14 +33,15 @@ export default async function PublicApplicantsSharePage({
 
   return (
     <div className="min-h-screen bg-bg text-text p-4 sm:p-8 max-w-6xl mx-auto space-y-5 sm:space-y-6 font-sans">
-      <div>
+      <div className="space-y-1">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold">
           <Building2 className="w-3.5 h-3.5" />
           <span>{campaign.company_name}</span>
         </div>
-        <h1 className="text-xl sm:text-2xl font-extrabold text-text mt-1">
-          {campaign.name} - 인플루언서 지원 현황 및 선정
+        <h1 className="text-xl sm:text-2xl font-extrabold text-text tracking-tight mt-1">
+          {campaign.name}
         </h1>
+        <p className="text-sm font-semibold text-blue-400">인플루언서 지원 현황 및 심사 선정</p>
         <p className="text-xs text-text-sub">
           총 {applicants.length}명 접수 / 최종선정 {selectedCount}명 / 예비 {reservedCount}명 · 최종선정/예비선정 버튼을 누르면 에이전시 화면에 즉시 반영됩니다.
         </p>

@@ -39,7 +39,8 @@ export default async function PublicApplyPage({
             <Building2 className="w-3.5 h-3.5" />
             <span>{campaign.company_name}</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-extrabold text-text">{campaign.name} 인플루언서 지원폼</h1>
+          <h1 className="text-xl sm:text-2xl font-extrabold text-text tracking-tight">{campaign.name}</h1>
+          <p className="text-xs sm:text-sm font-semibold text-blue-400">인플루언서 공식 지원 접수폼</p>
         </div>
 
         {formConfig?.intro_text && (

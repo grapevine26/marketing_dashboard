@@ -4,7 +4,7 @@ import { getReportById, getCampaignById, getPptTemplates, BUILTIN_REPORT_TEMPLAT
 import { ReportSnapshotMetrics } from "@/lib/db/types";
 import CustomSectionEditor from "./CustomSectionEditor";
 import ReportDownloads from "./ReportDownloads";
-import { ArrowLeft, ExternalLink, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ExternalLink, AlertTriangle } from "lucide-react";
 
 export const revalidate = 0;
 
@@ -41,13 +41,38 @@ export default async function ReportDetailPage({
   const selectedApplicants = (snapshot?.applicants || []).filter((a) => a.status === "selected");
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-5xl mx-auto font-sans">
+      {/* 상단 브레드크럼 네비게이션 */}
+      <div className="flex items-center gap-2 text-xs text-text-sub">
+        <Link
+          href={`/campaigns/${campaign.id}`}
+          className="hover:text-accent-link flex items-center gap-1 transition"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" />
+          <span>{campaign.name} 허브</span>
+        </Link>
+        <span>/</span>
+        <Link
+          href={`/campaigns/${campaign.id}/reports`}
+          className="hover:text-accent-link transition"
+        >
+          <span>결과보고서 목록</span>
+        </Link>
+        <span>/</span>
+        <span className="text-text truncate max-w-[200px]">{report.title}</span>
+      </div>
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <Link href={`/campaigns/${campaign.id}/reports`} className="text-xs text-text-sub hover:text-text inline-flex items-center gap-1 mb-1 transition">
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>보고서 목록으로 돌아가기</span>
-          </Link>
+          {/* 상단 소속 캠페인 안내 라벨 */}
+          <div className="flex items-center gap-2 text-xs text-text-sub">
+            <span className="px-2 py-0.5 rounded-md bg-surface2 border border-border font-medium text-text-2">
+              {campaign.company_name}
+            </span>
+            <span className="font-semibold text-accent-link">
+              {campaign.name}
+            </span>
+          </div>
           <h1 className="text-2xl font-bold text-text tracking-tight">{report.title}</h1>
           <p className="text-xs text-text-sub">
             생성일시: {new Date(report.generated_at || report.created_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}

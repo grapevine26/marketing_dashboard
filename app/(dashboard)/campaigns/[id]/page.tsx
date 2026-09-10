@@ -54,6 +54,7 @@ export default async function CampaignDetailPage({
 
   const steps = [
     {
+      stepNumber: "01",
       href: `/campaigns/${campaign.id}/pre-survey`,
       icon: FileQuestion,
       badge: preSurvey ? (
@@ -65,11 +66,12 @@ export default async function CampaignDetailPage({
           <Clock className="w-3.5 h-3.5" /> 미작성
         </span>
       ),
-      title: "1. 사전조사 (Pre-Survey)",
+      title: "사전조사 (광고주 설문)",
       desc: "광고주 브랜드 희망사항 파악 및 Gemini AI 답변 추천",
       cta: "사전조사 관리",
     },
     {
+      stepNumber: "02",
       href: `/campaigns/${campaign.id}/apply-form`,
       icon: FileText,
       badge: (
@@ -77,31 +79,34 @@ export default async function CampaignDetailPage({
           <Sparkles className="w-3.5 h-3.5" /> {formConfig?.is_published === false ? "접수 중단" : "접수중"}
         </span>
       ),
-      title: "2. 신청폼 설정 (Apply Form)",
+      title: "인플루언서 지원폼 설정",
       desc: "인플루언서 모집 소개글, 필수 항목 및 커스텀 질문 설정",
       cta: "신청폼 에디터",
     },
     {
+      stepNumber: "03",
       href: `/campaigns/${campaign.id}/applicants`,
       icon: Users,
       badge: <span className="text-[11px] font-semibold text-text-2">총 {applicants.length}명 접수</span>,
-      title: "3. 지원자 리스트 & 선정",
+      title: "지원자 리스트 & 선정",
       desc: "중복 지원 감지, 최종선정/예비선정 및 광고주 실시간 공유",
       cta: "지원자 심사",
     },
     {
+      stepNumber: "04",
       href: `/campaigns/${campaign.id}/seeding-sheet`,
       icon: TableProperties,
       badge: <span className="text-[11px] font-semibold text-blue-400">{selectedCount}명 진행중</span>,
-      title: "4. 시딩 관리시트",
+      title: "시딩 진행 관리시트",
       desc: "송장/방문 단계 추적, D-Day 계산, 업로드 링크 및 조회수 입력",
       cta: "관리시트 열기",
     },
     {
+      stepNumber: "05",
       href: `/campaigns/${campaign.id}/reports`,
       icon: FileSpreadsheet,
       badge: <span className="text-[11px] font-semibold text-text-2">PDF & PPTX</span>,
-      title: "5. 결과보고서",
+      title: "결과보고서 생성 & 다운로드",
       desc: "성과 스냅샷, 총평 작성, 한글 PDF 및 편집 가능한 PPTX 다운로드",
       cta: "보고서 생성",
     },
@@ -188,12 +193,17 @@ export default async function CampaignDetailPage({
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
-                      <Icon className="w-4 h-4" />
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0">
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <span className="font-mono text-[10px] font-bold tracking-wider text-blue-400/90 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-md">
+                        STEP {step.stepNumber}
+                      </span>
                     </div>
                     {step.badge}
                   </div>
-                  <div>
+                  <div className="pt-1">
                     <h3 className="text-sm font-bold text-text group-hover:text-blue-400 transition">{step.title}</h3>
                     <p className="text-xs text-text-sub mt-0.5">{step.desc}</p>
                   </div>

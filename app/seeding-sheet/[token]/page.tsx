@@ -30,14 +30,15 @@ export default async function PublicSeedingSheetSharePage({
 
   return (
     <div className="min-h-screen bg-bg text-text p-4 sm:p-8 max-w-6xl mx-auto space-y-5 sm:space-y-6 font-sans">
-      <div>
+      <div className="space-y-1">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold">
           <Building2 className="w-3.5 h-3.5" />
           <span>{campaign.company_name}</span>
         </div>
-        <h1 className="text-xl sm:text-2xl font-extrabold text-text mt-1">
-          {campaign.name} - 실시간 시딩 관리시트
+        <h1 className="text-xl sm:text-2xl font-extrabold text-text tracking-tight mt-1">
+          {campaign.name}
         </h1>
+        <p className="text-sm font-semibold text-blue-400">실시간 시딩 진행 관리시트</p>
         <p className="text-xs text-text-sub">
           총 {rows.length}명 진행 중 · 배송/방문 단계, 업로드 D-day, 게시물 링크와 성과를 조회할 수 있습니다 (조회 전용).
         </p>

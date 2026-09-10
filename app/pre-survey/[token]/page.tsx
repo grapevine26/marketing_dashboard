@@ -36,9 +36,10 @@ export default async function PreSurveyPublicPage({
             <Building2 className="w-3.5 h-3.5" />
             <span>{campaign.company_name}</span>
           </div>
-          <h1 className="text-xl sm:text-3xl font-extrabold text-text">{campaign.name} - 사전조사서</h1>
-          <p className="text-xs sm:text-sm text-text-sub">
-            성공적인 인플루언서 시딩 캠페인 기획을 위해 브랜드 정보를 입력해주세요.
+          <h1 className="text-xl sm:text-3xl font-extrabold text-text tracking-tight">{campaign.name}</h1>
+          <p className="text-xs sm:text-sm font-semibold text-blue-400">브랜드 캠페인 사전조사서</p>
+          <p className="text-xs sm:text-sm text-text-sub max-w-md mx-auto">
+            성공적인 인플루언서 시딩 캠페인 기획을 위해 브랜드 희망사항과 핵심 정보를 입력해주세요.
           </p>
         </div>
 

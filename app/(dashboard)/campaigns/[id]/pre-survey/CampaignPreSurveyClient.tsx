@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, FileText, Sliders, CheckCircle2, Clock } from "lucide-react";
+import { ChevronLeft, FileText, Sliders, CheckCircle2, Clock } from "lucide-react";
 import { Campaign, PreSurveyTemplate, PreSurveyResponse, PreSurveyQuestion } from "@/lib/db/types";
 import PreSurveyAgencyView from "./PreSurveyAgencyView";
 import CampaignPreSurveyQuestionEditor from "./CampaignPreSurveyQuestionEditor";
@@ -31,18 +31,32 @@ export default function CampaignPreSurveyClient({
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto font-sans">
-      {/* Header */}
-      <div className="space-y-2">
+      {/* 상단 브레드크럼 네비게이션 */}
+      <div className="flex items-center gap-2 text-xs text-text-sub">
         <Link
           href={`/campaigns/${campaign.id}`}
-          className="text-xs text-text-sub hover:text-text inline-flex items-center gap-1 transition"
+          className="hover:text-accent-link flex items-center gap-1 transition"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>캠페인 허브로 돌아가기</span>
+          <ChevronLeft className="w-3.5 h-3.5" />
+          <span>{campaign.name} 허브</span>
         </Link>
+        <span>/</span>
+        <span className="text-text">사전조사 관리</span>
+      </div>
+
+      <div className="space-y-1">
+        {/* 상단 소속 캠페인 안내 라벨 */}
+        <div className="flex items-center gap-2 text-xs text-text-sub">
+          <span className="px-2 py-0.5 rounded-md bg-surface2 border border-border font-medium text-text-2">
+            {campaign.company_name}
+          </span>
+          <span className="font-semibold text-accent-link">
+            {campaign.name}
+          </span>
+        </div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-text tracking-tight">1. 사전조사 관리 (Pre-Survey)</h1>
+            <h1 className="text-2xl font-bold text-text tracking-tight">사전조사 관리</h1>
             <p className="text-xs sm:text-sm text-text-sub mt-0.5">
               광고주가 제출한 답변을 조회·수정하거나, 이 캠페인 전용 설문 문항을 추가/삭제할 수 있습니다.
             </p>

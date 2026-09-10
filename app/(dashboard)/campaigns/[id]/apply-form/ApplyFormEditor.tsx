@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Campaign, CampaignFormConfig, CustomQuestion, CustomQuestionType } from "@/lib/db/types";
 import { saveFormConfigAction, generateAiIntroAction } from "./actions";
-import { Sparkles, Save, Plus, Trash2, ArrowLeft, Loader2, CheckCircle2, ExternalLink } from "lucide-react";
+import { Sparkles, Save, Plus, Trash2, ChevronLeft, Loader2, CheckCircle2, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { safeCall } from "@/lib/actions/safeCall";
 import { toast } from "@/components/Toast";
@@ -94,18 +94,36 @@ export default function ApplyFormEditor({
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto font-sans">
-      <div className="space-y-1">
-        <Link href={`/campaigns/${campaign.id}`} className="text-xs text-text-sub hover:text-text inline-flex items-center gap-1 transition">
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>캠페인 허브로 돌아가기</span>
+      {/* 상단 브레드크럼 네비게이션 */}
+      <div className="flex items-center gap-2 text-xs text-text-sub">
+        <Link
+          href={`/campaigns/${campaign.id}`}
+          className="hover:text-accent-link flex items-center gap-1 transition"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" />
+          <span>{campaign.name} 허브</span>
         </Link>
+        <span>/</span>
+        <span className="text-text">인플루언서 지원폼 설정</span>
+      </div>
+
+      <div className="space-y-1">
+        {/* 상단 소속 캠페인 안내 라벨 */}
+        <div className="flex items-center gap-2 text-xs text-text-sub">
+          <span className="px-2 py-0.5 rounded-md bg-surface2 border border-border font-medium text-text-2">
+            {campaign.company_name}
+          </span>
+          <span className="font-semibold text-accent-link">
+            {campaign.name}
+          </span>
+        </div>
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-xl font-bold text-text">2. 인플루언서 신청폼 설정 에디터</h1>
-          <a href={applyPath} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline inline-flex items-center gap-1">
+          <h1 className="text-2xl font-bold text-text tracking-tight">인플루언서 지원폼 설정</h1>
+          <a href={applyPath} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline inline-flex items-center gap-1 font-semibold">
             <ExternalLink className="w-3.5 h-3.5" /> 공개 신청폼 미리보기
           </a>
         </div>
-        <p className="text-xs text-text-sub">
+        <p className="text-sm text-text-sub">
           모집글 소개 문구(Gemini AI 작성 지원)와 인플루언서에게 추가로 물어볼 질문들을 커스텀 설정합니다.
         </p>
       </div>
