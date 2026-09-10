@@ -72,6 +72,30 @@ export async function getClientIp(): Promise<string> {
 }
 
 /**
+ * 현재 소비된 요청 횟수를 조회 (새 타임스탬프 추가 없이 조회만)
+ */
+export function getRateLimitUsed(
+  key: string,
+  windowMs: number = 24 * 60 * 60 * 1000
+): number {
+  const now = Date.now();
+  const cutoff = now - windowMs;
+  const record = rateLimitStore.get(key);
+  if (!record) return 0;
+  return record.timestamps.filter((t) => t > cutoff).length;
+}
+
+/**
+ * 실패 시 직전 요청 1회를 롤백 (사용자 과실이 아닌 API 오류 등에서 횟수 복구)
+ */
+export function rollbackRateLimit(key: string): void {
+  const record = rateLimitStore.get(key);
+  if (record && record.timestamps.length > 0) {
+    record.timestamps.pop();
+  }
+}
+
+/**
  * 테스트 격리를 위한 Rate Limit 저장소 초기화 함수
  */
 export function resetRateLimitStore(): void {

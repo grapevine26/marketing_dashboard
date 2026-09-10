@@ -10,10 +10,13 @@ import {
   regenerateSnsToken,
   getAuditLogs,
 } from "@/lib/db";
-import { checkRateLimit, resetRateLimitStore } from "@/lib/security/rateLimit";
+import { checkRateLimit, resetRateLimitStore, getRateLimitUsed, rollbackRateLimit } from "@/lib/security/rateLimit";
 import { submitApplicantAction } from "@/app/apply/[token]/actions";
-import { submitPublicPreSurveyAction } from "@/app/pre-survey/[token]/actions";
-import { submitSnsIntakeAction } from "@/app/sns-intake/actions";
+import { submitPublicPreSurveyAction, getPublicAiAssistAction } from "@/app/pre-survey/[token]/actions";
+import { submitSnsIntakeAction, assistSnsIntakeAction } from "@/app/sns-intake/actions";
+import * as snsAssistModule from "@/lib/ai/snsIntakeAssist";
+import * as preAssistModule from "@/lib/ai/preSurveyAssist";
+import { vi } from "vitest";
 
 describe("1-2 & 1-3 Security: Rate Limiting, Honeypot Spam Defense, and Token Reissuance", () => {
   beforeEach(() => {
@@ -39,6 +42,138 @@ describe("1-2 & 1-3 Security: Rate Limiting, Honeypot Spam Defense, and Token Re
       const afterReset = checkRateLimit(key, 5, 60000);
       expect(afterReset.allowed).toBe(true);
       expect(afterReset.remaining).toBe(4);
+    });
+
+    it("getRateLimitUsed는 요청을 소비하지 않고 현재 사용 횟수만 반환한다", () => {
+      const key = "test:query:1";
+      expect(getRateLimitUsed(key)).toBe(0);
+
+      checkRateLimit(key, 3, 60000);
+      expect(getRateLimitUsed(key)).toBe(1);
+
+      checkRateLimit(key, 3, 60000);
+      expect(getRateLimitUsed(key)).toBe(2);
+
+      // getRateLimitUsed 호출 후에도 여전히 2회
+      expect(getRateLimitUsed(key)).toBe(2);
+    });
+
+    it("rollbackRateLimit는 직전 요청 1회를 롤백한다", () => {
+      const key = "test:rollback:1";
+      checkRateLimit(key, 3, 60000);
+      checkRateLimit(key, 3, 60000);
+      expect(getRateLimitUsed(key)).toBe(2);
+
+      rollbackRateLimit(key);
+      expect(getRateLimitUsed(key)).toBe(1);
+    });
+  });
+
+  describe("AI 추천 악용 방지 (질문당 최대 3회 제한)", () => {
+    it("SNS 사전설문 AI 추천은 질문당 3회까지 허용되고 4회째에 차단된다", async () => {
+      const acc = await createSnsAccount({
+        company_name: "AI테스트브랜드",
+        platform: "instagram",
+        handle: "ai_test_kr",
+        starts_on: null,
+        ends_on: null,
+      });
+
+      // assistSnsIntake를 spy하여 성공 응답 반환 모킹
+      vi.spyOn(snsAssistModule, "assistSnsIntake").mockResolvedValue({
+        suggestions: ["키워드1", "키워드2"],
+        recommendedDraft: "테스트 추천 초안",
+        fallback: false,
+      });
+
+      const qId = "sq1";
+
+      // 1~3회차 성공
+      for (let i = 1; i <= 3; i++) {
+        const res = await assistSnsIntakeAction({
+          token: acc.intake_token,
+          questionId: qId,
+        });
+        expect(res.ok).toBe(true);
+        if (res.ok) {
+          expect(res.data.remainingAttempts).toBe(3 - i);
+        }
+      }
+
+      // 4회차 시도 시 차단
+      const blocked = await assistSnsIntakeAction({
+        token: acc.intake_token,
+        questionId: qId,
+      });
+      expect(blocked.ok).toBe(false);
+      if (!blocked.ok) {
+        expect(blocked.error).toContain("질문당 최대 3회");
+      }
+    });
+
+    it("체험단 사전조사 AI 추천도 질문당 3회 제한이 적용된다", async () => {
+      const camp = await createCampaign({
+        name: "AI체험단캠페인",
+        company_name: "테스트컴퍼니",
+        campaign_type: "shipping",
+      });
+
+      vi.spyOn(preAssistModule, "assistPreSurvey").mockResolvedValue({
+        suggestions: ["포인트1"],
+        recommendedDraft: "체험단 추천 답변",
+        fallback: false,
+      });
+
+      const qId = "q1";
+
+      // 1~3회 성공
+      for (let i = 1; i <= 3; i++) {
+        const res = await getPublicAiAssistAction({
+          token: camp.pre_survey_token,
+          questionId: qId,
+        });
+        expect(res.ok).toBe(true);
+      }
+
+      // 4회차 차단
+      const blocked = await getPublicAiAssistAction({
+        token: camp.pre_survey_token,
+        questionId: qId,
+      });
+      expect(blocked.ok).toBe(false);
+      if (!blocked.ok) {
+        expect(blocked.error).toContain("질문당 최대 3회");
+      }
+    });
+
+    it("AI 호출 실패(폴백) 시 횟수가 차감되지 않고 롤백된다", async () => {
+      const acc = await createSnsAccount({
+        company_name: "롤백테스트브랜드",
+        platform: "instagram",
+        handle: "rollback_test",
+        starts_on: null,
+        ends_on: null,
+      });
+
+      // fallback: true 모킹
+      vi.spyOn(snsAssistModule, "assistSnsIntake").mockResolvedValue({
+        suggestions: [],
+        recommendedDraft: "",
+        fallback: true,
+      });
+
+      const qId = "sq1";
+      const res = await assistSnsIntakeAction({
+        token: acc.intake_token,
+        questionId: qId,
+      });
+      expect(res.ok).toBe(true);
+      if (res.ok) {
+        expect(res.data.fallback).toBe(true);
+      }
+
+      // 실패했으므로 카운트가 0이어야 함
+      expect(getRateLimitUsed(`ai_assist:sns:${acc.intake_token}:${qId}`)).toBe(0);
     });
   });
 

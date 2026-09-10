@@ -6,31 +6,40 @@ import { submitSnsIntakeAction, assistSnsIntakeAction } from "../actions";
 import { CheckCircle2, Loader2, Send, Sparkles, Info, Edit3 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
 
+const MAX_AI_ATTEMPTS = 3;
+
 export default function SnsIntakeFormClient({
   token,
   account,
   template,
   initialAnswers,
+  initialAiUsage,
 }: {
   token: string;
   account: PublicSnsAccount;
   template: SnsIntakeTemplate;
   initialAnswers: Record<string, string> | null;
+  initialAiUsage?: Record<string, number>;
 }) {
   const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers || {});
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [honeypot, setHoneypot] = useState("");
   const [aiLoadingKey, setAiLoadingKey] = useState<string | null>(null);
-  const [aiGeneratedMap, setAiGeneratedMap] = useState<Record<string, boolean>>({});
+  const [aiUsageMap, setAiUsageMap] = useState<Record<string, number>>(initialAiUsage || {});
   const [suggestions, setSuggestions] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const handleAiAssist = async (questionId: string) => {
-    const isAlreadyGenerated = Boolean(aiGeneratedMap[questionId]);
+    const currentUsage = aiUsageMap[questionId] || 0;
+    if (currentUsage >= MAX_AI_ATTEMPTS) {
+      setNotice("이 질문의 AI 추천을 모두 사용했습니다 (최대 3회).");
+      return;
+    }
+
     const currentText = answers[questionId]?.trim() || "";
-    const isRegen = isAlreadyGenerated || (Boolean(currentText) && Boolean(suggestions[questionId]));
+    const isRegen = currentUsage > 0 || (Boolean(currentText) && Boolean(suggestions[questionId]));
 
     setAiLoadingKey(questionId);
     setError(null);
@@ -52,9 +61,19 @@ export default function SnsIntakeFormClient({
       setNotice("AI 제안 실패 — 직접 입력해주세요.");
       return;
     }
-    setAiGeneratedMap((prev) => ({ ...prev, [questionId]: true }));
+
+    const newUsage =
+      typeof res.data.remainingAttempts === "number"
+        ? MAX_AI_ATTEMPTS - res.data.remainingAttempts
+        : currentUsage + 1;
+
+    setAiUsageMap((prev) => ({ ...prev, [questionId]: newUsage }));
     setAnswers((prev) => ({ ...prev, [questionId]: res.data.recommendedDraft }));
     setSuggestions((prev) => ({ ...prev, [questionId]: res.data.suggestions }));
+
+    if (newUsage >= MAX_AI_ATTEMPTS) {
+      setNotice("이 질문의 AI 추천 횟수(최대 3회)를 모두 사용했습니다. 필요 시 직접 문구를 수정해 주세요.");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -112,29 +131,47 @@ export default function SnsIntakeFormClient({
       {notice && <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn-soft text-xs font-semibold">{notice}</div>}
 
       <div className="space-y-6">
-        {template.questions.map((q, idx) => (
-          <div key={q.id} className="p-4 sm:p-5 rounded-2xl bg-bg border border-border space-y-3 focus-within:border-accent2/50 transition">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <label className="text-xs sm:text-sm font-bold text-text flex items-start gap-1.5">
-                <span className="text-accent2 font-mono">{idx + 1}.</span>
-                <span>{q.question} {q.required && <strong className="text-rose-400">*</strong>}</span>
-              </label>
-              <button
-                type="button"
-                disabled={aiLoadingKey === q.id}
-                onClick={() => handleAiAssist(q.id)}
-                className="px-2.5 py-1 rounded-lg bg-accent2/10 hover:bg-accent2/20 text-accent2 border border-accent2/20 text-[11px] font-semibold inline-flex items-center gap-1 transition active:scale-95 shrink-0 self-start sm:self-auto disabled:opacity-50"
-              >
-                {aiLoadingKey === q.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                <span>
-                  {aiGeneratedMap[q.id] || (Boolean(answers[q.id]?.trim()) && Boolean(suggestions[q.id]))
-                    ? "다른 답변 추천"
-                    : answers[q.id]?.trim()
-                      ? "AI 초안 다듬기"
-                      : "AI 추천 답변"}
-                </span>
-              </button>
-            </div>
+        {template.questions.map((q, idx) => {
+          const usage = aiUsageMap[q.id] || 0;
+          const isMax = usage >= MAX_AI_ATTEMPTS;
+          const remaining = Math.max(0, MAX_AI_ATTEMPTS - usage);
+
+          return (
+            <div key={q.id} className="p-4 sm:p-5 rounded-2xl bg-bg border border-border space-y-3 focus-within:border-accent2/50 transition">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <label className="text-xs sm:text-sm font-bold text-text flex items-start gap-1.5">
+                  <span className="text-accent2 font-mono">{idx + 1}.</span>
+                  <span>{q.question} {q.required && <strong className="text-rose-400">*</strong>}</span>
+                </label>
+                <button
+                  type="button"
+                  disabled={aiLoadingKey === q.id || isMax}
+                  onClick={() => handleAiAssist(q.id)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold inline-flex items-center gap-1 transition active:scale-95 shrink-0 self-start sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isMax
+                      ? "bg-surface2 text-text-muted border border-border"
+                      : "bg-accent2/10 hover:bg-accent2/20 text-accent2 border border-accent2/20"
+                  }`}
+                  title={isMax ? "최대 추천 횟수(3회)를 모두 사용했습니다." : undefined}
+                >
+                  {aiLoadingKey === q.id ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : isMax ? (
+                    <CheckCircle2 className="w-3 h-3 text-text-muted" />
+                  ) : (
+                    <Sparkles className="w-3 h-3" />
+                  )}
+                  <span>
+                    {isMax
+                      ? "추천 한도 완료 (3/3회)"
+                      : usage > 0
+                        ? `다른 답변 추천 (${remaining}회 남음)`
+                        : answers[q.id]?.trim()
+                          ? "AI 초안 다듬기 (3회 가능)"
+                          : "AI 추천 답변 (3회 가능)"}
+                  </span>
+                </button>
+              </div>
 
             {suggestions[q.id]?.length ? (
               <div className="flex flex-wrap gap-1.5 pt-1">
@@ -152,8 +189,9 @@ export default function SnsIntakeFormClient({
               placeholder={q.placeholder || "상세한 내용을 입력해주세요."}
               className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-border text-text text-xs sm:text-sm focus:outline-none focus:border-accent2 leading-relaxed placeholder:text-text-faint resize-y"
             />
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
 
       {/* 허니팟 숨김 필드 (봇 스팸 방어) */}

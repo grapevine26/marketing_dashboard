@@ -3,6 +3,7 @@ import { getSnsAccountByToken, getSnsIntakeQuestionsForAccount, getSnsIntakeResp
 import { toPublicSnsAccount } from "@/lib/db/types";
 import SnsIntakeFormClient from "./SnsIntakeFormClient";
 import { Camera, ShieldCheck, Sparkles, Video, Play } from "lucide-react";
+import { getRateLimitUsed } from "@/lib/security/rateLimit";
 
 export const revalidate = 0;
 
@@ -21,6 +22,11 @@ export default async function SnsIntakePublicPage({
   ]);
 
   const template = { id: 1, questions };
+
+  const initialAiUsage: Record<string, number> = {};
+  for (const q of questions) {
+    initialAiUsage[q.id] = getRateLimitUsed(`ai_assist:sns:${token}:${q.id}`);
+  }
 
   const icon =
     account.platform === "youtube" ? <Play className="w-6 h-6 text-red-500" />
@@ -51,6 +57,7 @@ export default async function SnsIntakePublicPage({
           account={toPublicSnsAccount(account)}
           template={template}
           initialAnswers={existingResponse?.answers || null}
+          initialAiUsage={initialAiUsage}
         />
 
         <div className="pt-4 border-t border-border flex items-center justify-center gap-2 text-[11px] text-text-muted">

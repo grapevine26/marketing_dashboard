@@ -6,20 +6,24 @@ import { submitPublicPreSurveyAction, getPublicAiAssistAction } from "./actions"
 import { Sparkles, Send, CheckCircle2, Loader2, Edit3 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
 
+const MAX_AI_ATTEMPTS = 3;
+
 export default function PreSurveyPublicForm({
   token,
   campaign,
   template,
   initialAnswers,
+  initialAiUsage,
 }: {
   token: string;
   campaign: PublicCampaign;
   template: PreSurveyTemplate;
   initialAnswers: Record<string, string> | null;
+  initialAiUsage?: Record<string, number>;
 }) {
   const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers || {});
   const [loadingAiMap, setLoadingAiMap] = useState<Record<string, boolean>>({});
-  const [aiGeneratedMap, setAiGeneratedMap] = useState<Record<string, boolean>>({});
+  const [aiUsageMap, setAiUsageMap] = useState<Record<string, number>>(initialAiUsage || {});
   const [suggestions, setSuggestions] = useState<Record<string, string[]>>({});
   const [usedAi, setUsedAi] = useState(false);
   const [honeypot, setHoneypot] = useState("");
@@ -29,12 +33,19 @@ export default function PreSurveyPublicForm({
   const [notice, setNotice] = useState<string | null>(null);
 
   const handleAiAssist = async (questionId: string) => {
-    const isAlreadyGenerated = Boolean(aiGeneratedMap[questionId]);
+    const currentUsage = aiUsageMap[questionId] || 0;
+    if (currentUsage >= MAX_AI_ATTEMPTS) {
+      setNotice("이 질문의 AI 추천을 모두 사용했습니다 (최대 3회).");
+      return;
+    }
+
     const currentText = answers[questionId]?.trim() || "";
-    const isRegen = isAlreadyGenerated || (Boolean(currentText) && Boolean(suggestions[questionId]));
+    const isRegen = currentUsage > 0 || (Boolean(currentText) && Boolean(suggestions[questionId]));
 
     setLoadingAiMap((prev) => ({ ...prev, [questionId]: true }));
+    setError(null);
     setNotice(null);
+
     const res = await safeCall(
       getPublicAiAssistAction({
         token,
@@ -54,10 +65,20 @@ export default function PreSurveyPublicForm({
       setNotice("AI 제안 실패 — 직접 입력해주세요.");
       return;
     }
+
+    const newUsage =
+      typeof res.data.remainingAttempts === "number"
+        ? MAX_AI_ATTEMPTS - res.data.remainingAttempts
+        : currentUsage + 1;
+
     setUsedAi(true);
-    setAiGeneratedMap((prev) => ({ ...prev, [questionId]: true }));
+    setAiUsageMap((prev) => ({ ...prev, [questionId]: newUsage }));
     setAnswers((prev) => ({ ...prev, [questionId]: res.data.recommendedDraft }));
     setSuggestions((prev) => ({ ...prev, [questionId]: res.data.suggestions }));
+
+    if (newUsage >= MAX_AI_ATTEMPTS) {
+      setNotice("이 질문의 AI 추천 횟수(최대 3회)를 모두 사용했습니다. 필요 시 직접 문구를 수정해 주세요.");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -105,47 +126,66 @@ export default function PreSurveyPublicForm({
       {notice && <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warn-soft text-xs font-semibold">{notice}</div>}
 
       <div className="space-y-5 divide-y divide-border">
-        {template.questions.map((q, idx) => (
-          <div key={q.id} className={idx > 0 ? "pt-5 space-y-2.5" : "space-y-2.5"}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <label className="text-xs font-bold text-text">
-                {idx + 1}. {q.question} {q.required && <span className="text-blue-400">*</span>}
-              </label>
-              <button
-                type="button"
-                disabled={loadingAiMap[q.id]}
-                onClick={() => handleAiAssist(q.id)}
-                className="self-start sm:self-auto px-2.5 py-1.5 sm:py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center gap-1 disabled:opacity-50"
-              >
-                {loadingAiMap[q.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                <span>
-                  {aiGeneratedMap[q.id] || (Boolean(answers[q.id]?.trim()) && Boolean(suggestions[q.id]))
-                    ? "다른 추천받기"
-                    : answers[q.id]?.trim()
-                      ? "AI 초안 다듬기"
-                      : "AI 추천받기"}
-                </span>
-              </button>
-            </div>
+        {template.questions.map((q, idx) => {
+          const usage = aiUsageMap[q.id] || 0;
+          const isMax = usage >= MAX_AI_ATTEMPTS;
+          const remaining = Math.max(0, MAX_AI_ATTEMPTS - usage);
 
-            {suggestions[q.id]?.length ? (
-              <div className="flex flex-wrap gap-1.5">
-                {suggestions[q.id].map((s) => (
-                  <span key={s} className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20 text-[10px]">💡 {s}</span>
-                ))}
+          return (
+            <div key={q.id} className={idx > 0 ? "pt-5 space-y-2.5" : "space-y-2.5"}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <label className="text-xs font-bold text-text">
+                  {idx + 1}. {q.question} {q.required && <span className="text-blue-400">*</span>}
+                </label>
+                <button
+                  type="button"
+                  disabled={loadingAiMap[q.id] || isMax}
+                  onClick={() => handleAiAssist(q.id)}
+                  className={`self-start sm:self-auto px-2.5 py-1.5 sm:py-1 rounded-lg text-[11px] font-semibold transition active:scale-95 inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isMax
+                      ? "bg-surface2 text-text-muted border border-border"
+                      : "bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20"
+                  }`}
+                  title={isMax ? "최대 추천 횟수(3회)를 모두 사용했습니다." : undefined}
+                >
+                  {loadingAiMap[q.id] ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : isMax ? (
+                    <CheckCircle2 className="w-3 h-3 text-text-muted" />
+                  ) : (
+                    <Sparkles className="w-3 h-3" />
+                  )}
+                  <span>
+                    {isMax
+                      ? "추천 한도 완료 (3/3회)"
+                      : usage > 0
+                        ? `다른 추천받기 (${remaining}회 남음)`
+                        : answers[q.id]?.trim()
+                          ? "AI 초안 다듬기 (3회 가능)"
+                          : "AI 추천받기 (3회 가능)"}
+                  </span>
+                </button>
               </div>
-            ) : null}
 
-            <textarea
-              rows={3}
-              required={q.required}
-              value={answers[q.id] || ""}
-              onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
-              placeholder={q.placeholder || "내용을 입력하세요..."}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500 leading-relaxed"
-            />
-          </div>
-        ))}
+              {suggestions[q.id]?.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {suggestions[q.id].map((s) => (
+                    <span key={s} className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20 text-[10px]">💡 {s}</span>
+                  ))}
+                </div>
+              ) : null}
+
+              <textarea
+                rows={3}
+                required={q.required}
+                value={answers[q.id] || ""}
+                onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+                placeholder={q.placeholder || "내용을 입력하세요..."}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500 leading-relaxed"
+              />
+            </div>
+          );
+        })}
       </div>
 
       {/* 허니팟 숨김 필드 (봇 스팸 방어) */}
