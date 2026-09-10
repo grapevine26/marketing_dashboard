@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import type { UnifiedCalendarItem } from "@/lib/overview/collect";
 import type { MonthGridCell } from "@/lib/seeding/dday";
@@ -186,8 +187,13 @@ export default function CalendarOverviewClient({
 }) {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"calendar" | "agenda">("calendar");
+  const [mounted, setMounted] = useState(false);
   const [year, month] = currentMonth.split("-").map(Number);
   const selectedDayItems = selectedDay ? monthItems.filter((i) => i.dateStr === selectedDay) : [];
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // 아젠다 목록 뷰를 위해 날짜별 정렬 및 그룹핑
   const sortedMonthItems = [...monthItems].sort((a, b) => a.dateStr.localeCompare(b.dateStr));
@@ -459,12 +465,13 @@ export default function CalendarOverviewClient({
         </div>
       </div>
 
-      {/* 날짜 클릭 모달 */}
-      {selectedDay && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
-          onClick={() => setSelectedDay(null)}
-        >
+      {/* 날짜 클릭 모달 — document.body 포탈로 화면 정중앙에 띄운다 */}
+      {selectedDay && mounted && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+              onClick={() => setSelectedDay(null)}
+            >
           <div
             className="w-full max-w-lg bg-surface border border-border rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4 shadow-2xl max-h-[88vh] sm:max-h-[85vh] flex flex-col font-sans"
             onClick={(e) => e.stopPropagation()}
@@ -516,8 +523,9 @@ export default function CalendarOverviewClient({
               )}
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+        document.body
+      ) : null}
     </div>
   );
 }

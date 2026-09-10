@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { PendingApprovalSnsItem } from "@/lib/overview/collect";
@@ -26,7 +27,12 @@ export default function PendingApprovalSnsCard({
   items,
 }: PendingApprovalSnsCardProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // ESC 키로 모달 닫기
   useEffect(() => {
@@ -70,12 +76,13 @@ export default function PendingApprovalSnsCard({
         </div>
       </button>
 
-      {/* 승인 대기 콘텐츠 목록 모달 */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
-          onClick={() => setIsOpen(false)}
-        >
+      {/* 승인 대기 콘텐츠 목록 모달 — document.body 포탈로 화면 정중앙에 띄운다 */}
+      {isOpen && mounted && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+              onClick={() => setIsOpen(false)}
+            >
           <div
             className="w-full max-w-xl bg-surface border border-border rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4 shadow-2xl max-h-[88vh] sm:max-h-[85vh] flex flex-col font-sans relative text-left"
             onClick={(e) => e.stopPropagation()}
@@ -214,8 +221,9 @@ export default function PendingApprovalSnsCard({
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+        document.body
+      ) : null}
     </>
   );
 }
