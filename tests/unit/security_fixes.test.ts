@@ -1,8 +1,7 @@
 import { describe, it, expect } from "vitest";
-import fs from "fs";
-import path from "path";
 import { validateWebhookUrl, isDiscordWebhook, sendWebhookNotification } from "@/lib/notifications/webhook";
-import { matchesMediaSignature, createCampaign, updateCampaignWebhookUrl, getBackupDirPath, listBackups, ValidationError } from "@/lib/db";
+import { matchesMediaSignature, createCampaign, updateCampaignWebhookUrl, ValidationError } from "@/lib/db";
+import { hasTestDb } from "./test-db";
 import { toPublicCampaign, sanitizeApplicantForCompany, Campaign, Applicant } from "@/lib/db/types";
 
 describe("웹훅 URL 검증 (SSRF 방지)", () => {
@@ -27,7 +26,7 @@ describe("웹훅 URL 검증 (SSRF 방지)", () => {
     expect(r.error).toContain("지원하지 않는");
   });
 
-  it("DB 저장 시에도 같은 검증을 거친다", async () => {
+  it.skipIf(!hasTestDb)("DB 저장 시에도 같은 검증을 거친다", async () => {
     const camp = await createCampaign({ name: "wh", company_name: "b", campaign_type: "shipping" });
     await expect(updateCampaignWebhookUrl(camp.id, "http://localhost:3000/x")).rejects.toBeInstanceOf(ValidationError);
     const ok = await updateCampaignWebhookUrl(camp.id, "https://hooks.slack.com/services/T/B/C");
@@ -66,19 +65,5 @@ describe("미디어 시그니처", () => {
     expect(matchesMediaSignature(Buffer.from("MZ not an image at all"), "image/png")).toBe(false);
     expect(matchesMediaSignature(Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(16)]), "image/jpeg")).toBe(true);
     expect(matchesMediaSignature(Buffer.concat([Buffer.from("\0\0\0\x18ftypmp42", "latin1"), Buffer.alloc(16)]), "video/mp4")).toBe(true);
-  });
-});
-
-describe("DB 백업", () => {
-  it("저장할 때 backups/ 에 복사본이 생긴다", async () => {
-    await createCampaign({ name: "b1", company_name: "b", campaign_type: "shipping" });
-    await createCampaign({ name: "b2", company_name: "b", campaign_type: "shipping" });
-    const dir = getBackupDirPath();
-    expect(fs.existsSync(dir)).toBe(true);
-    const backups = await listBackups();
-    expect(backups.length).toBeGreaterThanOrEqual(1);
-    expect(backups[0].file).toMatch(/^db-\d{8}-\d{6}\.json$/);
-    const parsed = JSON.parse(fs.readFileSync(path.join(dir, backups[0].file), "utf-8"));
-    expect(Array.isArray(parsed.campaigns)).toBe(true);
   });
 });

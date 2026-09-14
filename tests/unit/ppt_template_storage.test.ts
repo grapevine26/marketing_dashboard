@@ -1,4 +1,8 @@
 import { describe, it, expect } from "vitest";
+import { hasTestDb } from "./test-db";
+
+// DB 를 건드리는 스위트. 테스트 프로젝트(SUPABASE_TEST_*)가 없으면 건너뛴다.
+const describeDb = describe.skipIf(!hasTestDb);
 import {
   savePptTemplate,
   getPptTemplates,
@@ -13,10 +17,9 @@ import {
   preparePptTemplateUpload,
   recordUploadedPptTemplate,
   readUploadedPptTemplateBuffer,
-  mutateDb,
   ValidationError,
 } from "@/lib/db";
-import { putFile, statFile, readDoc } from "@/lib/db/storage";
+import { putFile, statFile } from "@/lib/db/storage";
 import { buildTemplatePathname } from "@/lib/db/types";
 
 /** 최소한의 zip 컨테이너 흉내. pptx 는 PK 로 시작한다. */
@@ -27,17 +30,10 @@ const pptxBytes = (size: number, filler = "A") => {
 };
 
 /**
- * PPT 템플릿 파일은 DB 문서 밖에 둔다.
- *
- * 예전에는 base64 로 문서 안에 넣었다. 그러면 10MB 템플릿 하나에 문서가 14MB 가 되고,
- * 그때부터 모든 저장이 매번 그 14MB 를 읽고 다시 쓴다. 그걸 막는 게 이 테스트의 목적이다.
+ * PPT 템플릿 파일은 DB 밖(파일 저장소)에 둔다. DB 에는 키만 들어간다.
  */
-describe("PPT 템플릿 저장", () => {
-  it("파일이 DB 문서를 키우지 않는다", async () => {
-    // 문서를 먼저 만들어 둔다. 안 그러면 첫 저장이 문서 전체를 만드는 크기까지 같이 재게 된다.
-    await mutateDb(() => null);
-    const before = (await readDoc())!.text.length;
-
+describeDb("PPT 템플릿 저장", () => {
+  it("DB 에는 파일 키만 남고 파일은 저장소에 있다", async () => {
     const oneMb = pptxBytes(1024 * 1024);
     const template = await savePptTemplate({
       kind: "event",
@@ -46,16 +42,10 @@ describe("PPT 템플릿 저장", () => {
       placeholders: ["{{브랜드명}}"],
     });
 
-    const after = (await readDoc())?.text.length ?? 0;
-
-    // 문서에는 키만 들어간다. 파일 크기의 근처에도 가지 않아야 한다.
-    expect(after - before).toBeLessThan(2000);
     expect(template.file_key).toBe(`${template.id}.pptx`);
     expect(template.file_data).toBeUndefined();
-
-    // 문서 어디에도 파일 내용이 없어야 한다.
-    const doc = (await readDoc())!.text;
-    expect(doc.includes(oneMb.toString("base64").slice(0, 64))).toBe(false);
+    expect(await statFile(template.file_key!, "templates")).toEqual({ size: oneMb.length });
+    expect((await getPptTemplateById(template.id))?.file_key).toBe(template.file_key);
   });
 
   it("저장한 파일을 그대로 다시 읽는다", async () => {
@@ -104,29 +94,9 @@ describe("PPT 템플릿 저장", () => {
     expect(await deletePptTemplate(builtin!.id)).toBe(true);
     expect(await getHiddenBuiltinTemplateCount()).toBe(1);
   });
-
-  it("예전에 base64 로 저장된 템플릿도 계속 읽힌다", async () => {
-    const legacyBytes = pptxBytes(1024);
-    const legacyId = "11111111-2222-4333-8444-555555555555";
-    await mutateDb((db) => {
-      db.ppt_templates.push({
-        id: legacyId,
-        kind: "event",
-        name: "옛날 양식",
-        file_data: legacyBytes.toString("base64"),
-        placeholders: [],
-        uploaded_at: new Date().toISOString(),
-      });
-      return null;
-    });
-
-    const legacy = await getPptTemplateById(legacyId);
-    const back = await getPptTemplateBuffer(legacy!);
-    expect(back!.equals(legacyBytes)).toBe(true);
-  });
 });
 
-describe("PPT 템플릿 클라이언트 직접 업로드", () => {
+describeDb("PPT 템플릿 클라이언트 직접 업로드", () => {
   it("저장 경로를 만들고, 올라온 파일을 확인해 등록한다", async () => {
     const prep = await preparePptTemplateUpload("event", "행사 양식");
     expect(prep.pathname).toBe(buildTemplatePathname(prep.templateId));
@@ -169,7 +139,7 @@ describe("PPT 템플릿 클라이언트 직접 업로드", () => {
   });
 });
 
-describe("템플릿 이름과 종류 수정", () => {
+describeDb("템플릿 이름과 종류 수정", () => {
   it("파일을 건드리지 않고 이름과 종류만 바꾼다", async () => {
     const bytes = pptxBytes(2048);
     const t = await savePptTemplate({ kind: "event", name: "옛 이름", file_buffer: bytes, placeholders: ["{{브랜드명}}"] });
@@ -193,7 +163,7 @@ describe("템플릿 이름과 종류 수정", () => {
   });
 });
 
-describe("템플릿 파일 교체", () => {
+describeDb("템플릿 파일 교체", () => {
   it("id 를 유지한 채 내용만 갈아끼운다", async () => {
     const before = pptxBytes(1024, "old-body");
     const t = await savePptTemplate({ kind: "event", name: "운영안", file_buffer: before, placeholders: ["{{예전}}"] });
@@ -246,7 +216,7 @@ describe("템플릿 파일 교체", () => {
   });
 });
 
-describe("기본 내장 템플릿 삭제와 되살리기", () => {
+describeDb("기본 내장 템플릿 삭제와 되살리기", () => {
   it("지우면 다시 읽어도 되살아나지 않는다", async () => {
     const builtin = (await getPptTemplates()).find((t) => t.builtin)!;
     const before = (await getPptTemplates()).length;

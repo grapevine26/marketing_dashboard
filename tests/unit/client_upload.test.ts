@@ -1,4 +1,8 @@
 import { describe, it, expect } from "vitest";
+import { hasTestDb } from "./test-db";
+
+// DB 를 건드리는 스위트. 테스트 프로젝트(SUPABASE_TEST_*)가 없으면 건너뛴다.
+const describeDb = describe.skipIf(!hasTestDb);
 import {
   createSnsAccount,
   createSnsContent,
@@ -41,7 +45,7 @@ async function makeContent() {
  * 대신 파일이 서버를 안 거치므로, 기록할 때 실물과 내용을 서버가 다시 확인해야 한다.
  * 그 확인이 실제로 도는지를 본다.
  */
-describe("클라이언트 직접 업로드", () => {
+describeDb("클라이언트 직접 업로드", () => {
   describe("prepareSnsMediaUpload", () => {
     it("형식에 맞는 저장 경로를 만들어준다", async () => {
       const { content } = await makeContent();

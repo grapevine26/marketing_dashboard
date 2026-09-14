@@ -1,23 +1,15 @@
 import { NextResponse } from "next/server";
-import {
-  describeStorage,
-  readDoc,
-  putFile,
-  readFile,
-  deleteFilesByPrefixes,
-  probeConditionalWrite,
-  probeDocConditionalWrite,
-  listBackups,
-} from "@/lib/db/storage";
+import { describeStorage, putFile, readFile, deleteFilesByPrefixes } from "@/lib/db/storage";
+import { db } from "@/lib/db/client";
 
 export const dynamic = "force-dynamic";
 
 /**
  * 저장소 진단.
  *
- * 배포에서 저장이 실패할 때 원인을 눈으로 보려고 만들었다. 어떤 백엔드를 쓰는지,
- * 어떤 환경 변수가 있는지(값이 아니라 있는지 여부만), 실제 읽기/쓰기가 되는지 알려준다.
- * 토큰 값이나 DB 내용은 절대 담지 않는다.
+ * 배포에서 저장이 실패할 때 원인을 눈으로 보려고 만들었다. DB(Supabase)가 응답하는지,
+ * 파일 저장소는 어떤 백엔드인지, 실제 파일 쓰기/읽기가 되는지 알려준다.
+ * 키 값이나 DB 내용은 절대 담지 않는다. 행 개수만 센다.
  */
 function describeError(err: unknown) {
   if (err instanceof Error) {
@@ -26,67 +18,25 @@ function describeError(err: unknown) {
   return { name: "Unknown", message: String(err) };
 }
 
-export async function GET(request: Request) {
-  const env = describeStorage();
+export async function GET() {
+  const env = {
+    file: describeStorage(),
+    supabase: {
+      hasUrl: Boolean(process.env.SUPABASE_URL),
+      hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+    },
+  };
   const checks: Record<string, unknown> = {};
 
-  // 1. 문서 읽기. 내용은 담지 않고 레코드 개수만 센다.
+  // 1. DB 연결. campaigns 행 수만 센다 (head 요청이라 본문은 받지 않는다).
   try {
-    const snap = await readDoc();
-    if (!snap) {
-      checks.readDoc = { ok: true, empty: true, note: "아직 저장된 DB 문서가 없습니다. 첫 저장 때 만들어집니다." };
-    } else {
-      let counts: Record<string, number> | { parseError: string } ;
-      try {
-        const parsed = JSON.parse(snap.text) as Record<string, unknown>;
-        counts = Object.fromEntries(
-          Object.entries(parsed)
-            .filter(([, v]) => Array.isArray(v))
-            .map(([k, v]) => [k, (v as unknown[]).length])
-        );
-      } catch (err) {
-        counts = { parseError: describeError(err).message };
-      }
-      checks.readDoc = { ok: true, bytes: snap.text.length, hasVersion: snap.version !== null, counts };
-    }
+    const { count, error } = await db().from("campaigns").select("id", { count: "exact", head: true });
+    checks.database = error ? { ok: false, error: { name: "PostgrestError", message: error.message } } : { ok: true, campaigns: count ?? 0 };
   } catch (err) {
-    checks.readDoc = { ok: false, error: describeError(err) };
+    checks.database = { ok: false, error: describeError(err) };
   }
 
-  // 2. 조건부 쓰기(낙관적 잠금). 저장이 실패하는 원인이 대부분 여기다.
-  try {
-    const probe = await probeConditionalWrite();
-    checks.conditionalWrite = probe;
-  } catch (err) {
-    checks.conditionalWrite = { ok: false, error: describeError(err) };
-  }
-
-  // 2-b. 같은 검사를 진짜 DB 문서에 대고 한 번 더.
-  // 내용은 바뀌지 않지만 쓰기는 쓰기다. 요청할 때만 돈다: ?probeWrite=1
-  if (new URL(request.url).searchParams.get("probeWrite") === "1") {
-    try {
-      checks.conditionalWriteOnRealDoc = await probeDocConditionalWrite();
-    } catch (err) {
-      checks.conditionalWriteOnRealDoc = { ok: false, error: describeError(err) };
-    }
-  } else {
-    checks.conditionalWriteOnRealDoc = { skipped: "?probeWrite=1 을 붙이면 실제 문서에 대고 검사한다" };
-  }
-
-  // 2-c. 백업이 실제로 쌓이고 있는지. 정작 필요할 때 처음 확인하는 상황을 피한다.
-  try {
-    const backups = await listBackups();
-    checks.backups = {
-      ok: true,
-      count: backups.length,
-      latest: backups[0]?.created_at ?? null,
-      note: backups.length === 0 ? "아직 없습니다. 저장 시 10분 간격으로 생깁니다." : undefined,
-    };
-  } catch (err) {
-    checks.backups = { ok: false, error: describeError(err) };
-  }
-
-  // 3. 파일 쓰기 → 읽기 → 삭제 (진단용 임시 키)
+  // 2. 파일 쓰기 → 읽기 → 삭제 (진단용 임시 키)
   const probeId = `healthcheck-${Date.now()}`;
   try {
     const body = Buffer.from("ok");

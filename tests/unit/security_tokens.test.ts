@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { hasTestDb } from "./test-db";
+
+// DB 를 건드리는 스위트. 테스트 프로젝트(SUPABASE_TEST_*)가 없으면 건너뛴다.
+const describeDb = describe.skipIf(!hasTestDb);
 import {
   createCampaign,
   createApplicant,
@@ -18,7 +22,7 @@ import * as snsAssistModule from "@/lib/ai/snsIntakeAssist";
 import * as preAssistModule from "@/lib/ai/preSurveyAssist";
 import { vi } from "vitest";
 
-describe("1-2 & 1-3 Security: Rate Limiting, Honeypot Spam Defense, and Token Reissuance", () => {
+describeDb("1-2 & 1-3 Security: Rate Limiting, Honeypot Spam Defense, and Token Reissuance", () => {
   beforeEach(() => {
     resetRateLimitStore();
   });

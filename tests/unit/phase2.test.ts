@@ -1,4 +1,8 @@
 import { describe, it, expect } from "vitest";
+import { hasTestDb } from "./test-db";
+
+// DB 를 건드리는 스위트. 테스트 프로젝트(SUPABASE_TEST_*)가 없으면 건너뛴다.
+const describeDb = describe.skipIf(!hasTestDb);
 import {
   createCampaign,
   createApplicant,
@@ -14,7 +18,7 @@ import {
 } from "@/lib/db";
 import { sendWebhookNotification } from "@/lib/notifications/webhook";
 
-describe("Phase 2: 감사 로그 (Audit Log)", () => {
+describeDb("Phase 2: 감사 로그 (Audit Log)", () => {
   it("recordAuditLog과 getAuditLogs로 캠페인별/계정별 로그를 조회한다", async () => {
     const camp = await createCampaign({
       name: "감사로그테스트",
@@ -96,7 +100,7 @@ describe("Phase 2: 감사 로그 (Audit Log)", () => {
   });
 });
 
-describe("Phase 2: 웹훅 알림 (Webhook)", () => {
+describeDb("Phase 2: 웹훅 알림 (Webhook)", () => {
   it("updateCampaignWebhookUrl은 URL 유효성을 검증하고 감사 로그를 기록한다", async () => {
     const camp = await createCampaign({
       name: "웹훅테스트캠페인",

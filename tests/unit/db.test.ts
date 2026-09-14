@@ -1,6 +1,19 @@
 import { describe, it, expect } from "vitest";
+import { hasTestDb } from "./test-db";
+
+// DB 를 건드리는 스위트. 테스트 프로젝트(SUPABASE_TEST_*)가 없으면 건너뛴다.
+const describeDb = describe.skipIf(!hasTestDb);
 import {
-  readDb,
+  getCampaigns,
+  getApplicantsByCampaignId,
+  getFormConfig,
+  getEventsByCampaignId,
+  getEventInvitees,
+  getSnsAccounts,
+  getSnsContentsByAccountId,
+  getSnsPlan,
+  getSnsIntakeResponse,
+  getPptTemplates,
   createCampaign,
   createApplicant,
   updateApplicantStatus,
@@ -28,7 +41,6 @@ import {
   getPreSurveyTemplate,
   getSnsIntakeTemplate,
   ValidationError,
-  mutateDb,
 } from "@/lib/db";
 
 async function seedCampaign() {
@@ -47,28 +59,27 @@ async function seedCampaign() {
   return { camp, app };
 }
 
-describe("JSON DB", () => {
-  it("초기 데이터가 샘플 캠페인과 내장 템플릿(파일 없이)을 갖는다", async () => {
-    const db = await readDb();
-    expect(db.campaigns.length).toBeGreaterThan(0);
-    const builtin = db.ppt_templates.filter((t) => t.builtin);
+describeDb("Supabase DB", () => {
+  it("첫 조회에 캠페인이 없고 내장 템플릿 3개가 있다", async () => {
+    expect(await getCampaigns()).toHaveLength(0);
+    const builtin = (await getPptTemplates()).filter((t) => t.builtin);
     expect(builtin).toHaveLength(3);
     expect(builtin.map((t) => t.kind).sort()).toEqual(["event", "report", "sns"]);
     expect(builtin.every((t) => !t.file_data)).toBe(true);
   });
 
-  it("쓰기는 직렬화되어 동시 요청이 유실되지 않는다", async () => {
+  it("동시 생성 10건이 모두 저장된다", async () => {
     await Promise.all(
       Array.from({ length: 10 }).map((_, i) =>
         createCampaign({ name: `동시 ${i}`, company_name: "b", campaign_type: "shipping" })
       )
     );
-    const db = await readDb();
-    expect(db.campaigns.filter((c) => c.name.startsWith("동시 "))).toHaveLength(10);
+    const all = await getCampaigns();
+    expect(all.filter((c) => c.name.startsWith("동시 "))).toHaveLength(10);
   });
 });
 
-describe("지원자 선정", () => {
+describeDb("지원자 선정", () => {
   it("selected가 되면 seeding_records가 생기고 상태 변경 주체/시각이 기록된다", async () => {
     const { camp, app } = await seedCampaign();
     const r = await updateApplicantStatus(app.id, "selected", "company");
@@ -108,7 +119,7 @@ describe("지원자 선정", () => {
   });
 });
 
-describe("신청폼 서버 검증", () => {
+describeDb("신청폼 서버 검증", () => {
   it("개인정보 미동의, 필수값 누락, 접수 중단 상태를 거부한다", async () => {
     const camp = await createCampaign({ name: "c", company_name: "b", campaign_type: "visit" });
     const base = {
@@ -140,7 +151,7 @@ describe("신청폼 서버 검증", () => {
   });
 });
 
-describe("결과보고서 스냅샷", () => {
+describeDb("결과보고서 스냅샷", () => {
   it("createReport가 snapshot_data와 metrics를 채운다", async () => {
     const { camp, app } = await seedCampaign();
     await updateApplicantStatus(app.id, "selected", "agency");
@@ -163,7 +174,7 @@ describe("결과보고서 스냅샷", () => {
   });
 });
 
-describe("SNS 승인", () => {
+describeDb("SNS 승인", () => {
   async function seedSns() {
     const acc = await createSnsAccount({ company_name: "브랜드", platform: "instagram", handle: "brand", starts_on: null, ends_on: null });
     const content = await createSnsContent({ account_id: acc.id, title: "릴스", scheduled_on: null, assignee: null, caption: "c", hashtags: null, media_note: "내부메모" });
@@ -209,14 +220,14 @@ describe("SNS 승인", () => {
   it("사전설문은 필수 질문을 검증한다", async () => {
     const acc = await createSnsAccount({ company_name: "브랜드", platform: "instagram", handle: "b", starts_on: null, ends_on: null });
     await expect(saveSnsIntakeResponse({ account_id: acc.id, answers: {} })).rejects.toBeInstanceOf(ValidationError);
-    const db = await readDb();
-    const answers = Object.fromEntries(db.sns_intake_template.questions.map((q) => [q.id, "답"]));
+    const tmpl = await getSnsIntakeTemplate();
+    const answers = Object.fromEntries(tmpl.questions.map((q) => [q.id, "답"]));
     const r = await saveSnsIntakeResponse({ account_id: acc.id, answers });
     expect(r.account_id).toBe(acc.id);
   });
 });
 
-describe("행사", () => {
+describeDb("행사", () => {
   it("행사명/초대자 이름 필수, 날짜 형식 검증", async () => {
     const camp = await createCampaign({ name: "c", company_name: "b", campaign_type: "shipping" });
     await expect(createEvent({ campaign_id: camp.id, name: "  ", event_at: null, venue: null, memo: null })).rejects.toBeInstanceOf(ValidationError);
@@ -226,44 +237,29 @@ describe("행사", () => {
     await expect(addDirectEventInvitee({ event_id: ev.id, name: "", sns_url: null, contact: null, memo: null })).rejects.toBeInstanceOf(ValidationError);
     await expect(addDirectEventInvitee({ event_id: ev.id, name: "x", sns_url: "javascript:alert(1)", contact: null, memo: null })).rejects.toBeInstanceOf(ValidationError);
   });
-
-  it("mutateDb 안에서 던진 에러는 파일을 오염시키지 않는다", async () => {
-    const before = (await readDb()).campaigns.length;
-    await expect(
-      mutateDb((db) => {
-        db.campaigns.push({} as never);
-        throw new ValidationError("중단");
-      })
-    ).rejects.toThrow("중단");
-    // 캐시 객체가 변이되었을 수 있으므로 파일에서 다시 읽는다
-    (globalThis as unknown as { _marketingDbCache?: unknown })._marketingDbCache = undefined;
-    expect((await readDb()).campaigns.length).toBe(before);
-  });
 });
 
-describe("Phase 1: 캠페인/SNS 삭제 및 메모/템플릿", () => {
+describeDb("Phase 1: 캠페인/SNS 삭제 및 메모/템플릿", () => {
   it("deleteCampaign은 캠페인 및 지원자, 관리시트, 폼설정, 행사를 연쇄 삭제한다", async () => {
     const { camp, app } = await seedCampaign();
     await updateApplicantStatus(app.id, "selected", "agency");
     const ev = await createEvent({ campaign_id: camp.id, name: "팝업", event_at: null, venue: null, memo: null });
     await addDirectEventInvitee({ event_id: ev.id, name: "초대자", sns_url: null, contact: null, memo: null });
 
-    const beforeDb = await readDb();
-    expect(beforeDb.campaigns.some((c) => c.id === camp.id)).toBe(true);
-    expect(beforeDb.applicants.some((a) => a.campaign_id === camp.id)).toBe(true);
-    expect(beforeDb.seeding_records.some((s) => s.campaign_id === camp.id)).toBe(true);
-    expect(beforeDb.events.some((e) => e.campaign_id === camp.id)).toBe(true);
+    expect(await getCampaignById(camp.id)).not.toBeNull();
+    expect(await getApplicantsByCampaignId(camp.id)).toHaveLength(1);
+    expect(await getSeedingRecordsByCampaignId(camp.id)).toHaveLength(1);
+    expect(await getEventsByCampaignId(camp.id)).toHaveLength(1);
 
     const deleted = await deleteCampaign(camp.id);
     expect(deleted).toBe(true);
 
-    const afterDb = await readDb();
-    expect(afterDb.campaigns.some((c) => c.id === camp.id)).toBe(false);
-    expect(afterDb.applicants.some((a) => a.campaign_id === camp.id)).toBe(false);
-    expect(afterDb.seeding_records.some((s) => s.campaign_id === camp.id)).toBe(false);
-    expect(afterDb.form_configs.some((f) => f.campaign_id === camp.id)).toBe(false);
-    expect(afterDb.events.some((e) => e.campaign_id === camp.id)).toBe(false);
-    expect(afterDb.event_invitees.some((i) => i.event_id === ev.id)).toBe(false);
+    expect(await getCampaignById(camp.id)).toBeNull();
+    expect(await getApplicantsByCampaignId(camp.id)).toHaveLength(0);
+    expect(await getSeedingRecordsByCampaignId(camp.id)).toHaveLength(0);
+    expect(await getFormConfig(camp.id)).toBeNull();
+    expect(await getEventsByCampaignId(camp.id)).toHaveLength(0);
+    expect(await getEventInvitees(ev.id)).toHaveLength(0);
   });
 
   it("deleteSnsAccount는 SNS 계정과 콘텐츠, 기획안, 사전설문 응답을 연쇄 삭제한다", async () => {
@@ -284,18 +280,17 @@ describe("Phase 1: 캠페인/SNS 삭제 및 메모/템플릿", () => {
       media_note: null,
     });
 
-    const beforeDb = await readDb();
-    expect(beforeDb.sns_accounts.some((a) => a.id === acc.id)).toBe(true);
-    expect(beforeDb.sns_contents.some((c) => c.account_id === acc.id)).toBe(true);
+    expect((await getSnsAccounts()).some((a) => a.id === acc.id)).toBe(true);
+    expect(await getSnsContentsByAccountId(acc.id)).toHaveLength(1);
+    expect(await getSnsPlan(acc.id)).not.toBeNull();
 
     const deleted = await deleteSnsAccount(acc.id);
     expect(deleted).toBe(true);
 
-    const afterDb = await readDb();
-    expect(afterDb.sns_accounts.some((a) => a.id === acc.id)).toBe(false);
-    expect(afterDb.sns_contents.some((c) => c.account_id === acc.id)).toBe(false);
-    expect(afterDb.sns_plans.some((p) => p.account_id === acc.id)).toBe(false);
-    expect(afterDb.sns_intake_responses.some((r) => r.account_id === acc.id)).toBe(false);
+    expect((await getSnsAccounts()).some((a) => a.id === acc.id)).toBe(false);
+    expect(await getSnsContentsByAccountId(acc.id)).toHaveLength(0);
+    expect(await getSnsPlan(acc.id)).toBeNull();
+    expect(await getSnsIntakeResponse(acc.id)).toBeNull();
   });
 
   it("updateCampaignMessageTemplates는 템플릿 문구를 저장하고 갱신한다", async () => {

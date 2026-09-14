@@ -20,6 +20,17 @@ export function nowIso(): string {
   return new Date().toISOString();
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * uuid 형식인가.
+ * URL 파라미터로 들어온 엉뚱한 값을 uuid 컬럼에 대고 조회하면 Postgres 가 타입 에러를 낸다.
+ * 그러면 "없음"(404) 이어야 할 것이 서버 오류(500) 가 된다. 조회 전에 이걸로 거른다.
+ */
+export function isUuid(value: unknown): value is string {
+  return typeof value === "string" && UUID_RE.test(value);
+}
+
 export function requireText(value: unknown, label: string, max = 500): string {
   if (typeof value !== "string" || !value.trim()) {
     throw new ValidationError(`${label}을(를) 입력해주세요.`);
