@@ -28,7 +28,8 @@ test.describe("설정 화면", () => {
 
     await page.getByRole("button", { name: "새 질문 문항 추가" }).click();
     await page.getByRole("button", { name: "템플릿 저장하기" }).click();
-    await expect(page.getByText(/질문 내용을\(를\) 입력해주세요/)).toBeVisible();
+    // 같은 문구가 화면 안내와 토스트 두 곳에 뜬다. 화면 쪽(main)만 본다.
+    await expect(page.getByRole("main").getByText(/질문 내용을\(를\) 입력해주세요/)).toBeVisible();
   });
 
   test("PPT 템플릿 보관함: 내장 템플릿은 내려받기와 삭제만 되고 pptx 외 파일은 거부된다", async ({ page }) => {
@@ -52,7 +53,8 @@ test.describe("설정 화면", () => {
     await page.locator("input[type='file']").first().setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello") });
     await page.evaluate(() => document.querySelectorAll("input[required]").forEach((el) => el.removeAttribute("required")));
     await page.getByRole("button", { name: "템플릿 등록 및 분석" }).click();
-    await expect(page.getByText(".pptx 파일만 업로드할 수 있습니다.")).toBeVisible();
+    // 같은 문구가 화면 안내와 토스트 두 곳에 뜬다. 화면 쪽(main)만 본다.
+    await expect(page.getByRole("main").getByText(".pptx 파일만 업로드할 수 있습니다.")).toBeVisible();
   });
 
   test("PPT 템플릿 보관함: 기본 템플릿을 지우면 되살리기 버튼이 나오고 되살아난다", async ({ page }) => {
@@ -68,6 +70,8 @@ test.describe("설정 화면", () => {
     const restore = page.getByRole("button", { name: /지운 기본 템플릿 .*되살리기/ });
     await expect(restore).toBeVisible();
     await restore.click();
+    // 되살리기 결과 안내가 뜬 뒤에 새로고침한다. 바로 새로고침하면 저장이 끊겨 되살아나지 않는다.
+    await expect(page.getByRole("main").getByText(/기본 템플릿 \d+개를 되살렸습니다/)).toBeVisible();
 
     await page.reload();
     await expect(page.getByText("기본 내장")).toHaveCount(before);

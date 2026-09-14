@@ -11,11 +11,37 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 필요한 저장소 Secrets (Settings → Secrets and variables → Actions)
+#
+#   SUPABASE_TEST_URL               테스트 Supabase 프로젝트 API URL (https://<ref>.supabase.co)
+#   SUPABASE_TEST_SERVICE_ROLE_KEY  테스트 프로젝트 service_role 키
+#   SUPABASE_TEST_DB_URL            테스트 프로젝트 Session pooler 연결 문자열
+#   SUPABASE_TEST_ANON_KEY          테스트 프로젝트 anon 키 (없으면 e2e 가 service_role 로 로그인한다)
+#   SUPABASE_URL                    운영 프로젝트 API URL — **가드 전용**. 테스트 값이 운영과
+#   SUPABASE_DB_URL                 운영 DB 주소 — **가드 전용**. 같은 프로젝트면 즉시 중단시킨다.
+#
+# 운영 두 개는 접속에 쓰지 않는다. 테스트 프로젝트를 잘못 지정했을 때(복붙 사고) 운영 DB 를
+# 통째로 비우는 것을 막기 위해, "지금 지우려는 곳이 운영이 아님"을 대조하는 데만 쓴다.
+# 넣지 않아도 CI 는 돌지만, 그만큼 가드가 헐거워진다.
+# ─────────────────────────────────────────────────────────────────────────────
+
 jobs:
   verify:
     name: 타입체크 · 린트 · 유닛 테스트 · 빌드
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # 유닛 테스트도 테스트 DB 의 모든 테이블을 비운다(tests/unit/test-db.ts).
+    # e2e 와 같은 DB 라서, 다른 브랜치의 실행과 겹치면 서로의 데이터를 지운다. 한 번에 하나만 돈다.
+    concurrency:
+      group: supabase-test-db
+      cancel-in-progress: false
+    env:
+      SUPABASE_TEST_URL: ${{ secrets.SUPABASE_TEST_URL }}
+      SUPABASE_TEST_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_TEST_SERVICE_ROLE_KEY }}
+      SUPABASE_TEST_DB_URL: ${{ secrets.SUPABASE_TEST_DB_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -45,7 +71,20 @@ jobs:
   e2e:
     name: E2E (Playwright)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    # verify 뒤에 돈다. 두 job 이 같은 테스트 DB 를 비우므로 절대 겹치면 안 된다.
+    # (needs 로 순서를, 위아래 같은 concurrency group 으로 다른 실행과의 겹침을 막는다.)
+    needs: verify
+    concurrency:
+      group: supabase-test-db
+      cancel-in-progress: false
+    env:
+      SUPABASE_TEST_URL: ${{ secrets.SUPABASE_TEST_URL }}
+      SUPABASE_TEST_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_TEST_SERVICE_ROLE_KEY }}
+      SUPABASE_TEST_DB_URL: ${{ secrets.SUPABASE_TEST_DB_URL }}
+      SUPABASE_TEST_ANON_KEY: ${{ secrets.SUPABASE_TEST_ANON_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -68,6 +107,7 @@ jobs:
       - name: Playwright 브라우저 설치
         run: npx playwright install --with-deps chromium
 
+      # globalSetup 이 테스트 DB 를 비우고 마이그레이션·시드·로그인까지 처리한다.
       - name: E2E 테스트
         run: npm run test:e2e
         env:

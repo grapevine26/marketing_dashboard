@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test";
-import { SAMPLE, PPTX_MIME } from "./fixtures";
+import { PPTX_MIME, SAMPLE, kstPlusDays, withServerAction } from "./fixtures";
+
+// 날짜를 코드에 박아 두면 그 날이 지나는 순간 D-day 검증이 조용히 깨진다. 오늘 기준으로 잡는다.
+const EVENT_DAY = kstPlusDays(5);
+const CHECKLIST_DAY = kstPlusDays(30);
 
 test.describe("B. 인플루언서 행사", () => {
   test("행사 생성 → 초대자·체크리스트 추가 → 상태 변경 → 운영안 저장 후에만 PPT 다운로드", async ({ page, request }) => {
@@ -9,13 +13,13 @@ test.describe("B. 인플루언서 행사", () => {
     await page.goto(`/campaigns/${SAMPLE.campaignId}/events`);
     await page.getByRole("button", { name: "새 행사 개설" }).click();
     await page.getByPlaceholder(/런칭 VIP 프라이빗 뷰티 나잇/).fill("E2E 런칭 파티");
-    await page.locator("input[type='datetime-local']").fill("2026-09-20T18:30");
+    await page.locator("input[type='datetime-local']").fill(`${EVENT_DAY}T18:30`);
     await page.getByRole("button", { name: "행사 개설하기" }).click();
     await expect(page).toHaveURL(/\/events\/[0-9a-f-]{36}$/);
     const eventId = page.url().split("/").pop()!;
     await expect(page.getByRole("heading", { name: "E2E 런칭 파티" })).toBeVisible();
     // 서버 타임존과 무관하게 KST 그대로 표시
-    await expect(page.getByText("2026-09-20 18:30")).toBeVisible();
+    await expect(page.getByText(`${EVENT_DAY} 18:30`)).toBeVisible();
 
     // 2. 운영안 미저장 상태에서는 PPT 내보내기가 400
     const noPlan = await request.get(`/campaigns/${SAMPLE.campaignId}/events/${eventId}/plan/export`);
@@ -37,7 +41,7 @@ test.describe("B. 인플루언서 행사", () => {
     // 4. 체크리스트 + D-day
     await page.getByRole("button", { name: /체크리스트/ }).click();
     await page.getByPlaceholder("할 일 항목 내용 *").fill("E2E 리허설");
-    await page.locator("input[type='date']").fill("2026-12-31");
+    await page.locator("input[type='date']").fill(CHECKLIST_DAY);
     await page.getByRole("button", { name: "등록" }).click();
     await expect(page.getByText("E2E 리허설")).toBeVisible();
     await expect(page.getByText(/\(D-\d+\)/)).toBeVisible();
@@ -46,7 +50,8 @@ test.describe("B. 인플루언서 행사", () => {
     await page.getByRole("button", { name: "운영안 작성 & PPT" }).click();
     await expect(page.getByRole("button", { name: /운영안 PPT 다운로드/ })).toBeHidden();
     await page.getByRole("button", { name: /^운영안 저장/ }).click();
-    await expect(page.getByText("운영안이 저장되었습니다")).toBeVisible();
+    // 저장하면 화면 안내와 토스트가 함께 뜬다. 둘 다 같은 문구를 담고 있으므로 안내 쪽을 정확히 집는다.
+    await expect(page.getByText("운영안이 저장되었습니다. 이제 PPT를 다운로드할 수 있습니다.")).toBeVisible();
     await expect(page.getByRole("button", { name: /운영안 PPT 다운로드/ })).toBeVisible();
 
     const ppt = await request.get(`/campaigns/${SAMPLE.campaignId}/events/${eventId}/plan/export`);
@@ -55,7 +60,12 @@ test.describe("B. 인플루언서 행사", () => {
     expect((await ppt.body()).subarray(0, 2).toString("latin1")).toBe("PK");
 
     // 6. 상태 변경이 목록에 반영된다
-    await page.locator("select").first().selectOption("done");
+    // 상태 드롭다운은 저장 완료를 알리는 문구가 없다. 서버 액션 응답을 기다리지 않고 바로
+    // 다른 화면으로 넘어가면 저장이 끊겨 목록에 반영되지 않는다.
+    const statusSelect = page.locator("select").first();
+    await withServerAction(page, () => statusSelect.selectOption("done"));
+    await expect(statusSelect).toHaveValue("done");
+
     await page.goto(`/campaigns/${SAMPLE.campaignId}/events`);
     await expect(page.getByRole("link", { name: /E2E 런칭 파티/ })).toContainText("행사완료");
   });

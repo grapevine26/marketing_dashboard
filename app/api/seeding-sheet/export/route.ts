@@ -11,7 +11,7 @@ import { seedingSheetToXlsx } from "@/lib/seeding/sheetXlsx";
 import { mergeSeedingRows } from "@/lib/seeding/rows";
 import { toKstDateString } from "@/lib/seeding/dday";
 import { fileDownloadResponse } from "@/lib/http/fileResponse";
-import { sanitizeApplicantForCompany } from "@/lib/db/types";
+import { sanitizeApplicantForCompany, sanitizeSeedingForCompany } from "@/lib/db/types";
 
 /**
  * 관리시트 데이터 내보내기 (CSV 및 Excel .xlsx).
@@ -41,13 +41,15 @@ export async function GET(request: NextRequest) {
     return new NextResponse("Campaign not found", { status: 404 });
   }
 
-  const [rawApplicants, seedingRecords] = await Promise.all([
+  const [rawApplicants, rawSeeding] = await Promise.all([
     getApplicantsByCampaignId(campaign.id),
     getSeedingRecordsByCampaignId(campaign.id),
   ]);
-  // 광고주 공유 링크로 받는 파일에는 배송지·연락처를 넣지 않는다. 화면(seeding-sheet/[token])과 같은 기준이다.
-  // 화면에서는 빼고 파일에서는 넣으면 파일이 곧 유출 경로가 된다.
+  // 광고주 공유 링크로 받는 파일에는 배송지·연락처·내부 비고를 넣지 않는다.
+  // 화면(seeding-sheet/[token])과 정확히 같은 기준이다. 화면에서는 빼고 파일에서는 넣으면
+  // 파일이 곧 유출 경로가 된다. 배송지는 지원자와 시딩 기록 양쪽에 있어 둘 다 씻는다.
   const applicants = token ? rawApplicants.map(sanitizeApplicantForCompany) : rawApplicants;
+  const seedingRecords = token ? rawSeeding.map(sanitizeSeedingForCompany) : rawSeeding;
 
   const rows = mergeSeedingRows(campaign.id, applicants, seedingRecords);
 

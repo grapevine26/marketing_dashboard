@@ -91,9 +91,13 @@ test.describe("사용법 페이지", () => {
     for (const c of cases) {
       await page.goto(c.url);
       for (const label of c.labels) {
+        // 화면 버튼은 가이드가 부르는 이름으로 "시작"하면 된다.
+        // 예: 가이드의 [AI 추천받기] → 화면에서는 "AI 추천받기 (3회 가능)" 처럼 횟수가 덧붙는다.
+        // 아이콘이 앞에 붙은 버튼은 텍스트 앞에 공백이 남는다. 정규식 매칭은 그 공백을 다듬지 않는다.
+        const startsWith = new RegExp(`^\\s*${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
         await expect(
-          page.getByText(label, { exact: true }).filter({ visible: true }).first(),
-          `${c.url} 에 "${label}" 이 없다 (가이드가 이 이름으로 안내하고 있다)`
+          page.getByText(startsWith).filter({ visible: true }).first(),
+          `${c.url} 에 "${label}" 로 시작하는 버튼이 없다 (가이드가 이 이름으로 안내하고 있다)`
         ).toBeVisible();
       }
     }

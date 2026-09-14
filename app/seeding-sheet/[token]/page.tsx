@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCampaignByToken, getSeedingRecordsByCampaignId, getApplicantsByCampaignId } from "@/lib/db";
-import { toPublicCampaign, sanitizeApplicantForCompany } from "@/lib/db/types";
+import { toPublicCampaign, sanitizeApplicantForCompany, sanitizeSeedingForCompany } from "@/lib/db/types";
 import { mergeSeedingRows } from "@/lib/seeding/rows";
 import { toKstDateString } from "@/lib/seeding/dday";
 import SeedingSheetTable from "@/app/(dashboard)/campaigns/[id]/seeding-sheet/SeedingSheetTable";
@@ -22,10 +22,12 @@ export default async function PublicSeedingSheetSharePage({
     getSeedingRecordsByCampaignId(campaign.id),
     getApplicantsByCampaignId(campaign.id),
   ]);
-  // 조회 전용 공유 페이지: 연락처·주소는 클라이언트로 내려보내지 않는다
+  // 조회 전용 공유 페이지: 연락처·주소·내부 비고는 클라이언트로 내려보내지 않는다.
+  // 지원자와 시딩 기록 **양쪽** 을 씻는다. 배송지는 두 곳에 따로 들어 있다.
   const rows = mergeSeedingRows(campaign.id, applicants, records).map((r) => ({
     ...r,
     applicant: sanitizeApplicantForCompany(r.applicant),
+    seeding: sanitizeSeedingForCompany(r.seeding),
   }));
 
   return (

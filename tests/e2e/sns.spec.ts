@@ -1,8 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { SAMPLE, PPTX_MIME } from "./fixtures";
+import { NO_AUTH, PPTX_MIME, SAMPLE, contentCard, fillAllRequiredTextareas, withServerAction } from "./fixtures";
 
-test.describe("C. SNS 운영", () => {
-  test("광고주 승인 페이지는 승인대기만 보여주고 내부 메모·토큰을 노출하지 않는다", async ({ page }) => {
+/** 광고주 승인 페이지는 로그인 계정이 없는 사람이 여는 곳이다. 쿠키 없는 창으로 확인한다. */
+test.describe("C-0. 광고주 승인 페이지 (로그인 없이)", () => {
+  test.use({ storageState: NO_AUTH });
+
+  test("승인대기만 보여주고 내부 메모·토큰을 노출하지 않는다", async ({ page }) => {
     await page.goto(`/sns-approval/${SAMPLE.snsApprovalToken}`);
     await expect(page.getByRole("heading", { name: SAMPLE.pendingContentTitle })).toBeVisible();
     const html = await page.content();
@@ -11,10 +14,12 @@ test.describe("C. SNS 운영", () => {
     expect(html).not.toContain("intake_token");
     expect(html).not.toContain("view_count");
     // planning / posted 상태 콘텐츠는 보이지 않는다
-    await expect(page.getByText("올리브영 단독 기획세트")).toBeHidden();
-    await expect(page.getByText("비건 보습 루틴")).toBeHidden();
+    await expect(page.getByText(SAMPLE.planningContentTitle)).toBeHidden();
+    await expect(page.getByText(SAMPLE.postedContentTitle)).toBeHidden();
   });
+});
 
+test.describe("C. SNS 운영", () => {
   test("콘텐츠 생성 → 승인대기 → 광고주 수정요청 → 대시보드에 코멘트 표시 → 승인", async ({ page }) => {
     page.on("dialog", (d) => d.accept());
 
@@ -23,17 +28,19 @@ test.describe("C. SNS 운영", () => {
     await page.getByRole("button", { name: "새 콘텐츠 기획" }).click();
     await page.getByPlaceholder(/하이드라 세럼 제형 릴스/).fill("E2E 릴스 기획");
     await page.getByRole("button", { name: "기획안 등록" }).click();
+    // 등록이 끝나야 모달이 닫힌다. 닫히기 전에 탭을 누르면 클릭이 모달에 먹힌다.
+    await expect(page.getByRole("heading", { name: "신규 SNS 콘텐츠 기획안 등록" })).toBeHidden();
     await page.getByRole("button", { name: /콘텐츠 목록 및 성과 관리/ }).click();
-    const card = page.locator("div.rounded-3xl").filter({ has: page.getByRole("heading", { name: "E2E 릴스 기획" }) }).last();
+    const card = contentCard(page, "E2E 릴스 기획");
     await expect(card).toBeVisible();
 
     // 2. 승인대기로 전이
-    await card.getByRole("combobox").first().selectOption("pending_approval");
+    await withServerAction(page, () => card.getByRole("combobox").first().selectOption("pending_approval"));
     await expect(card.getByRole("combobox").first()).toHaveValue("pending_approval");
 
     // 3. 광고주 페이지: 코멘트 없이 수정 요청 → 거부, 코멘트 입력 후 → 목록에서 제거
     await page.goto(`/sns-approval/${SAMPLE.snsApprovalToken}`);
-    const approvalCard = page.locator("div.rounded-3xl").filter({ has: page.getByRole("heading", { name: "E2E 릴스 기획" }) }).last();
+    const approvalCard = contentCard(page, "E2E 릴스 기획");
     await approvalCard.getByRole("button", { name: "수정 요청" }).click();
     await expect(page.getByText("수정 요청 사항을 입력해주세요.")).toBeVisible();
     await approvalCard.getByPlaceholder(/수정 요청 사항/).fill("두 번째 줄 문구를 바꿔주세요");
@@ -44,7 +51,7 @@ test.describe("C. SNS 운영", () => {
     // 4. 대시보드에 코멘트가 보이고 상태는 제작중
     await page.goto(`/sns/${SAMPLE.snsAccountId}`);
     await page.getByRole("button", { name: /콘텐츠 목록 및 성과 관리/ }).click();
-    const dashCard = page.locator("div.rounded-3xl").filter({ has: page.getByRole("heading", { name: "E2E 릴스 기획" }) }).last();
+    const dashCard = contentCard(page, "E2E 릴스 기획");
     await expect(dashCard).toContainText("두 번째 줄 문구를 바꿔주세요");
     await expect(dashCard.getByRole("combobox").first()).toHaveValue("producing");
 
@@ -53,10 +60,12 @@ test.describe("C. SNS 운영", () => {
     await page.getByPlaceholder("캡션 본문...").fill("수정된 캡션");
     await page.getByRole("button", { name: "수정 저장" }).click();
     await expect(dashCard).toContainText("수정된 캡션");
-    await dashCard.getByRole("combobox").first().selectOption("pending_approval");
+    // 저장이 끝나기 전에 광고주 화면으로 넘어가면 상태 변경이 끊긴다.
+    await withServerAction(page, () => dashCard.getByRole("combobox").first().selectOption("pending_approval"));
+    await expect(dashCard.getByRole("combobox").first()).toHaveValue("pending_approval");
 
     await page.goto(`/sns-approval/${SAMPLE.snsApprovalToken}`);
-    const again = page.locator("div.rounded-3xl").filter({ has: page.getByRole("heading", { name: "E2E 릴스 기획" }) }).last();
+    const again = contentCard(page, "E2E 릴스 기획");
     await expect(again).toContainText("수정된 캡션");
     await again.getByRole("button", { name: "시안 승인 (컨펌)" }).click();
     await expect(page.getByText(/E2E 릴스 기획 — 승인 완료/)).toBeVisible();
@@ -64,34 +73,39 @@ test.describe("C. SNS 운영", () => {
     // 6. 게시완료 후 성과 입력 (음수는 거부)
     await page.goto(`/sns/${SAMPLE.snsAccountId}`);
     await page.getByRole("button", { name: /콘텐츠 목록 및 성과 관리/ }).click();
-    const finalCard = page.locator("div.rounded-3xl").filter({ has: page.getByRole("heading", { name: "E2E 릴스 기획" }) }).last();
+    const finalCard = contentCard(page, "E2E 릴스 기획");
     await expect(finalCard.getByRole("combobox").first()).toHaveValue("approved");
-    await finalCard.getByRole("combobox").first().selectOption("posted");
+    await withServerAction(page, () => finalCard.getByRole("combobox").first().selectOption("posted"));
     await finalCard.getByPlaceholder("조회수").fill("-5");
     await finalCard.getByRole("button", { name: "성과 저장" }).click();
     await expect(page.getByText(/조회수은\(는\) 0 이상의 정수여야 합니다/)).toBeVisible();
     await finalCard.getByPlaceholder("조회수").fill("1500");
     await finalCard.getByPlaceholder("좋아요").fill("20");
     await finalCard.getByRole("button", { name: "성과 저장" }).click();
-    await expect(page.getByText("성과 수치가 저장되었습니다.")).toBeVisible();
+    // 같은 문구가 화면 안내와 토스트 두 곳에 뜬다. 화면 쪽(main)만 본다.
+    await expect(page.getByRole("main").getByText("성과 수치가 저장되었습니다.")).toBeVisible();
   });
 
   test("사전설문 공개 폼 제출이 대시보드 탭에 질문 문구와 함께 표시된다", async ({ page }) => {
     await page.goto(`/sns-intake/${SAMPLE.snsIntakeToken}`);
-    await page.locator("textarea").first().fill("E2E 톤앤매너 답변");
+    // 기본 템플릿은 필수 문항이 여러 개다. 하나만 채우면 브라우저가 제출을 막는다.
+    const filled = await fillAllRequiredTextareas(page, "E2E 톤앤매너 답변");
+    expect(filled).toBeGreaterThan(0);
     await page.getByRole("button", { name: /제출/ }).click();
     await expect(page.getByText("사전설문 제출이 완료되었습니다!")).toBeVisible();
 
     await page.goto(`/sns/${SAMPLE.snsAccountId}`);
     await page.getByRole("button", { name: "광고주 사전설문 답변" }).click();
-    await expect(page.getByText("E2E 톤앤매너 답변")).toBeVisible();
+    // 나머지 필수 문항도 같은 문구 + 번호로 채워져 있으므로 정확히 일치하는 칸만 본다.
+    await expect(page.getByText("E2E 톤앤매너 답변", { exact: true })).toBeVisible();
     await expect(page.getByText(/1\. 브랜드 톤앤매너와 핵심 고객 페르소나/)).toBeVisible();
   });
 
   test("운영안 저장 후 PPT 다운로드, 템플릿 미선택이면 다운로드 불가", async ({ page, request }) => {
     await page.goto(`/sns/${SAMPLE.snsAccountId}/plan`);
     await page.getByRole("button", { name: /^운영안 저장/ }).click();
-    await expect(page.getByText(/운영안이 저장되었습니다/)).toBeVisible();
+    // 저장하면 화면 안내와 토스트가 함께 뜬다. 둘 다 같은 문구라 안내 쪽을 정확히 집는다.
+    await expect(page.getByText("운영안이 저장되었습니다. PPT를 다운로드할 수 있습니다.")).toBeVisible();
     await expect(page.getByRole("button", { name: "PPT 다운로드" })).toBeVisible();
 
     const ppt = await request.get(`/sns/${SAMPLE.snsAccountId}/plan/export`);

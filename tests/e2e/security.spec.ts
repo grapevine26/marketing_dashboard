@@ -1,36 +1,42 @@
 import { test, expect } from "@playwright/test";
-import { SAMPLE } from "./fixtures";
+import { SAMPLE, newPublicRequest } from "./fixtures";
 
 const WEBHOOK = "https://hooks.slack.com/services/T0E2E/B0E2E/SECRET_E2E_WEBHOOK_TOKEN";
 const MEMO = "INTERNAL_MEMO_E2E 광고주에게 보이면 안 되는 메모";
 
 test.describe("정보 노출 및 접근 제어", () => {
-  test("웹훅 URL은 저장돼도 공개 페이지 HTML에 나오지 않고, 허용되지 않은 주소는 거부된다", async ({ page, request }) => {
+  test("웹훅 URL은 저장돼도 공개 페이지 HTML에 나오지 않고, 허용되지 않은 주소는 거부된다", async ({ page, playwright }) => {
     await page.goto(`/campaigns/${SAMPLE.campaignId}`);
     const input = page.getByPlaceholder(/hooks\.slack\.com/);
 
     // 내부 IP / http 는 거부
     await input.fill("http://169.254.169.254/latest/meta-data");
     await page.getByRole("button", { name: "웹훅 저장" }).click();
-    await expect(page.getByText(/https로 시작|지원하지 않는 웹훅/)).toBeVisible();
+    // 같은 문구가 화면 안내와 토스트 두 곳에 뜬다. 화면 쪽(main)만 본다.
+    await expect(page.getByRole("main").getByText(/https로 시작|지원하지 않는 웹훅/)).toBeVisible();
 
     await input.fill(WEBHOOK);
     await page.getByRole("button", { name: "웹훅 저장" }).click();
     await expect(page.getByText("저장 완료!")).toBeVisible();
 
+    // 공개 링크는 로그인하지 않은 사람이 여는 것이므로 쿠키 없는 클라이언트로 받는다.
+    const guest = await newPublicRequest(playwright);
     for (const p of [
       `/apply/${SAMPLE.applyToken}`,
       `/pre-survey/${SAMPLE.preSurveyToken}`,
       `/applicants/${SAMPLE.applicantsShareToken}`,
       `/seeding-sheet/${SAMPLE.seedingShareToken}`,
     ]) {
-      const html = await (await request.get(p)).text();
+      const res = await guest.get(p);
+      expect(res.status(), `${p} 는 로그인 없이 열려야 한다`).toBe(200);
+      const html = await res.text();
       expect(html, `${p} must not contain webhook url`).not.toContain("SECRET_E2E_WEBHOOK_TOKEN");
       expect(html, `${p} must not contain webhook field`).not.toContain("webhook_url");
     }
+    await guest.dispose();
   });
 
-  test("에이전시 내부 메모는 광고주 공유 페이지와 토큰 CSV에 나오지 않는다", async ({ page, request }) => {
+  test("에이전시 내부 메모는 광고주 공유 페이지와 토큰 CSV에 나오지 않는다", async ({ page, playwright }) => {
     await page.goto(`/campaigns/${SAMPLE.campaignId}/applicants`);
     const row = page.getByRole("row", { name: new RegExp(SAMPLE.appliedApplicantName) });
     await row.getByTitle("클릭하여 메모 수정").click();
@@ -38,14 +44,18 @@ test.describe("정보 노출 및 접근 제어", () => {
     await row.getByPlaceholder("메모 입력").press("Enter");
     await expect(row).toContainText("INTERNAL_MEMO_E2E");
 
-    const shareHtml = await (await request.get(`/applicants/${SAMPLE.applicantsShareToken}`)).text();
+    // 광고주가 보는 것과 같은 조건(로그인 없음)으로 받는다.
+    const guest = await newPublicRequest(playwright);
+    const shareHtml = await (await guest.get(`/applicants/${SAMPLE.applicantsShareToken}`)).text();
     expect(shareHtml).not.toContain("INTERNAL_MEMO_E2E");
-    const sheetHtml = await (await request.get(`/seeding-sheet/${SAMPLE.seedingShareToken}`)).text();
+    const sheetHtml = await (await guest.get(`/seeding-sheet/${SAMPLE.seedingShareToken}`)).text();
     expect(sheetHtml).not.toContain("INTERNAL_MEMO_E2E");
-    const csv = await (await request.get(`/api/applicants/export?token=${SAMPLE.applicantsShareToken}`)).text();
+    const csv = await (await guest.get(`/api/applicants/export?token=${SAMPLE.applicantsShareToken}`)).text();
     expect(csv).not.toContain("INTERNAL_MEMO_E2E");
-    // 대시보드 CSV에는 있어야 한다
-    const agencyCsv = await (await request.get(`/api/applicants/export?campaignId=${SAMPLE.campaignId}`)).text();
+    await guest.dispose();
+
+    // 대시보드 CSV에는 있어야 한다 (로그인한 사람만 받을 수 있다)
+    const agencyCsv = await (await page.request.get(`/api/applicants/export?campaignId=${SAMPLE.campaignId}`)).text();
     expect(agencyCsv).toContain("INTERNAL_MEMO_E2E");
   });
 

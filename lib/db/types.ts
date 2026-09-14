@@ -224,6 +224,25 @@ export function sanitizeApplicantForCompany(a: Applicant): Applicant {
   };
 }
 
+/**
+ * 광고주 공유 관리시트(/seeding-sheet)에 내려보내는 시딩 기록.
+ *
+ * 지원자 쪽만 씻으면 부족하다. 관리시트 한 줄은 지원자와 시딩 기록이 합쳐진 것이고,
+ * **배송지와 방문 일정은 시딩 기록 쪽에도 따로 들어 있다.** 내부 비고도 마찬가지다.
+ * 화면에 안 그리더라도 서버가 내려보내는 순간 페이지 안에 값이 실린다.
+ *
+ * 광고주에게 남기는 것은 진행 단계·업로드 기한·업로드 링크·성과 수치뿐이다.
+ * 새 컬럼을 추가하면 광고주가 봐도 되는 값인지 여기서 한 번 더 판단할 것.
+ */
+export function sanitizeSeedingForCompany(s: SeedingRecord): SeedingRecord {
+  return {
+    ...s,
+    notes: null,
+    shipping_address: undefined,
+    visit_scheduled_at: undefined,
+  };
+}
+
 export interface PreSurveyQuestion {
   id: string;
   question: string;

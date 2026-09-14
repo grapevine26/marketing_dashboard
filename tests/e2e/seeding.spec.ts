@@ -1,5 +1,12 @@
 import { test, expect, Page } from "@playwright/test";
-import { SAMPLE } from "./fixtures";
+import {
+  NO_AUTH,
+  SAMPLE,
+  fillAllRequiredTextareas,
+  newPublicContext,
+  newPublicRequest,
+  withServerAction,
+} from "./fixtures";
 
 /** 캠페인 허브의 공유 링크 박스에서 특정 경로의 공개 URL을 읽는다 */
 async function readShareUrl(page: Page, pathPrefix: string): Promise<string> {
@@ -53,7 +60,9 @@ test.describe("A. 인플루언서 시딩 전체 흐름", () => {
     const row = page.getByRole("row", { name: /E2E 인플루언서/ });
     await expect(row).toBeVisible();
     await expect(row).toContainText("010-5555-6666");
-    await row.getByRole("button", { name: "최종선정", exact: true }).click();
+    // 화면은 누르는 즉시 바뀌지만 저장은 아직이다. 저장이 끝나기 전에 다른 화면으로 넘어가면
+    // 관리시트에 나타나지 않는다. 서버 응답까지 기다린다.
+    await withServerAction(page, () => row.getByRole("button", { name: "최종선정", exact: true }).click());
     await expect(row).toContainText("최종선정");
     await expect(row.getByRole("button", { name: "선정 취소" })).toBeVisible();
 
@@ -80,15 +89,19 @@ test.describe("A. 인플루언서 시딩 전체 흐름", () => {
     expect((await pptx.body()).subarray(0, 2).toString("latin1")).toBe("PK");
   });
 
-  test("광고주 공유 링크에서 예비선정할 수 있고 연락처는 노출되지 않는다", async ({ page, request }) => {
-    await page.goto(`/applicants/${SAMPLE.applicantsShareToken}`);
-    const html = await page.content();
+  test("광고주 공유 링크에서 예비선정할 수 있고 연락처는 노출되지 않는다", async ({ page, browser, playwright }) => {
+    // 광고주는 로그인 계정이 없다. 쿠키 없는 창으로 열어 "로그인 없이 쓸 수 있다"까지 확인한다.
+    const guest = await newPublicContext(browser);
+    const guestPage = await guest.newPage();
+    await guestPage.goto(`/applicants/${SAMPLE.applicantsShareToken}`);
+    const html = await guestPage.content();
     expect(html).not.toContain(SAMPLE.appliedApplicantContact);
 
-    const row = page.getByRole("row", { name: new RegExp(SAMPLE.appliedApplicantName) });
+    const row = guestPage.getByRole("row", { name: new RegExp(SAMPLE.appliedApplicantName) });
     await row.getByRole("button", { name: "예비선정", exact: true }).click();
     await expect(row).toContainText("예비선정");
     await expect(row.getByRole("button", { name: "최종선정 승격" })).toBeVisible();
+    await guest.close();
 
     // 대시보드에도 즉시 반영되고 실행 주체가 '광고주'로 기록된다
     await page.goto(`/campaigns/${SAMPLE.campaignId}/applicants`);
@@ -97,37 +110,66 @@ test.describe("A. 인플루언서 시딩 전체 흐름", () => {
     await dashRow.getByRole("button", { name: SAMPLE.appliedApplicantName }).click();
     await expect(page.getByRole("table").getByText(/선정 변경:\s*광고주/)).toBeVisible();
 
-    // 토큰 CSV에는 연락처 컬럼이 없고, 대시보드 CSV에는 있다
-    const publicCsv = await (await request.get(`/api/applicants/export?token=${SAMPLE.applicantsShareToken}`)).text();
+    // 토큰 CSV에는 연락처 컬럼이 없고(로그인 없이 받는다), 대시보드 CSV에는 있다(로그인 필요)
+    const guestApi = await newPublicRequest(playwright);
+    const publicCsv = await (await guestApi.get(`/api/applicants/export?token=${SAMPLE.applicantsShareToken}`)).text();
     expect(publicCsv).not.toContain("연락처");
     expect(publicCsv).not.toContain(SAMPLE.appliedApplicantContact);
-    const agencyCsv = await (await request.get(`/api/applicants/export?campaignId=${SAMPLE.campaignId}`)).text();
+    await guestApi.dispose();
+
+    const agencyCsv = await (await page.request.get(`/api/applicants/export?campaignId=${SAMPLE.campaignId}`)).text();
     expect(agencyCsv).toContain(SAMPLE.appliedApplicantContact);
   });
+
+  test("사전조사 공개 폼 제출이 대시보드에 반영된다", async ({ page }) => {
+    await page.goto(`/pre-survey/${SAMPLE.preSurveyToken}`);
+    // 기본 템플릿은 필수 문항이 여러 개다. 하나만 채우면 브라우저가 제출을 막는다.
+    const filled = await fillAllRequiredTextareas(page, "E2E 사전조사 답변입니다");
+    expect(filled).toBeGreaterThan(0);
+    await page.getByRole("button", { name: "사전조사 제출 완료하기" }).click();
+    await expect(page.getByText("사전조사서가 성공적으로 제출되었습니다!")).toBeVisible();
+
+    await page.goto(`/campaigns/${SAMPLE.campaignId}/pre-survey`);
+    await expect(page.locator("textarea").first()).toHaveValue("E2E 사전조사 답변입니다");
+  });
+});
+
+/**
+ * 공개 링크는 로그인 없이 열려야 한다. 로그인한 채로 확인하면 프록시를 그냥 통과해 버려서
+ * 정작 확인하려는 것(비회원도 열 수 있다 / 열어도 개인정보는 없다)을 놓친다.
+ */
+test.describe("A-2. 공개 링크 (로그인 없이)", () => {
+  test.use({ storageState: NO_AUTH });
 
   test("관리시트 공유 페이지는 조회 전용이고 개인정보가 없다", async ({ page }) => {
     await page.goto(`/seeding-sheet/${SAMPLE.seedingShareToken}`);
     await expect(page.getByRole("columnheader", { name: "D-day" })).toBeVisible();
     expect(await page.locator("table select").count()).toBe(0);
     expect(await page.locator("table input").count()).toBe(0);
+    // HTML 전체를 본다. 화면에 안 그려도 서버가 클라이언트로 내려보내면 그것도 노출이다.
     const html = await page.content();
-    expect(html).not.toContain("010-3849-2819");
-    expect(html).not.toContain("테헤란로");
+    expect(html, "연락처가 공유 페이지 HTML 에 들어 있다").not.toContain(SAMPLE.selectedApplicantContact);
+    expect(html, "배송지가 공유 페이지 HTML 에 들어 있다").not.toContain(SAMPLE.selectedApplicantAddress);
   });
 
-  test("잘못된 토큰은 404", async ({ page }) => {
+  test("지원자 공유 페이지와 신청폼은 로그인 없이 열린다", async ({ page }) => {
+    await page.goto(`/applicants/${SAMPLE.applicantsShareToken}`);
+    await expect(page).toHaveURL(new RegExp(`/applicants/${SAMPLE.applicantsShareToken}$`));
+    await page.goto(`/apply/${SAMPLE.applyToken}`);
+    await expect(page.getByRole("button", { name: "인플루언서 지원서 제출하기" })).toBeVisible();
+  });
+
+  test("잘못된 토큰은 한국어 404 화면", async ({ page }) => {
     const res = await page.goto("/apply/does_not_exist");
     expect(res?.status()).toBe(404);
+    await expect(page.getByRole("heading", { name: "열 수 없는 주소입니다" })).toBeVisible();
   });
 
-  test("사전조사 공개 폼 제출이 대시보드에 반영된다", async ({ page }) => {
-    await page.goto(`/pre-survey/${SAMPLE.preSurveyToken}`);
-    const first = page.locator("textarea").first();
-    await first.fill("E2E 사전조사 답변입니다");
-    await page.getByRole("button", { name: "사전조사 제출 완료하기" }).click();
-    await expect(page.getByText("사전조사서가 성공적으로 제출되었습니다!")).toBeVisible();
-
-    await page.goto(`/campaigns/${SAMPLE.campaignId}/pre-survey`);
-    await expect(page.locator("textarea").first()).toHaveValue("E2E 사전조사 답변입니다");
+  test("로그인이 필요한 라우트 핸들러는 로그인 화면으로 보낸다", async ({ page }) => {
+    // 프록시가 /api/applicants/ 를 공개로 두지 않으므로 토큰 없는 호출은 /login 으로 튕긴다.
+    const res = await page.goto(`/api/applicants/export?campaignId=${SAMPLE.campaignId}`);
+    expect(res?.status()).toBe(200); // 리다이렉트를 따라간 뒤의 로그인 화면
+    await expect(page).toHaveURL(/\/login(\?|$)/);
+    await expect(page.getByRole("heading", { name: "RB Global 로그인" })).toBeVisible();
   });
 });

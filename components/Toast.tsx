@@ -80,8 +80,13 @@ function getSnapshot() {
   return toasts;
 }
 
+// 서버 렌더에는 토스트가 없다. 다만 **매번 새 배열을 돌려주면 안 된다.**
+// useSyncExternalStore 는 값이 같은지 참조로 비교해서, 호출마다 새 배열이면 끝없이 다시 그린다.
+// React 가 경고를 띄우던 자리다. 상수 하나를 계속 돌려준다.
+const EMPTY_TOASTS: ToastItem[] = [];
+
 function getServerSnapshot() {
-  return [];
+  return EMPTY_TOASTS;
 }
 
 /** 명령형 토스트 발송 유틸 */

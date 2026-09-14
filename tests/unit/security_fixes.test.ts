@@ -2,7 +2,14 @@ import { describe, it, expect } from "vitest";
 import { validateWebhookUrl, isDiscordWebhook, sendWebhookNotification } from "@/lib/notifications/webhook";
 import { matchesMediaSignature, createCampaign, updateCampaignWebhookUrl, ValidationError } from "@/lib/db";
 import { hasTestDb } from "./test-db";
-import { toPublicCampaign, sanitizeApplicantForCompany, Campaign, Applicant } from "@/lib/db/types";
+import {
+  toPublicCampaign,
+  sanitizeApplicantForCompany,
+  sanitizeSeedingForCompany,
+  Campaign,
+  Applicant,
+  SeedingRecord,
+} from "@/lib/db/types";
 
 describe("웹훅 URL 검증 (SSRF 방지)", () => {
   it("허용 호스트의 https 만 통과한다", () => {
@@ -65,5 +72,71 @@ describe("미디어 시그니처", () => {
     expect(matchesMediaSignature(Buffer.from("MZ not an image at all"), "image/png")).toBe(false);
     expect(matchesMediaSignature(Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(16)]), "image/jpeg")).toBe(true);
     expect(matchesMediaSignature(Buffer.concat([Buffer.from("\0\0\0\x18ftypmp42", "latin1"), Buffer.alloc(16)]), "video/mp4")).toBe(true);
+  });
+});
+
+describe("광고주 공유 관리시트에서 지우는 값", () => {
+  /** 관리시트 한 줄의 시딩 기록. 배송지와 방문 일정은 지원자 쪽과 **별도로** 여기에도 있다. */
+  const record: SeedingRecord = {
+    id: "s1",
+    campaign_id: "c1",
+    applicant_id: "a1",
+    progress_stage: "선정완료",
+    upload_deadline: "2026-10-01",
+    upload_link: "https://example.com/post",
+    views: 1234,
+    engagement: 56,
+    notes: "택배 분실 이력 있음. 재발송 필요",
+    shipping_address: "서울시 강남구 테헤란로 1길 2, 301호",
+    visit_scheduled_at: "2026-10-05T10:00:00.000Z",
+    created_at: "2026-09-01T00:00:00.000Z",
+    updated_at: "2026-09-02T00:00:00.000Z",
+  };
+
+  it("배송지·방문 일정·내부 비고를 비운다", () => {
+    const clean = sanitizeSeedingForCompany(record);
+    expect(clean.shipping_address).toBeUndefined();
+    expect(clean.visit_scheduled_at).toBeUndefined();
+    expect(clean.notes).toBeNull();
+
+    // 직렬화했을 때 어디에도 원문이 남지 않아야 한다.
+    // 화면에 안 그려도 서버가 내려보내면 페이지 안에 값이 실린다.
+    const serialized = JSON.stringify(clean);
+    expect(serialized).not.toContain("테헤란로");
+    expect(serialized).not.toContain("택배 분실");
+    expect(serialized).not.toContain("2026-10-05");
+  });
+
+  it("광고주가 봐야 하는 값은 그대로 둔다", () => {
+    const clean = sanitizeSeedingForCompany(record);
+    expect(clean.progress_stage).toBe("선정완료");
+    expect(clean.upload_deadline).toBe("2026-10-01");
+    expect(clean.upload_link).toBe("https://example.com/post");
+    expect(clean.views).toBe(1234);
+    expect(clean.engagement).toBe(56);
+  });
+
+  it("지원자와 시딩 기록 둘 다 씻어야 주소가 사라진다", () => {
+    // 한쪽만 씻으면 다른 쪽에 그대로 남는다. 실제로 그 상태로 배포돼 있었다.
+    const applicant = {
+      id: "a1",
+      campaign_id: "c1",
+      name: "홍길동",
+      contact: "010-1234-5678",
+      sns_link: "https://instagram.com/x",
+      status: "selected",
+      applied_at: "2026-09-01T00:00:00.000Z",
+      shipping_address: "서울시 강남구 테헤란로 1길 2, 301호",
+    } as unknown as Applicant;
+
+    const onlyApplicant = JSON.stringify({ applicant: sanitizeApplicantForCompany(applicant), seeding: record });
+    expect(onlyApplicant).toContain("테헤란로");
+
+    const both = JSON.stringify({
+      applicant: sanitizeApplicantForCompany(applicant),
+      seeding: sanitizeSeedingForCompany(record),
+    });
+    expect(both).not.toContain("테헤란로");
+    expect(both).not.toContain("010-1234-5678");
   });
 });
