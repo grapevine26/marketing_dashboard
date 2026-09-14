@@ -257,8 +257,18 @@ export default function DashboardShell({
           {/* 현재 로그인한 사람. 여러 계정을 쓰는 환경이라 누구로 들어와 있는지 늘 보이게 둔다. */}
           <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-surface border border-border">
             <div className="min-w-0">
-              <div className="text-xs font-bold text-text truncate">{user.display_name}</div>
-              <div className="text-[10px] font-mono text-text-muted truncate">@{user.username}</div>
+              {/* 이름을 누르면 내 정보로 간다. 등급과 무관하게 누구나 자기 것은 볼 수 있다. */}
+              <Link
+                href="/settings/profile"
+                onClick={closeMenu}
+                className="block group/me"
+                title="내 정보"
+              >
+                <div className="text-xs font-bold text-text truncate group-hover/me:text-accent2 transition">
+                  {user.display_name}
+                </div>
+                <div className="text-[10px] font-mono text-text-muted truncate">@{user.username}</div>
+              </Link>
             </div>
             <button
               type="button"

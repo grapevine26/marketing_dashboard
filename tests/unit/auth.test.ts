@@ -292,6 +292,49 @@ describe.skipIf(!hasTestDb)("사용자 관리", () => {
     await expect(resetUserPassword(boss, userId, "short")).rejects.toThrow(ValidationError);
   });
 
+  it("본인은 자기 이름을 바꿀 수 있다. 등급과 무관하다", async () => {
+    const { updateMyDisplayName } = await import("@/lib/auth/profile");
+    const { getUsers } = await import("@/lib/auth/users");
+    const staff = await makeActive(uid("namer"), "옛 이름", "staff");
+
+    await updateMyDisplayName(staff, "  새 이름  ");
+    expect((await getUsers()).find((u) => u.id === staff.id)!.display_name).toBe("새 이름");
+
+    await expect(updateMyDisplayName(staff, "   ")).rejects.toThrow(ValidationError);
+    await expect(updateMyDisplayName(staff, "가".repeat(51))).rejects.toThrow(ValidationError);
+  });
+
+  it("비밀번호 변경은 현재 비밀번호를 맞혀야 한다", async () => {
+    const { changeMyPassword } = await import("@/lib/auth/profile");
+    const { createClient } = await import("@supabase/supabase-js");
+    const name = uid("pwchanger");
+    const me = await makeActive(name, "비번 주인", "staff");
+
+    // 틀린 현재 비밀번호는 막힌다. 로그인한 브라우저를 빌린 사람이 계정을 가져가지 못하게 한다.
+    await expect(changeMyPassword(me, "wrong-password", "brand-new-pass-1")).rejects.toThrow(/현재 비밀번호/);
+    // 같은 값으로는 못 바꾼다.
+    await expect(changeMyPassword(me, "test-password-1234", "test-password-1234")).rejects.toThrow(/다른 것으로/);
+    // 너무 짧아도 막힌다.
+    await expect(changeMyPassword(me, "test-password-1234", "short")).rejects.toThrow(ValidationError);
+
+    await changeMyPassword(me, "test-password-1234", "brand-new-pass-1");
+
+    const fresh = () =>
+      createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+    const oldTry = await fresh().auth.signInWithPassword({
+      email: usernameToEmail(name),
+      password: "test-password-1234",
+    });
+    expect(oldTry.error).not.toBeNull();
+    const newTry = await fresh().auth.signInWithPassword({
+      email: usernameToEmail(name),
+      password: "brand-new-pass-1",
+    });
+    expect(newTry.error).toBeNull();
+  });
+
   it("없는 사용자에게는 아무 동작도 하지 않는다", async () => {
     const { approveUser } = await import("@/lib/auth/users");
     const boss = await makeActiveAdmin(uid("boss"), "관리자");
