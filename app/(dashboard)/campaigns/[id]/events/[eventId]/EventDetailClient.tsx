@@ -319,6 +319,8 @@ export default function EventDetailClient({
   };
 
   const handleDeleteChecklist = async (itemId: string) => {
+    const target = checklists.find((c) => c.id === itemId);
+    if (!confirm(`"${target?.label ?? "이 항목"}"을(를) 체크리스트에서 삭제할까요?`)) return;
     const prev = checklists;
     setChecklists((curr) => curr.filter((c) => c.id !== itemId));
     const res = await safeCall(deleteChecklistItemAction(itemId, campaign.id, event.id));
