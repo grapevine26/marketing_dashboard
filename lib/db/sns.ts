@@ -385,6 +385,15 @@ export async function updateSnsIntakeTemplate(
       .select("*")
       .single<SnsIntakeTemplateRow>()
   );
+  // 계정에 매이지 않는 공용 설정이라 account_id 가 없다.
+  // 캠페인 쪽 공용 사전조사 템플릿(pre_survey_template.saved)과 짝이 되는 기록이다.
+  await insertAuditLog({
+    entity_type: "sns_account",
+    entity_id: String(SNS_INTAKE_TEMPLATE_ID),
+    action: "sns_intake_template.saved",
+    actor_type: "agency",
+    summary: `공용 SNS 사전설문 문항을 저장했습니다. (${cleaned.length}개)`,
+  });
   return { id: SNS_INTAKE_TEMPLATE_ID, questions: row.questions ?? cleaned };
 }
 
