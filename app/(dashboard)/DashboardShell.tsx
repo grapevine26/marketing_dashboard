@@ -22,7 +22,7 @@ import ThemeToggleButton from "@/components/ThemeToggleButton";
 import RefreshOnFocus from "@/components/RefreshOnFocus";
 import RbLogo from "@/components/RbLogo";
 import InstallAppButton from "@/components/InstallAppButton";
-import { isManager, type SessionUser } from "@/lib/auth/roles";
+import { isManager, isOwner, type SessionUser } from "@/lib/auth/roles";
 import { logoutAction } from "@/app/login/actions";
 
 /**
@@ -111,7 +111,9 @@ export default function DashboardShell({
         },
       ],
     },
-    // 사용자 관리는 관리자에게만 보인다. 승인 대기자가 있으면 개수를 배지로 알린다.
+    // 관리 묶음. 안에서 다시 등급이 갈린다.
+    // - 사용자 관리: 관리자까지. 승인 대기자가 있으면 개수를 배지로 알린다.
+    // - 활동 기록: 대표 관리자만. 메뉴를 숨기는 것만으로는 부족해서 페이지에서도 막는다.
     ...(isManager(user.role)
       ? [
           {
@@ -124,12 +126,16 @@ export default function DashboardShell({
                 color: "text-text-sub",
                 badge: pendingCount > 0 ? pendingCount : undefined,
               },
-              {
-                name: "활동 기록",
-                href: "/settings/activity",
-                icon: Activity,
-                color: "text-text-sub",
-              },
+              ...(isOwner(user.role)
+                ? [
+                    {
+                      name: "활동 기록",
+                      href: "/settings/activity",
+                      icon: Activity,
+                      color: "text-text-sub",
+                    },
+                  ]
+                : []),
             ],
           },
         ]

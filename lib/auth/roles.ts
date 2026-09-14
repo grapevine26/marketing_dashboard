@@ -22,9 +22,20 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   staff: "직원",
 };
 
-/** 관리 화면(사용자 관리·활동 기록)에 들어갈 수 있는 등급. */
+/** 사용자 관리에 들어갈 수 있는 등급. 관리자는 직원만 다룰 수 있다. */
 export function isManager(role: UserRole): boolean {
   return role === "owner" || role === "admin";
+}
+
+/**
+ * 활동 기록을 볼 수 있는 등급. 대표 관리자뿐이다.
+ *
+ * 기록에는 누가 언제 무엇을 했는지가 전부 남는다. 동료를 들여다보는 창이기도 해서
+ * 관리자에게까지 열면 보는 사람이 늘어나는 만큼 기록의 의미가 옅어진다.
+ * 그래서 사용자 관리보다 한 단계 좁게 잠갔다.
+ */
+export function isOwner(role: UserRole): boolean {
+  return role === "owner";
 }
 
 /** 화면이 다루는 사용자 정보. 세션에서 읽어 오지만 모양 자체는 순수한 값이다. */

@@ -12,7 +12,7 @@ import { createAuthClient } from "../supabase/auth";
  */
 
 // 등급 정의는 클라이언트에서도 쓰므로 서버 전용이 아닌 파일에 둔다. 여기서는 다시 내보내기만 한다.
-export { ROLE_LABELS, isManager, type UserRole, type UserStatus, type SessionUser } from "./roles";
+export { ROLE_LABELS, isManager, isOwner, type UserRole, type UserStatus, type SessionUser } from "./roles";
 import { isManager, type UserRole, type UserStatus, type SessionUser } from "./roles";
 
 

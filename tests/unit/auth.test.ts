@@ -432,3 +432,27 @@ describe.skipIf(!hasTestDb)("사용자 관리", () => {
     await expect(approveUser(boss, "eeeeeeee-0000-4000-8000-000000000009")).rejects.toThrow(/찾을 수 없습니다/);
   });
 });
+
+describe("화면 접근 등급", () => {
+  it("활동 기록은 대표 관리자만, 사용자 관리는 관리자까지 본다", async () => {
+    const { isManager, isOwner } = await import("@/lib/auth/roles");
+
+    // 사용자 관리
+    expect(isManager("owner")).toBe(true);
+    expect(isManager("admin")).toBe(true);
+    expect(isManager("staff")).toBe(false);
+
+    // 활동 기록. 관리자에게 열려 있으면 안 된다.
+    expect(isOwner("owner")).toBe(true);
+    expect(isOwner("admin")).toBe(false);
+    expect(isOwner("staff")).toBe(false);
+  });
+
+  it("활동 기록 화면은 대표 관리자 전용 가드를 쓴다", async () => {
+    // 가드를 requireAdmin 으로 되돌리면 관리자도 보게 된다. 그 실수를 여기서 잡는다.
+    const { readFileSync } = await import("node:fs");
+    const page = readFileSync("app/(dashboard)/settings/activity/page.tsx", "utf8");
+    expect(page).toContain("requireOwner()");
+    expect(page).not.toContain("requireAdmin()");
+  });
+});

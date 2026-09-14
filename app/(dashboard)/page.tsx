@@ -2,7 +2,7 @@ import Link from "next/link";
 import { toKstDateString, parseMonthParam, buildMonthGrid, shiftMonth } from "@/lib/seeding/dday";
 import { collectOverviewItems, collectHomeSummary } from "@/lib/overview/collect";
 import { getAuditLogs, getCampaigns, getSnsAccounts } from "@/lib/db";
-import { getCurrentUser, isManager } from "@/lib/auth/session";
+import { getCurrentUser, isOwner } from "@/lib/auth/session";
 import CalendarOverviewClient, { UrgentItemsWidget } from "./CalendarOverviewClient";
 import PendingApprovalSnsCard from "./PendingApprovalSnsCard";
 import ScheduledSnsThisWeekCard from "./ScheduledSnsThisWeekCard";
@@ -28,7 +28,7 @@ export default async function DashboardOverviewPage({
 }: {
   searchParams: Promise<{ month?: string }>;
 }) {
-  const isAdmin = isManager((await getCurrentUser())?.role ?? "staff");
+  const canSeeLogs = isOwner((await getCurrentUser())?.role ?? "staff");
   const { month } = await searchParams;
   const todayKst = toKstDateString();
   const currentMonth = parseMonthParam(month, todayKst);
@@ -36,8 +36,8 @@ export default async function DashboardOverviewPage({
   const [{ items, failedSources }, summary, recentLogs, campaigns, snsAccounts] = await Promise.all([
     collectOverviewItems(todayKst),
     collectHomeSummary(todayKst),
-    // 활동 기록은 관리자만 본다. 직원에게는 아예 내려보내지 않는다(화면에서 숨기는 것으로는 부족하다).
-    isAdmin ? getAuditLogs({ limit: 5 }) : Promise.resolve([]),
+    // 활동 기록은 대표 관리자만 본다. 나머지에게는 아예 내려보내지 않는다(화면에서 숨기는 것으로는 부족하다).
+    canSeeLogs ? getAuditLogs({ limit: 5 }) : Promise.resolve([]),
     getCampaigns(),
     getSnsAccounts(),
   ]);
@@ -193,9 +193,9 @@ export default async function DashboardOverviewPage({
             <UrgentItemsWidget urgentItems={urgentItems} failedSources={failedSources} />
           </div>
 
-          {/* 최근 플랫폼 활동 로그. 관리자만 본다.
-              직원에게 빈 칸으로 보이면 "활동이 없다"는 뜻으로 오해하므로 칸 자체를 숨긴다. */}
-          {isAdmin && (
+          {/* 최근 플랫폼 활동 로그. 대표 관리자만 본다.
+              볼 수 없는 사람에게 빈 칸으로 보이면 "활동이 없다"는 뜻으로 오해하므로 칸 자체를 숨긴다. */}
+          {canSeeLogs && (
           <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-3.5 sm:space-y-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
