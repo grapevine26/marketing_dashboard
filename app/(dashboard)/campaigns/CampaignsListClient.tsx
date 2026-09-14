@@ -352,7 +352,7 @@ export default function CampaignsListClient({ initialCampaigns }: CampaignsListC
                 <strong className="text-text font-semibold">[{targetCampaign.name}]</strong> 캠페인을 삭제하시겠습니까?
               </p>
               <p className="text-text-muted">
-                연동된 사전설문, 신청 폼, 지원자 명단, 배송/방문 관리시트, 결과보고서 및 행사 계획서가 모두 영구 삭제됩니다.
+                연동된 사전설문, 신청 폼, 지원자 명단, 배송/방문 관리시트, 결과보고서 및 행사(초대 명단·체크리스트·운영안 포함)가 모두 영구 삭제됩니다.
               </p>
             </div>
 

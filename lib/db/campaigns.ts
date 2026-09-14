@@ -14,6 +14,7 @@
  *   uuid 컬럼에 닿으면 Postgres 타입 에러(500)가 나므로, 형식이 아니면 "없음"(null/false)으로 답한다.
  */
 
+import { randomBytes } from "crypto";
 import { insertAuditLog } from "./audit";
 import { CAMPAIGN_STATUS_LABELS } from "./types";
 import { db, unwrap, unwrapMaybe } from "./client";
@@ -57,9 +58,12 @@ interface PreSurveyTemplateRow {
 
 // ---------- 토큰 ----------
 
-/** 외부 공유 토큰. 접두사로 어떤 링크인지 구분한다. */
+/**
+ * 외부 공유 토큰. 접두사로 어떤 링크인지 구분한다.
+ * 본체는 128비트 난수(base64url 22자). 예전 12자(48비트) 토큰은 DB 값과 대조하므로 그대로 유효하다.
+ */
 function newToken(type: CampaignTokenType): string {
-  const suffix = crypto.randomUUID().slice(0, 12);
+  const suffix = randomBytes(16).toString("base64url");
   switch (type) {
     case "pre_survey":
       return `ps_${suffix}`;

@@ -418,9 +418,15 @@ export default function SnsAccountDetailClient({
     }
   };
 
+  // 삭제 중인 대상의 id. 같은 항목을 두 번 지우면 두 번째가 "이미 삭제됨" 오류로 돌아온다.
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   const handleDeleteMedia = async (contentId: string, attachmentId: string) => {
+    if (deletingId) return;
     if (!confirm("이 시안 미디어를 삭제할까요?")) return;
+    setDeletingId(attachmentId);
     const res = await safeCall(deleteSnsMediaAction(contentId, attachmentId, account.id));
+    setDeletingId(null);
     if (!res.ok) return setError(res.error);
     setContents((prev) =>
       prev.map((c) =>
@@ -512,8 +518,14 @@ export default function SnsAccountDetailClient({
   };
 
   const handleDeleteContent = async (c: SnsContent) => {
-    if (!confirm(`"${c.title}" 콘텐츠를 삭제할까요?`)) return;
+    if (deletingId) return;
+    // 첨부가 함께 사라진다는 것을 눌러야 아는 사람이 없도록 개수까지 적어 준다.
+    const fileCount = (c.media_attachments || []).length;
+    const extra = fileCount > 0 ? ` 첨부한 시안 파일 ${fileCount}개와 광고주 코멘트도 함께 삭제되며 되살릴 수 없습니다.` : "";
+    if (!confirm(`"${c.title}" 콘텐츠를 삭제할까요?${extra}`)) return;
+    setDeletingId(c.id);
     const res = await safeCall(deleteSnsContentAction(c.id, account.id));
+    setDeletingId(null);
     if (!res.ok) return setError(res.error);
     setContents((prev) => prev.filter((x) => x.id !== c.id));
     router.refresh();

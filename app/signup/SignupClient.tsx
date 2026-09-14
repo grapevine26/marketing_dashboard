@@ -15,6 +15,7 @@ export default function SignupClient() {
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -31,7 +32,7 @@ export default function SignupClient() {
 
     setSubmitting(true);
     const res = await safeCall(
-      signupAction({ username, display_name: displayName, password })
+      signupAction({ username, display_name: displayName, password, invite_code: inviteCode })
     );
     setSubmitting(false);
 
@@ -83,6 +84,30 @@ export default function SignupClient() {
       </div>
 
       <div className="space-y-3">
+        {/* 초대 코드가 맨 위다. 없으면 나머지를 채워도 소용없으니 먼저 묻는다. */}
+        <div className="space-y-1">
+          <label htmlFor="signup-invite-code" className="text-xs font-semibold text-text-2">
+            초대 코드
+          </label>
+          <input
+            id="signup-invite-code"
+            name="invite_code"
+            type="text"
+            required
+            autoComplete="off"
+            autoCapitalize="characters"
+            autoCorrect="off"
+            spellCheck={false}
+            value={inviteCode}
+            onChange={(e) => setInviteCode(e.target.value)}
+            placeholder="관리자에게 받은 8자 코드"
+            className={`${inputCls} font-mono tracking-widest uppercase`}
+          />
+          <p className="text-[11px] text-text-muted leading-relaxed">
+            초대 코드는 관리자에게 받을 수 있습니다. 대소문자는 구분하지 않습니다.
+          </p>
+        </div>
+
         <div className="space-y-1">
           <label htmlFor="signup-username" className="text-xs font-semibold text-text-2">
             아이디

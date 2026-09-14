@@ -92,16 +92,28 @@ export default function SnsPlanEditorClient({
     setLoadingAiAll(false);
   };
 
+  // 불러온 운영안의 저장 시각. 저장할 때 같이 보내 다른 사람의 저장을 덮어쓰지 않게 한다.
+  // 성공하면 서버가 준 새 시각으로 바꾼다.
+  const [planUpdatedAt, setPlanUpdatedAt] = useState<string | null>(initialPlan?.updated_at ?? null);
+
   const handleSave = async () => {
     setSaving(true);
     setError(null);
-    const res = await safeCall(saveSnsPlanAction({ accountId: account.id, templateId: selectedTemplateId, fieldValues }));
+    const res = await safeCall(
+      saveSnsPlanAction({
+        accountId: account.id,
+        templateId: selectedTemplateId,
+        fieldValues,
+        expectedUpdatedAt: planUpdatedAt,
+      })
+    );
     setSaving(false);
     if (!res.ok) {
       setError(res.error);
       toast.error(res.error || "운영안 저장에 실패했습니다.");
       return;
     }
+    setPlanUpdatedAt(res.data.updated_at);
     setSaved(true);
     setDirty(false);
     const msg = selectedTemplateId ? "운영안이 저장되었습니다. PPT를 다운로드할 수 있습니다." : "운영안이 저장되었습니다. (템플릿 미선택 — 웹에서만 사용)";

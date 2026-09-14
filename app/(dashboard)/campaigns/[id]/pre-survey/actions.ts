@@ -1,63 +1,59 @@
 "use server";
 
+// 규칙: 액션 본문 첫 문장은 `return runAuthedAction(...)`. 존재 확인·DB 조회를 그 앞에서 하면 인증 전에 실행된다.
+
 import {
   upsertPreSurveyResponse,
   getCampaignById,
   getPreSurveyQuestionsForCampaign,
   updateCampaignPreSurveyQuestions,
+  ValidationError,
 } from "@/lib/db";
 import { PreSurveyQuestion } from "@/lib/db/types";
 import { assistPreSurvey, PreSurveyAssistResponse } from "@/lib/ai/preSurveyAssist";
 import { revalidatePath } from "next/cache";
-import { ActionResult, runAuthedAction, fail } from "@/lib/actions/result";
+import { ActionResult, runAuthedAction } from "@/lib/actions/result";
+
+function revalidatePreSurvey(campaignId: string) {
+  revalidatePath(`/campaigns/${campaignId}`);
+  revalidatePath(`/campaigns/${campaignId}/pre-survey`);
+}
 
 export async function saveAgencyPreSurveyAction(params: {
   campaignId: string;
   answers: Record<string, string>;
   usedAiAssist: boolean;
 }): Promise<ActionResult<{ submitted_at: string }>> {
-  const res = await runAuthedAction(async () => {
+  return runAuthedAction(async () => {
     const r = await upsertPreSurveyResponse({
       campaign_id: params.campaignId,
       answers: params.answers,
       used_ai_assist: params.usedAiAssist,
     });
+    revalidatePreSurvey(params.campaignId);
     return { submitted_at: r.submitted_at };
   });
-  if (res.ok) {
-    revalidatePath(`/campaigns/${params.campaignId}`);
-    revalidatePath(`/campaigns/${params.campaignId}/pre-survey`);
-  }
-  return res;
 }
 
 export async function saveCampaignPreSurveyQuestionsAction(params: {
   campaignId: string;
   questions: PreSurveyQuestion[];
 }): Promise<ActionResult<{ questions: PreSurveyQuestion[] }>> {
-  const res = await runAuthedAction(async () => {
+  return runAuthedAction(async () => {
     const updated = await updateCampaignPreSurveyQuestions(params.campaignId, params.questions);
+    revalidatePreSurvey(params.campaignId);
     return { questions: updated.pre_survey_questions || [] };
   });
-  if (res.ok) {
-    revalidatePath(`/campaigns/${params.campaignId}`);
-    revalidatePath(`/campaigns/${params.campaignId}/pre-survey`);
-  }
-  return res;
 }
 
 export async function resetCampaignPreSurveyQuestionsAction(
   campaignId: string
 ): Promise<ActionResult<{ success: boolean }>> {
-  const res = await runAuthedAction(async () => {
+  return runAuthedAction(async () => {
     await updateCampaignPreSurveyQuestions(campaignId, null);
+    revalidatePreSurvey(campaignId);
     return { success: true };
   });
-  if (res.ok) {
-    revalidatePath(`/campaigns/${campaignId}`);
-    revalidatePath(`/campaigns/${campaignId}/pre-survey`);
-  }
-  return res;
 }
 
 export async function getAiAssistAction(params: {
@@ -65,14 +61,14 @@ export async function getAiAssistAction(params: {
   questionId: string;
   userDraft?: string;
 }): Promise<ActionResult<PreSurveyAssistResponse>> {
-  const campaign = await getCampaignById(params.campaignId);
-  if (!campaign) return fail("캠페인을 찾을 수 없습니다.");
-  const questions = await getPreSurveyQuestionsForCampaign(params.campaignId);
-  const question = questions.find((q) => q.id === params.questionId);
-  if (!question) return fail("질문을 찾을 수 없습니다.");
+  return runAuthedAction(async () => {
+    const campaign = await getCampaignById(params.campaignId);
+    if (!campaign) throw new ValidationError("캠페인이 이미 삭제되었거나 찾을 수 없습니다. 화면을 새로고침해주세요.");
+    const questions = await getPreSurveyQuestionsForCampaign(params.campaignId);
+    const question = questions.find((q) => q.id === params.questionId);
+    if (!question) throw new ValidationError("질문을 찾을 수 없습니다. 화면을 새로고침해주세요.");
 
-  return runAuthedAction(() =>
-    assistPreSurvey({
+    return assistPreSurvey({
       question: question.question,
       userDraft: params.userDraft,
       context: {
@@ -80,6 +76,6 @@ export async function getAiAssistAction(params: {
         companyName: campaign.company_name,
         campaignType: campaign.campaign_type,
       },
-    })
-  );
+    });
+  });
 }

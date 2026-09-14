@@ -87,6 +87,7 @@ if (hasTestDb) {
 
 /** 자식 → 부모 순서. truncate cascade 라 순서가 필수는 아니지만 읽기 쉽게 둔다. */
 const TABLES = [
+  "auth_throttle", "app_settings",
   "audit_logs",
   "sns_contents", "sns_plans", "sns_intake_responses", "sns_intake_template", "sns_accounts",
   "event_plans", "event_checklist_items", "event_invitees", "events",

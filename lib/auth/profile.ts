@@ -4,6 +4,7 @@ import { db, unwrap } from "../db/client";
 import { insertAuditLog } from "../db/audit";
 import { ValidationError } from "../db/validation";
 import { getAdminClient } from "../supabase/admin";
+import { createAuthClient } from "../supabase/auth";
 import type { SessionUser } from "./roles";
 import { usernameToEmail, validateDisplayName, validatePassword } from "./username";
 
@@ -70,6 +71,16 @@ export async function changeMyPassword(me: SessionUser, current: unknown, next: 
 
   const { error } = await getAdminClient().auth.admin.updateUserById(me.id, { password: nextPassword });
   if (error) throw new Error(`[auth] 비밀번호 변경 실패: ${error.message}`);
+
+  // 다른 기기에 남아 있던 로그인을 끊는다. 비밀번호를 바꾸는 이유가 대개 그것이다.
+  // "others" 라서 지금 쓰는 브라우저는 그대로 남고, 위에서 확인용으로 만든 세션도 함께 정리된다.
+  try {
+    const mine = await createAuthClient();
+    await mine.auth.signOut({ scope: "others" });
+  } catch (err) {
+    // 여기서 실패해도 비밀번호는 이미 바뀌었다. 되돌리지 않고 기록만 남긴다.
+    console.error("[auth] 다른 기기 세션 정리 실패:", err);
+  }
 
   await insertAuditLog({
     entity_type: "user",

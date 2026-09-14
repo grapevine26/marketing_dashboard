@@ -8,12 +8,14 @@
  * - 함수 이름·시그니처·반환 타입은 옛 JSON 구현(lib/db/index.ts)과 같다. 호출 코드는 손대지 않는다.
  * - 원시 행은 밖으로 내보내지 않는다. 항상 mappers 를 거쳐 앱 타입으로 바꾼다.
  * - 다른 도메인 모듈은 ppt-templates 만 import 한다. 나머지 조회는 db() 로 직접 한다.
+ * - 운영 계획(sns_plans)은 문서 전체를 덮어쓰므로 optimistic-lock 의 낙관적 잠금으로 저장한다.
  * - 계정 삭제 시 콘텐츠·계획·응답은 DB fk cascade 가 지운다. 첨부 파일은 DB 가 모르므로
  *   삭제 전에 id 를 모아 두었다가 파일 저장소에서 따로 지운다.
  * - 미디어 첨부는 sns_contents.media_attachments(jsonb 배열) 안에 있다. 행을 읽어 배열을 고친 뒤
  *   그 컬럼만 update 한다.
  */
 
+import { randomBytes } from "crypto";
 import path from "path";
 import { insertAuditLog } from "./audit";
 import { db, unwrap, unwrapMaybe } from "./client";
@@ -28,6 +30,7 @@ import {
   type SnsIntakeResponseRow,
   type SnsPlanRow,
 } from "./mappers";
+import { writeWithOptimisticLock } from "./optimistic-lock";
 import { getPptTemplateById, getPptTemplates } from "./ppt-templates";
 import {
   deleteFilesByPrefixes,
@@ -76,6 +79,14 @@ interface SnsIntakeTemplateRow {
   id: number;
   questions: PreSurveyQuestion[] | null;
   updated_at: string;
+}
+
+/**
+ * 공개 링크 토큰. 접두사 뒤에 128비트 난수(base64url 22자)를 붙인다.
+ * 예전 12자(48비트) 토큰은 DB 값과 대조하므로 그대로 유효하다.
+ */
+function newSnsToken(prefix: string): string {
+  return `${prefix}${randomBytes(16).toString("base64url")}`;
 }
 
 // ---------- 내부 조회 헬퍼 ----------
@@ -169,8 +180,8 @@ export async function createSnsAccount(data: {
         starts_on: startsOn,
         ends_on: endsOn,
         status: "active",
-        intake_token: `sns_intake_${crypto.randomUUID().slice(0, 12)}`,
-        approval_token: `sns_appr_${crypto.randomUUID().slice(0, 12)}`,
+        intake_token: newSnsToken("sns_intake_"),
+        approval_token: newSnsToken("sns_appr_"),
       })
       .select("*")
       .single<SnsAccountRow>()
@@ -276,11 +287,11 @@ export async function regenerateSnsToken(
 
   if (tokenType === "intake") {
     tokenField = "intake_token";
-    newToken = `sns_in_${crypto.randomUUID().slice(0, 12)}`;
+    newToken = newSnsToken("sns_in_");
     tokenLabel = "광고주 자료요청/사전설문";
   } else if (tokenType === "approval") {
     tokenField = "approval_token";
-    newToken = `sns_appr_${crypto.randomUUID().slice(0, 12)}`;
+    newToken = newSnsToken("sns_appr_");
     tokenLabel = "광고주 시안 승인(컨펌)";
   } else {
     throw new ValidationError("유효하지 않은 토큰 유형입니다.");
@@ -507,11 +518,18 @@ export async function getSnsPlan(accountId: string): Promise<SnsPlan | null> {
   return row ? rowToSnsPlan(row) : null;
 }
 
-/** 운영 계획 저장. 계정당 한 건이므로 upsert 한다. template_id 는 SNS 용 템플릿만 허용한다. */
+/**
+ * 운영 계획 저장. 계정당 한 건이다. template_id 는 SNS 용 템플릿만 허용한다.
+ *
+ * 문서 전체를 덮어쓰므로 낙관적 잠금을 건다. 화면이 불러올 때 받은 updated_at 을
+ * `expected_updated_at` 으로 보내면, 그 사이 다른 사람이 저장한 경우 덮어쓰지 않고
+ * ValidationError 로 알린다. 안 보내면(옛 화면) 잠금 없이 저장한다.
+ */
 export async function saveSnsPlan(data: {
   account_id: string;
   template_id: string | null;
   field_values: Record<string, string>;
+  expected_updated_at?: string | null;
 }): Promise<SnsPlan> {
   const values = cleanFieldValues(data.field_values);
   // 존재 확인 겸 브랜드명을 쓰려고 행을 통째로 읽는다(쿼리 수는 존재 확인 때와 같다).
@@ -525,16 +543,13 @@ export async function saveSnsPlan(data: {
     templateId = template.id;
   }
 
-  const row = unwrap(
-    await db()
-      .from("sns_plans")
-      .upsert(
-        { account_id: data.account_id, template_id: templateId, field_values: values, updated_at: nowIso() },
-        { onConflict: "account_id" }
-      )
-      .select("*")
-      .single<SnsPlanRow>()
-  );
+  const row = await writeWithOptimisticLock<SnsPlanRow>({
+    table: "sns_plans",
+    keyColumn: "account_id",
+    keyValue: data.account_id,
+    values: { account_id: data.account_id, template_id: templateId, field_values: values },
+    expectedUpdatedAt: data.expected_updated_at,
+  });
 
   await insertAuditLog({
     account_id: data.account_id,

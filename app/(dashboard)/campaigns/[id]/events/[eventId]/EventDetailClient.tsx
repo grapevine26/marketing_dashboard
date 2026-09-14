@@ -199,10 +199,20 @@ export default function EventDetailClient({
     router.refresh();
   };
 
+  // 지우는 중에 한 번 더 눌리면 두 번째 요청이 "이미 삭제됨" 오류를 띄운다.
+  // confirm 이 잠깐 막아 주지만 확인을 누른 뒤부터 화면이 넘어가기 전까지는 열려 있다.
+  const [deletingEvent, setDeletingEvent] = useState(false);
+
   const handleDeleteEvent = async () => {
+    if (deletingEvent) return;
     if (!confirm(`"${event.name}" 행사를 삭제할까요? 초대 명단, 체크리스트, 운영안도 함께 삭제됩니다.`)) return;
+    setDeletingEvent(true);
     const res = await safeCall(deleteEventAction(event.id, campaign.id));
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) {
+      setDeletingEvent(false);
+      return setError(res.error);
+    }
+    // 성공하면 목록으로 넘어간다. 넘어가는 동안에도 버튼은 잠긴 채로 둔다.
     router.push(`/campaigns/${campaign.id}/events`);
   };
 
@@ -374,6 +384,10 @@ export default function EventDetailClient({
     setLoadingAiAll(false);
   };
 
+  // 불러온 운영안의 저장 시각. 저장할 때 같이 보내, 그 사이 남이 저장했으면 덮어쓰지 않는다.
+  // 저장에 성공하면 서버가 준 새 시각으로 바꾼다. 안 바꾸면 내가 두 번째 저장할 때 내 것과 충돌한다.
+  const [planUpdatedAt, setPlanUpdatedAt] = useState<string | null>(initialPlan?.updated_at ?? null);
+
   const handleSavePlan = async () => {
     if (!selectedTemplate) return;
     setSavingPlan(true);
@@ -383,12 +397,14 @@ export default function EventDetailClient({
       campaignId: campaign.id,
       templateId: selectedTemplate.id,
       fieldValues,
+      expectedUpdatedAt: planUpdatedAt,
     }));
     setSavingPlan(false);
     if (!res.ok) {
       toast.error(res.error || "운영안 저장에 실패했습니다.");
       return setError(res.error);
     }
+    setPlanUpdatedAt(res.data.updated_at);
     setPlanSaved(true);
     setPlanDirty(false);
     setNotice("운영안이 저장되었습니다. 이제 PPT를 다운로드할 수 있습니다.");

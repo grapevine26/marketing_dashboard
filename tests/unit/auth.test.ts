@@ -486,3 +486,184 @@ describe("라우트 핸들러 인증", () => {
     expect(unguarded).toEqual([]);
   });
 });
+
+describe.skipIf(!hasTestDb)("로그인 시도 제한", () => {
+  it("실패가 상한에 닿으면 잠기고, 성공하면 기록이 지워진다", async () => {
+    const { hitThrottle, isThrottled, clearThrottle } = await import("@/lib/security/throttle");
+    const key = `login:throttle_${Date.now().toString(36)}`;
+    const policy = { maxHits: 3, windowMs: 60_000, lockMs: 60_000 };
+
+    expect(await isThrottled([key])).toBe(false);
+    expect(await hitThrottle(key, policy)).toBe(false);
+    expect(await hitThrottle(key, policy)).toBe(false);
+    expect(await isThrottled([key])).toBe(false);
+
+    // 세 번째에서 상한에 닿는다.
+    expect(await hitThrottle(key, policy)).toBe(true);
+    expect(await isThrottled([key])).toBe(true);
+
+    // 로그인에 성공하면 그 아이디의 기록만 지운다.
+    await clearThrottle(key);
+    expect(await isThrottled([key])).toBe(false);
+  });
+
+  it("창이 지나면 처음부터 다시 센다", async () => {
+    const { hitThrottle, isThrottled } = await import("@/lib/security/throttle");
+    const key = `login:window_${Date.now().toString(36)}`;
+    // 창이 0ms 라 매 호출이 새 창이다. 상한이 2여도 영원히 잠기지 않는다.
+    const policy = { maxHits: 2, windowMs: 0, lockMs: 60_000 };
+    for (let i = 0; i < 5; i++) await hitThrottle(key, policy);
+    expect(await isThrottled([key])).toBe(false);
+  });
+});
+
+describe.skipIf(!hasTestDb)("가입 초대 코드", () => {
+  it("코드가 없으면 아무도 가입할 수 없다", async () => {
+    const { verifySignupInviteCode, NO_INVITE_CODE_TEXT } = await import("@/lib/auth/settings");
+    // 테스트마다 DB 를 비우므로 이 시점에는 코드 행이 없다. 그게 기본 상태다.
+    await expect(verifySignupInviteCode("AAAAAAAA")).rejects.toThrow(NO_INVITE_CODE_TEXT);
+  });
+
+  it("대표 관리자가 만든 코드만 통과하고, 틀린 코드는 막힌다", async () => {
+    const { rotateSignupInviteCode, verifySignupInviteCode, getSignupInviteCode, WRONG_INVITE_CODE_TEXT } =
+      await import("@/lib/auth/settings");
+    const owner: SessionUser = {
+      id: "00000000-0000-4000-8000-000000000001",
+      username: "boss",
+      display_name: "대표",
+      role: "owner",
+      status: "active",
+    };
+    const code = await rotateSignupInviteCode(owner);
+    expect(code).toHaveLength(8);
+    expect(await getSignupInviteCode()).toBe(code);
+
+    // 대소문자와 앞뒤 공백은 보지 않는다. 사람이 받아 적는 값이라서다.
+    await expect(verifySignupInviteCode(` ${code.toLowerCase()} `)).resolves.toBeUndefined();
+    await expect(verifySignupInviteCode("BBBBBBBB")).rejects.toThrow(WRONG_INVITE_CODE_TEXT);
+    await expect(verifySignupInviteCode("")).rejects.toThrow(WRONG_INVITE_CODE_TEXT);
+
+    // 새로 만들면 이전 코드는 그 자리에서 막힌다.
+    const next = await rotateSignupInviteCode(owner);
+    expect(next).not.toBe(code);
+    await expect(verifySignupInviteCode(code)).rejects.toThrow(WRONG_INVITE_CODE_TEXT);
+  });
+
+  it("관리자는 코드를 바꿀 수 없다", async () => {
+    const { rotateSignupInviteCode } = await import("@/lib/auth/settings");
+    const admin: SessionUser = {
+      id: "00000000-0000-4000-8000-000000000002",
+      username: "manager",
+      display_name: "관리자",
+      role: "admin",
+      status: "active",
+    };
+    await expect(rotateSignupInviteCode(admin)).rejects.toThrow(/대표 관리자만/);
+  });
+});
+
+describe.skipIf(!hasTestDb)("차단은 인증 쪽 계정까지 잠근다", () => {
+  const PASSWORD = "test-password-1234";
+
+  /** 실제로 로그인이 되는지 본다. 공용 클라이언트를 쓰면 그 권한이 바뀌므로 매번 새로 만든다. */
+  async function canSignIn(username: string): Promise<boolean> {
+    const { createClient } = await import("@supabase/supabase-js");
+    const { usernameToEmail } = await import("@/lib/auth/username");
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) throw new Error("테스트 환경변수가 없습니다.");
+    const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { error } = await client.auth.signInWithPassword({
+      email: usernameToEmail(username),
+      password: PASSWORD,
+    });
+    return !error;
+  }
+
+  it("차단하면 로그인 자체가 막히고, 해제하면 다시 된다", async () => {
+    const { signUpUser, blockUser, unblockUser } = await import("@/lib/auth/users");
+    const { db } = await import("@/lib/db/client");
+
+    const stamp = Date.now().toString(36);
+    const bossName = `ban_boss_${stamp}`;
+    const targetName = `ban_target_${stamp}`;
+
+    for (const [username, display] of [[bossName, "대표"], [targetName, "직원"]] as const) {
+      await signUpUser({ username, display_name: display, password: PASSWORD });
+    }
+    const idOf = async (username: string): Promise<string> => {
+      for (let i = 0; i < 20; i++) {
+        const res = await db().from("profiles").select("id").eq("username", username).maybeSingle<{ id: string }>();
+        if (res.data?.id) return res.data.id;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      throw new Error(`프로필을 찾지 못했습니다: ${username}`);
+    };
+    const bossId = await idOf(bossName);
+    const targetId = await idOf(targetName);
+    await db().from("profiles").update({ role: "owner", status: "active" }).eq("id", bossId);
+    await db().from("profiles").update({ status: "active" }).eq("id", targetId);
+
+    const boss: SessionUser = {
+      id: bossId, username: bossName, display_name: "대표", role: "owner", status: "active",
+    };
+
+    // 차단 전에는 로그인이 된다.
+    expect(await canSignIn(targetName)).toBe(true);
+
+    // 차단하면 profiles 뿐 아니라 인증 쪽 계정도 잠겨 로그인이 막힌다.
+    // 이게 막히지 않으면, 이미 로그인해 둔 브라우저의 세션도 살아 있다는 뜻이다.
+    await blockUser(boss, targetId);
+    expect(await canSignIn(targetName)).toBe(false);
+
+    // 해제하면 잠금도 함께 풀린다.
+    await unblockUser(boss, targetId);
+    expect(await canSignIn(targetName)).toBe(true);
+  }, 30_000);
+});
+
+describe.skipIf(!hasTestDb)("동시 저장", () => {
+  it("먼저 저장한 사람의 운영안을 덮어쓰지 않는다", async () => {
+    const { createCampaign } = await import("@/lib/db/campaigns");
+    const { createEvent, saveEventPlan } = await import("@/lib/db/events");
+    const { OPTIMISTIC_LOCK_CONFLICT_MESSAGE } = await import("@/lib/db/optimistic-lock");
+    const { BUILTIN_EVENT_TEMPLATE_ID } = await import("@/lib/db/defaults");
+
+    const campaign = await createCampaign({ name: "동시저장 캠페인", company_name: "브랜드", campaign_type: "shipping" });
+    const event = await createEvent({
+      campaign_id: campaign.id, name: "행사", event_at: null, venue: null, memo: null,
+    });
+
+    // 두 사람이 같은 화면을 열었다. 둘 다 이 시각을 들고 있다.
+    const first = await saveEventPlan({
+      event_id: event.id, template_id: BUILTIN_EVENT_TEMPLATE_ID, field_values: { intro: "처음" },
+    });
+    const openedAt = first.updated_at;
+
+    // 먼저 저장한 사람.
+    const second = await saveEventPlan({
+      event_id: event.id, template_id: BUILTIN_EVENT_TEMPLATE_ID, field_values: { intro: "먼저 저장" },
+      expected_updated_at: openedAt,
+    });
+    expect(second.field_values.intro).toBe("먼저 저장");
+
+    // 뒤늦게 저장하는 사람은 옛 시각을 들고 있어 거부된다.
+    await expect(
+      saveEventPlan({
+        event_id: event.id, template_id: BUILTIN_EVENT_TEMPLATE_ID, field_values: { intro: "덮어쓰기" },
+        expected_updated_at: openedAt,
+      })
+    ).rejects.toThrow(OPTIMISTIC_LOCK_CONFLICT_MESSAGE);
+
+    // 먼저 저장한 내용이 그대로 남아 있다.
+    const { getEventPlan } = await import("@/lib/db/events");
+    const now = await getEventPlan(event.id);
+    expect(now?.field_values.intro).toBe("먼저 저장");
+
+    // 시각을 안 보내면(옛 화면) 예전처럼 그냥 덮어쓴다. 하위 호환.
+    const forced = await saveEventPlan({
+      event_id: event.id, template_id: BUILTIN_EVENT_TEMPLATE_ID, field_values: { intro: "옛 화면" },
+    });
+    expect(forced.field_values.intro).toBe("옛 화면");
+  }, 30_000);
+});

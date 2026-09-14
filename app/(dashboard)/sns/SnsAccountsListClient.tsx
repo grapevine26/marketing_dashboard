@@ -303,6 +303,9 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
               <p className="text-text-muted">
                 연동된 사전설문 답변, SNS 채널 운영 제안서(PPT), 월간 콘텐츠 캘린더 등 모든 데이터가 영구 삭제됩니다.
               </p>
+              <p className="text-text-muted">
+                첨부한 시안 이미지·영상 파일도 저장소에서 지워지며 되살릴 수 없습니다.
+              </p>
             </div>
 
             {deleteError && (

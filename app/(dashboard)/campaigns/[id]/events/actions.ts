@@ -1,5 +1,7 @@
 "use server";
 
+// 규칙: 액션 본문 첫 문장은 `return runAuthedAction(...)`. 존재 확인·DB 조회를 그 앞에서 하면 인증 전에 실행된다.
+
 import { revalidatePath } from "next/cache";
 import {
   createEvent,
@@ -18,12 +20,17 @@ import {
   getPreSurveyResponse,
   getPreSurveyTemplate,
   getPptTemplateById,
+  ValidationError,
 } from "@/lib/db";
 import { MarketingEvent, EventInvitee, EventChecklistItem, EventRsvpStatus, EventStatus, EventPlan } from "@/lib/db/types";
 import { generateEventPlanDraft } from "@/lib/ai/eventPlanAssist";
 import { labelAnswers } from "@/lib/ai/config";
 import { kstLocalInputToIso, formatKstDateTime } from "@/lib/seeding/dday";
-import { ActionResult, runAuthedAction, fail } from "@/lib/actions/result";
+import { ActionResult, runAuthedAction } from "@/lib/actions/result";
+
+const EVENT_NOT_FOUND = "행사가 이미 삭제되었거나 찾을 수 없습니다. 화면을 새로고침해주세요.";
+const INVITEE_NOT_FOUND = "초대 명단 항목이 이미 삭제되었거나 찾을 수 없습니다. 화면을 새로고침해주세요.";
+const CHECKLIST_NOT_FOUND = "체크리스트 항목이 이미 삭제되었거나 찾을 수 없습니다. 화면을 새로고침해주세요.";
 
 function revalidateEvent(campaignId: string, eventId?: string) {
   revalidatePath(`/campaigns/${campaignId}`);
@@ -41,7 +48,7 @@ export async function createEventAction(data: {
   venue: string | null;
   memo: string | null;
 }): Promise<ActionResult<{ id: string }>> {
-  const res = await runAuthedAction(async () => {
+  return runAuthedAction(async () => {
     const ev = await createEvent({
       campaign_id: data.campaignId,
       name: data.name,
@@ -49,10 +56,9 @@ export async function createEventAction(data: {
       venue: data.venue,
       memo: data.memo,
     });
+    revalidateEvent(data.campaignId);
     return { id: ev.id };
   });
-  if (res.ok) revalidateEvent(data.campaignId);
-  return res;
 }
 
 export async function updateEventAction(data: {
@@ -60,7 +66,7 @@ export async function updateEventAction(data: {
   campaignId: string;
   patch: { name?: string; eventAtLocal?: string | null; venue?: string | null; memo?: string | null; status?: EventStatus };
 }): Promise<ActionResult<MarketingEvent>> {
-  const res = await runAuthedAction(async () => {
+  return runAuthedAction(async () => {
     const ev = await updateEvent(data.eventId, {
       name: data.patch.name,
       event_at: data.patch.eventAtLocal === undefined ? undefined : kstLocalInputToIso(data.patch.eventAtLocal),
@@ -68,21 +74,19 @@ export async function updateEventAction(data: {
       memo: data.patch.memo,
       status: data.patch.status,
     });
-    if (!ev) throw new Error("not found");
+    if (!ev) throw new ValidationError(EVENT_NOT_FOUND);
+    revalidateEvent(data.campaignId, data.eventId);
     return ev;
   });
-  if (res.ok) revalidateEvent(data.campaignId, data.eventId);
-  return res;
 }
 
 export async function deleteEventAction(eventId: string, campaignId: string): Promise<ActionResult<null>> {
-  const res = await runAuthedAction(async () => {
+  return runAuthedAction(async () => {
     const okDel = await deleteEvent(eventId);
-    if (!okDel) throw new Error("not found");
+    if (!okDel) throw new ValidationError(EVENT_NOT_FOUND);
+    revalidateEvent(campaignId);
     return null;
   });
-  if (res.ok) revalidateEvent(campaignId);
-  return res;
 }
 
 export async function addInviteesFromApplicantsAction(
@@ -90,10 +94,14 @@ export async function addInviteesFromApplicantsAction(
   campaignId: string,
   applicantIds: string[]
 ): Promise<ActionResult<EventInvitee[]>> {
-  if (!Array.isArray(applicantIds) || applicantIds.length === 0) return fail("초청할 지원자를 선택해주세요.");
-  const res = await runAuthedAction(() => addEventInviteesFromApplicants(eventId, applicantIds));
-  if (res.ok) revalidateEvent(campaignId, eventId);
-  return res;
+  return runAuthedAction(async () => {
+    if (!Array.isArray(applicantIds) || applicantIds.length === 0) {
+      throw new ValidationError("초청할 지원자를 선택해주세요.");
+    }
+    const added = await addEventInviteesFromApplicants(eventId, applicantIds);
+    revalidateEvent(campaignId, eventId);
+    return added;
+  });
 }
 
 export async function addDirectInviteeAction(data: {
@@ -104,17 +112,17 @@ export async function addDirectInviteeAction(data: {
   contact: string | null;
   memo: string | null;
 }): Promise<ActionResult<EventInvitee>> {
-  const res = await runAuthedAction(() =>
-    addDirectEventInvitee({
+  return runAuthedAction(async () => {
+    const added = await addDirectEventInvitee({
       event_id: data.eventId,
       name: data.name,
       sns_url: data.snsUrl,
       contact: data.contact,
       memo: data.memo,
-    })
-  );
-  if (res.ok) revalidateEvent(data.campaignId, data.eventId);
-  return res;
+    });
+    revalidateEvent(data.campaignId, data.eventId);
+    return added;
+  });
 }
 
 export async function updateInviteeAction(
@@ -123,22 +131,20 @@ export async function updateInviteeAction(
   eventId: string,
   patch: { rsvp_status?: EventRsvpStatus; attended?: boolean; memo?: string | null }
 ): Promise<ActionResult<EventInvitee>> {
-  const res = await runAuthedAction(async () => {
+  return runAuthedAction(async () => {
     const inv = await updateEventInvitee(inviteeId, patch);
-    if (!inv) throw new Error("not found");
+    if (!inv) throw new ValidationError(INVITEE_NOT_FOUND);
+    revalidateEvent(campaignId, eventId);
     return inv;
   });
-  if (res.ok) revalidateEvent(campaignId, eventId);
-  return res;
 }
 
 export async function deleteInviteeAction(inviteeId: string, campaignId: string, eventId: string): Promise<ActionResult<null>> {
-  const res = await runAuthedAction(async () => {
+  return runAuthedAction(async () => {
     await deleteEventInvitee(inviteeId);
+    revalidateEvent(campaignId, eventId);
     return null;
   });
-  if (res.ok) revalidateEvent(campaignId, eventId);
-  return res;
 }
 
 export async function addChecklistItemAction(data: {
@@ -148,16 +154,16 @@ export async function addChecklistItemAction(data: {
   dueDate: string | null;
   assignee: string | null;
 }): Promise<ActionResult<EventChecklistItem>> {
-  const res = await runAuthedAction(() =>
-    addEventChecklistItem({
+  return runAuthedAction(async () => {
+    const item = await addEventChecklistItem({
       event_id: data.eventId,
       label: data.label,
       due_date: data.dueDate,
       assignee: data.assignee,
-    })
-  );
-  if (res.ok) revalidateEvent(data.campaignId, data.eventId);
-  return res;
+    });
+    revalidateEvent(data.campaignId, data.eventId);
+    return item;
+  });
 }
 
 export async function updateChecklistItemAction(
@@ -166,39 +172,44 @@ export async function updateChecklistItemAction(
   eventId: string,
   patch: { label?: string; due_date?: string | null; assignee?: string | null; done?: boolean }
 ): Promise<ActionResult<EventChecklistItem>> {
-  const res = await runAuthedAction(async () => {
+  return runAuthedAction(async () => {
     const item = await updateEventChecklistItem(itemId, patch);
-    if (!item) throw new Error("not found");
+    if (!item) throw new ValidationError(CHECKLIST_NOT_FOUND);
+    revalidateEvent(campaignId, eventId);
     return item;
   });
-  if (res.ok) revalidateEvent(campaignId, eventId);
-  return res;
 }
 
 export async function deleteChecklistItemAction(itemId: string, campaignId: string, eventId: string): Promise<ActionResult<null>> {
-  const res = await runAuthedAction(async () => {
+  return runAuthedAction(async () => {
     await deleteEventChecklistItem(itemId);
+    revalidateEvent(campaignId, eventId);
     return null;
   });
-  if (res.ok) revalidateEvent(campaignId, eventId);
-  return res;
 }
 
+/**
+ * 운영안 저장. `expectedUpdatedAt` 은 화면이 불러올 때 받은 plan.updated_at 이다.
+ * 그 사이 다른 사람이 저장했으면 덮어쓰지 않고 오류를 돌려준다(낙관적 잠금).
+ * 안 보내면(옛 화면) 잠금 없이 저장한다. 성공하면 새 updated_at 이 담긴 운영안을 돌려준다.
+ */
 export async function saveEventPlanAction(data: {
   eventId: string;
   campaignId: string;
   templateId: string;
   fieldValues: Record<string, string>;
+  expectedUpdatedAt?: string | null;
 }): Promise<ActionResult<EventPlan>> {
-  const res = await runAuthedAction(() =>
-    saveEventPlan({
+  return runAuthedAction(async () => {
+    const plan = await saveEventPlan({
       event_id: data.eventId,
       template_id: data.templateId,
       field_values: data.fieldValues,
-    })
-  );
-  if (res.ok) revalidateEvent(data.campaignId, data.eventId);
-  return res;
+      expected_updated_at: data.expectedUpdatedAt,
+    });
+    revalidateEvent(data.campaignId, data.eventId);
+    return plan;
+  });
 }
 
 /**
@@ -211,19 +222,19 @@ export async function generateEventAiDraftAction(data: {
   placeholders: string[];
   currentValues: Record<string, string>;
 }): Promise<ActionResult<{ values: Record<string, string>; fallback: boolean }>> {
-  const event = await getEventById(data.eventId);
-  if (!event) return fail("행사를 찾을 수 없습니다.");
-  const [campaign, preSurvey, template, surveyTemplate] = await Promise.all([
-    getCampaignById(event.campaign_id),
-    getPreSurveyResponse(event.campaign_id),
-    getPptTemplateById(data.templateId),
-    getPreSurveyTemplate(),
-  ]);
-  if (!template) return fail("템플릿을 찾을 수 없습니다.");
-  const placeholders = data.placeholders.filter((p) => template.placeholders.includes(p));
-  if (placeholders.length === 0) return fail("생성할 항목이 없습니다.");
-
   return runAuthedAction(async () => {
+    const event = await getEventById(data.eventId);
+    if (!event) throw new ValidationError(EVENT_NOT_FOUND);
+    const [campaign, preSurvey, template, surveyTemplate] = await Promise.all([
+      getCampaignById(event.campaign_id),
+      getPreSurveyResponse(event.campaign_id),
+      getPptTemplateById(data.templateId),
+      getPreSurveyTemplate(),
+    ]);
+    if (!template) throw new ValidationError("템플릿이 삭제되었거나 찾을 수 없습니다. 화면을 새로고침해주세요.");
+    const placeholders = data.placeholders.filter((p) => template.placeholders.includes(p));
+    if (placeholders.length === 0) throw new ValidationError("생성할 항목이 없습니다.");
+
     const values = await generateEventPlanDraft({
       eventName: event.name,
       brandName: campaign?.company_name || "브랜드",

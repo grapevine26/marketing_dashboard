@@ -1,5 +1,6 @@
 import { requireAdmin } from "@/lib/auth/session";
 import { getUsers } from "@/lib/auth/users";
+import { getSignupInviteCode } from "@/lib/auth/settings";
 import UsersClient from "./UsersClient";
 import { Users } from "lucide-react";
 
@@ -10,6 +11,8 @@ export default async function UsersSettingsPage() {
   // 관리자만 통과한다. 아니면 requireAdmin 이 알맞은 화면으로 보낸다.
   const admin = await requireAdmin();
   const users = await getUsers();
+  // 코드는 대표 관리자에게만 보낸다. 관리자 화면의 HTML 에 값이 실리지 않게 서버에서 잘라낸다.
+  const inviteCode = admin.role === "owner" ? await getSignupInviteCode() : null;
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto font-sans">
@@ -25,7 +28,12 @@ export default async function UsersSettingsPage() {
 
       {/* 자기 자신을 구분하려면 id 가, 어떤 버튼을 보일지 정하려면 내 등급이 필요하다.
           관리자는 직원만 관리한다. 서버도 막지만 화면에서도 안 보이는 편이 낫다. */}
-      <UsersClient initialUsers={users} currentUserId={admin.id} myRole={admin.role} />
+      <UsersClient
+        initialUsers={users}
+        currentUserId={admin.id}
+        myRole={admin.role}
+        inviteCode={inviteCode}
+      />
     </div>
   );
 }

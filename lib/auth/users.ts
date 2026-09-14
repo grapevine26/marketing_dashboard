@@ -15,6 +15,28 @@ import { getAdminClient } from "../supabase/admin";
  * 모든 동작은 감사 로그에 남긴다. 누가 누구에게 권한을 줬는지는 나중에 반드시 필요해진다.
  */
 
+/** 차단이 풀릴 때까지의 시간. 사실상 무기한이고, 차단 해제가 "none" 으로 되돌린다. */
+const BAN_FOREVER = "876000h";
+
+/**
+ * 인증 쪽 계정을 잠그거나 푼다.
+ *
+ * profiles.status 만 바꾸면 이미 로그인한 브라우저의 세션은 그대로 살아 있다.
+ * 우리 화면은 요청마다 status 를 보므로 막히지만, 세션 자체를 끊어 두는 편이 한 겹 더 안전하다.
+ * 잠가 두면 인증 서버가 로그인과 토큰 갱신을 모두 거부한다.
+ *
+ * **실패해도 차단 자체는 되돌리지 않는다.** 진짜 방어선은 profiles.status 이고 그건 이미 바뀌었다.
+ * 여기서 예외를 올리면 인증 서버가 잠깐 흔들릴 때 관리자가 차단조차 못 하게 된다.
+ */
+async function setAuthBan(userId: string, banned: boolean): Promise<void> {
+  const { error } = await getAdminClient().auth.admin.updateUserById(userId, {
+    ban_duration: banned ? BAN_FOREVER : "none",
+  });
+  if (error) {
+    console.error(`[auth] 계정 ${banned ? "잠금" : "잠금 해제"} 실패 (${userId}): ${error.message}`);
+  }
+}
+
 export interface ManagedUser {
   id: string;
   username: string;
@@ -162,6 +184,8 @@ export async function blockUser(actor: SessionUser, userId: string): Promise<voi
   await guardLastOwner(target, "차단할");
   if (target.status === "blocked") return;
   unwrap(await db().from("profiles").update({ status: "blocked" }).eq("id", userId).select("id"));
+  // 남아 있던 로그인 세션도 끊는다. 상태만 바꾸면 갖고 있던 쿠키가 계속 살아 있다.
+  await setAuthBan(userId, true);
   await logUserAction(actor, target, "user.blocked", `${actor.display_name}가 ${target.display_name}(${target.username}) 계정을 차단했습니다.`);
 }
 
@@ -176,6 +200,7 @@ export async function unblockUser(actor: SessionUser, userId: string): Promise<v
       .eq("id", userId)
       .select("id")
   );
+  await setAuthBan(userId, false);
   await logUserAction(actor, target, "user.unblocked", `${actor.display_name}가 ${target.display_name}(${target.username}) 계정의 차단을 해제했습니다.`);
 }
 
@@ -216,6 +241,11 @@ export async function setUserRole(actor: SessionUser, userId: string, role: User
 /**
  * 비밀번호 초기화. 이메일이 없어 본인이 스스로 찾을 길이 없으므로 관리자가 임시값을 정해준다.
  * 임시 비밀번호는 화면에 한 번만 보여주고 저장하지 않는다.
+ *
+ * **남의 기기에 남아 있던 세션까지 끊지는 못한다.** 세션을 끊으려면 그 사람의 토큰이 필요한데
+ * 관리자는 그것을 갖고 있지 않다. 계정을 빼앗긴 것으로 의심되면 초기화만 하지 말고
+ * **차단했다가 다시 풀어라.** 차단이 인증 쪽 계정을 잠가 남은 세션을 모두 끊는다.
+ * 본인이 직접 바꾸는 경우(lib/auth/profile.ts)는 다른 기기의 세션을 끊는다.
  */
 export async function resetUserPassword(actor: SessionUser, userId: string, newPassword: string): Promise<void> {
   const target = await readProfile(userId);

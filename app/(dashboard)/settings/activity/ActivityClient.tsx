@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import type { AuditActorType, AuditLogEntry } from "@/lib/db/types";
 import { fetchActivityAction } from "./actions";
 import { safeCall } from "@/lib/actions/safeCall";
+import { toKstDateString } from "@/lib/seeding/dday";
 import { toast } from "@/components/Toast";
 import {
   Activity,
@@ -78,16 +79,25 @@ function sinceFor(period: PeriodKey): string | undefined {
   return d.toISOString();
 }
 
-/** 같은 날짜끼리 묶는다. 오늘·어제는 말로 쓴다. */
+/**
+ * 같은 날짜끼리 묶는다. 오늘·어제는 말로 쓴다.
+ *
+ * 날짜 키는 한국 시간(Asia/Seoul)으로 고정한다. 서버는 UTC 로 돌아서 브라우저 로컬 시간으로 묶으면
+ * 서버 렌더와 클라이언트 렌더의 묶음이 달라져 하이드레이션 경고가 난다(자정 전후 기록이 특히 그렇다).
+ */
 function dayLabel(iso: string): string {
   const d = new Date(iso);
-  const today = new Date();
-  const ymd = (x: Date) => `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`;
-  if (ymd(d) === ymd(today)) return "오늘";
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  if (ymd(d) === ymd(yesterday)) return "어제";
-  return d.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
+  const now = Date.now();
+  const key = toKstDateString(d);
+  if (key === toKstDateString(new Date(now))) return "오늘";
+  if (key === toKstDateString(new Date(now - 24 * 3600000))) return "어제";
+  return d.toLocaleDateString("ko-KR", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+  });
 }
 
 export default function ActivityClient({

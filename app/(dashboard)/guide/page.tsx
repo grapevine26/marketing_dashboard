@@ -79,7 +79,7 @@ const TROUBLE = [
   },
   {
     q: "AI 버튼을 눌렀더니 AI 제안 실패라고 나옵니다.",
-    a: "Gemini API 키가 설정돼 있지 않거나 일시적으로 응답하지 않은 경우입니다. 서버의 GEMINI_API_KEY 환경변수를 확인하세요. 키가 없어도 나머지 기능은 모두 정상 동작하며, 해당 칸은 직접 입력하면 됩니다.",
+    a: "AI 연결이 끊겼거나 일시적으로 응답하지 않은 경우입니다. 몇 분 뒤 다시 눌러도 계속 안 되면 담당 개발자에게 알려주세요. AI가 안 돼도 나머지 기능은 모두 정상 동작하며, 해당 칸은 직접 입력하면 됩니다.",
   },
   {
     q: "지원폼을 테스트하는데 갑자기 제출이 막힙니다.",
@@ -225,8 +225,13 @@ export default function GuidePage() {
             <h3 className="text-sm font-bold text-text">가입부터 로그인까지</h3>
             <p className="text-xs text-text-2 leading-relaxed">
               로그인 화면의 <strong>[가입하기]</strong>에서 아이디·이름·비밀번호를 정해 신청합니다. 이메일은 쓰지 않습니다.
+              가입에는 <strong>초대 코드</strong>가 필요합니다. 대표 관리자가 [관리 → 사용자 관리] 상단에서 코드를 만들어
+              직원에게 알려주며, 코드가 없으면 가입이 막혀 있습니다.
               신청 직후에는 <strong>승인 대기</strong> 화면만 보이고, 관리자가 승인하면 그때부터 들어올 수 있습니다.
               <strong>[로그인 상태 유지]</strong>를 켜면 브라우저를 닫아도 로그인이 남습니다. 공용 PC에서는 끄세요.
+            </p>
+            <p className="text-xs text-text-2 leading-relaxed">
+              비밀번호를 <strong>10회 틀리면 15분 동안 잠깁니다</strong>. 고장이 아니니 15분 뒤에 다시 시도하세요.
             </p>
           </div>
 
@@ -236,6 +241,7 @@ export default function GuidePage() {
               <strong>직원</strong>은 캠페인·행사·SNS 업무 전체를 합니다. <strong>관리자</strong>는 여기에 더해 직원의
               가입 승인·차단·비밀번호 초기화를 합니다. <strong>대표 관리자</strong>만 등급을 바꾸고 관리자를 관리하며,
               활동 기록을 볼 수 있습니다. 등급은 대표 관리자가 [관리 → 사용자 관리]에서 정합니다.
+              캠페인과 SNS 계정 <strong>삭제는 관리자 이상만</strong> 할 수 있습니다.
             </p>
           </div>
 
@@ -613,8 +619,8 @@ export default function GuidePage() {
         </div>
 
         <p className="text-[11px] text-text-muted leading-relaxed">
-          [계정 수정]으로 브랜드명·핸들·플랫폼을 고치고, 운영중과 계약종료 상태 전환과 계정 삭제도 같은 화면에서 합니다. 계정을 삭제하면 콘텐츠·기획안·설문
-          응답과 첨부한 시안 파일까지 함께 지워집니다.
+          [계정 수정]으로 브랜드명·핸들·플랫폼을 고치고, 운영중과 계약종료 상태 전환도 같은 화면에서 합니다. 계정 삭제는
+          SNS 계정 목록의 카드에서 합니다. 계정을 삭제하면 콘텐츠·기획안·설문 응답과 첨부한 시안 파일까지 함께 지워집니다.
         </p>
       </section>
 
@@ -738,8 +744,9 @@ export default function GuidePage() {
           <div className="p-5 rounded-2xl bg-surface border border-border space-y-2">
             <h3 className="text-sm font-bold text-text">화면 테마와 데이터 백업</h3>
             <p className="text-xs text-text-2 leading-relaxed">
-              왼쪽 아래에서 다크와 화이트를 고를 수 있고 다음에 열 때도 유지됩니다. 데이터는 저장할 때마다 일정 간격으로
-              백업본이 쌓이며, 문제가 생기면 서버에서 복원 명령으로 되돌립니다.
+              왼쪽 아래에서 다크와 화이트를 고를 수 있고 다음에 열 때도 유지됩니다. 데이터는 <strong>매일 새벽 3시</strong>에
+              자동으로 백업되어 <strong>30일치</strong>가 보관됩니다. 잘못 지웠다면 전체를 되돌리지 않고 캠페인 하나만 되살릴
+              수도 있으니 담당 개발자에게 요청하세요.
             </p>
           </div>
         </div>

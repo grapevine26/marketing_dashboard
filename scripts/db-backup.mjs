@@ -3,8 +3,13 @@
  * Supabase 데이터 백업과 복원.
  *
  *   npm run db:backup                          → 전체 테이블을 JSON 한 파일로 내려받는다
- *   npm run db:backup -- --list                → 받아둔 백업 목록
+ *   npm run db:backup -- --list                → 받아둔 백업 목록 (.data/backups/)
  *   npm run db:backup -- --restore <파일> --yes → 그 백업으로 되돌린다 (현재 데이터를 전부 지운다)
+ *
+ * 크론이 매일 Vercel Blob(backups/)에 쌓는 백업을 로컬로 가져오기 (BLOB_READ_WRITE_TOKEN 필요):
+ *   npm run db:backup -- --list-remote         → Blob 에 있는 백업 목록 (이름·크기·시각)
+ *   npm run db:backup -- --pull                → 가장 최근 것 하나를 .data/backups/ 에 저장
+ *   npm run db:backup -- --pull <이름>          → 그 이름의 백업을 저장
  *
  * 하나만 되살리기 (지금 데이터는 건드리지 않고 그것만 다시 넣는다):
  *   npm run db:backup -- --from <파일> --campaigns                 → 백업에 담긴 캠페인 목록
@@ -14,12 +19,40 @@
  *
  * 대상은 기본이 운영(SUPABASE_DB_URL)이고, `--test` 를 붙이면 테스트 프로젝트다.
  *
+ * 잘못 복원했으면: --restore 직전 상태가 .data/backups/pre-restore-*.json 에 남으므로
+ * 그 파일로 다시 --restore 하면 된다.
+ *
+ * 계정 테이블(profiles)은 여기서 백업·복원하지 않는다. 크론 백업(lib/db/backup.ts)에는 profiles 가
+ * 들어 있지만, --restore 는 아래 TABLES 만 truncate 하고 덤프의 나머지 테이블은 무시한다.
+ * profiles 를 비우면 auth.users 와 어긋나 로그인이 깨진다. 로그인 계정 자체(auth.users)는
+ * 어느 백업에도 없고 Supabase 가 보관한다.
+ *
  * Supabase 플랜에 따라 자동 백업이 없을 수 있어서 둔다. 중요한 작업 전에 한 번 받아두면
  * 실수로 지웠을 때 되돌릴 수 있다.
  */
 import fs from "fs";
 import path from "path";
 import pg from "pg";
+
+const HELP = `사용법:
+  npm run db:backup                                   지금 DB 를 .data/backups/ 에 받는다
+  npm run db:backup -- --list                         받아둔 백업 목록
+  npm run db:backup -- --restore <파일> --yes          그 백업으로 되돌린다 (현재 데이터를 전부 지운다)
+  npm run db:backup -- --list-remote                  Vercel Blob(backups/)의 크론 백업 목록
+  npm run db:backup -- --pull [이름]                   Blob 백업을 .data/backups/ 로 내려받는다 (생략 시 최신)
+  npm run db:backup -- --from <파일> --campaigns       백업에 담긴 캠페인 목록
+  npm run db:backup -- --from <파일> --campaign <이름|id> --yes   그 캠페인만 복구
+  npm run db:backup -- --from <파일> --sns-accounts    백업에 담긴 SNS 계정 목록
+  npm run db:backup -- --from <파일> --sns <이름|핸들|id> --yes   그 SNS 계정만 복구
+  --test 를 붙이면 운영 대신 테스트 프로젝트(SUPABASE_TEST_DB_URL)를 대상으로 한다.
+
+--list-remote / --pull 은 BLOB_READ_WRITE_TOKEN 이 필요하다 (.env.local 에는 없다):
+  PowerShell : $env:BLOB_READ_WRITE_TOKEN="vercel_blob_rw_..."; npm run db:backup -- --pull
+  Git Bash   : BLOB_READ_WRITE_TOKEN=vercel_blob_rw_... npm run db:backup -- --pull
+  토큰 위치  : Vercel 대시보드 → Storage → Blob 스토어 → ".env.local" 탭
+
+잘못 복원했으면 .data/backups/pre-restore-*.json 으로 다시 --restore 하면 된다.
+계정 테이블(profiles)과 로그인(auth.users)은 이 스크립트가 건드리지 않는다.`;
 
 try {
   process.loadEnvFile(path.join(process.cwd(), ".env.local"));
@@ -51,17 +84,28 @@ const campaignTarget = argAfter("--campaign");
 const listSnsAccounts = args.includes("--sns-accounts");
 const snsTarget = argAfter("--sns");
 const confirmed = args.includes("--yes");
+const wantHelp = args.includes("--help") || args.includes("-h");
+const wantListRemote = args.includes("--list-remote");
+const wantPull = args.includes("--pull");
+const pullTarget = argAfter("--pull");
 
-const envName = isTest ? "SUPABASE_TEST_DB_URL" : "SUPABASE_DB_URL";
-const url = process.env[envName];
-if (!url) {
-  console.error(`${envName} 이 .env.local 에 없습니다.`);
-  process.exit(1);
+if (wantHelp) {
+  console.log(HELP);
+  process.exit(0);
 }
 
 const backupDir = path.join(process.cwd(), ".data", "backups");
 
-/** 부모 → 자식 순서. 복원할 때 이 순서로 넣어야 외래키가 걸리지 않는다. */
+/** 크론이 Blob 에 쓰는 갈래. lib/db/storage.ts 의 BACKUP_PREFIX 와 같아야 한다. */
+const REMOTE_PREFIX = "backups/";
+
+/**
+ * 부모 → 자식 순서. 복원할 때 이 순서로 넣어야 외래키가 걸리지 않는다.
+ *
+ * profiles 는 일부러 뺐다. 크론 백업(lib/db/backup.ts 의 BACKUP_TABLES)에는 들어 있지만,
+ * 여기서 truncate 하면 auth.users 와 어긋나 모든 계정의 로그인이 깨진다. --restore 는 이
+ * 목록만 돌기 때문에 덤프에 profiles 가 있어도 무시한다.
+ */
 const TABLES = [
   "campaigns",
   "pre_survey_template",
@@ -103,6 +147,136 @@ if (wantList) {
     for (const b of all) console.log(`  ${b.file}  ${(b.size / 1024).toFixed(0)} KB`);
   }
   process.exit(0);
+}
+
+// ---------- Blob 의 크론 백업 (DB 연결 없이 동작) ----------
+
+/** 덤프의 테이블별 행 수를 "테이블=N" 꼴로 이어 붙인다. 빈 테이블은 뺀다. */
+function describeCounts(tables) {
+  return Object.entries(tables)
+    .filter(([, rows]) => Array.isArray(rows) && rows.length > 0)
+    .map(([t, rows]) => `${t}=${rows.length}`)
+    .join(" ");
+}
+
+function requireBlobToken() {
+  if (process.env.BLOB_READ_WRITE_TOKEN) return;
+  console.error(
+    [
+      "BLOB_READ_WRITE_TOKEN 이 없습니다. Blob 의 백업 목록은 이 토큰으로만 읽을 수 있습니다.",
+      "",
+      "토큰 위치: Vercel 대시보드 → Storage → Blob 스토어 → \".env.local\" 탭 → BLOB_READ_WRITE_TOKEN",
+      "",
+      "셸에서 한 번만 넣고 실행하세요 (.env.local 에는 넣지 않는 게 낫습니다. 로컬 앱이 Blob 을 타게 됩니다):",
+      "  PowerShell : $env:BLOB_READ_WRITE_TOKEN=\"vercel_blob_rw_...\"; npm run db:backup -- --pull",
+      "  Git Bash   : BLOB_READ_WRITE_TOKEN=vercel_blob_rw_... npm run db:backup -- --pull",
+    ].join("\n")
+  );
+  process.exit(1);
+}
+
+/** Blob 의 backups/supabase-*.json 을 전부 나열한다. 최신이 앞. */
+async function listRemoteBackups() {
+  const { list } = await import("@vercel/blob");
+  const out = [];
+  let cursor;
+  do {
+    const res = await list({ prefix: REMOTE_PREFIX, cursor });
+    for (const b of res.blobs) {
+      const key = b.pathname.slice(REMOTE_PREFIX.length);
+      if (/^supabase-\d{8}-\d{6}\.json$/.test(key)) {
+        out.push({ key, pathname: b.pathname, size: b.size, uploadedAt: new Date(b.uploadedAt) });
+      }
+    }
+    cursor = res.hasMore ? res.cursor : undefined;
+  } while (cursor);
+  // 이름이 UTC 시각이라 이름 역순이 곧 최신순이다.
+  return out.sort((a, b) => b.key.localeCompare(a.key));
+}
+
+const fmtKst = (d) => d.toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false });
+
+if (wantListRemote) {
+  requireBlobToken();
+  const all = await listRemoteBackups();
+  if (all.length === 0) {
+    console.log(`Blob(${REMOTE_PREFIX})에 백업이 없습니다. 크론(/api/cron/backup)이 돌았는지 확인하세요.`);
+  } else {
+    console.log(`Blob 백업 ${all.length}개 (${REMOTE_PREFIX}, 시각은 KST):`);
+    for (const b of all) console.log(`  ${b.key}  ${(b.size / 1024).toFixed(0).padStart(6)} KB  ${fmtKst(b.uploadedAt)}`);
+    console.log(`\n내려받기: npm run db:backup -- --pull ${all[0].key}   (이름을 빼면 최신 것)`);
+  }
+  process.exit(0);
+}
+
+if (wantPull) {
+  requireBlobToken();
+  const { get } = await import("@vercel/blob");
+
+  // 이름은 "supabase-….json" 이든 "backups/supabase-….json" 이든 받는다.
+  let key = pullTarget && !pullTarget.startsWith("--") ? pullTarget.replace(/^backups\//, "") : null;
+  if (!key) {
+    const all = await listRemoteBackups();
+    if (all.length === 0) {
+      console.error(`Blob(${REMOTE_PREFIX})에 백업이 없습니다.`);
+      process.exit(1);
+    }
+    key = all[0].key;
+    console.log(`최신 백업: ${key} (${fmtKst(all[0].uploadedAt)})`);
+  }
+  if (!/^supabase-\d{8}-\d{6}\.json$/.test(key)) {
+    console.error(`백업 이름 형식이 아닙니다: ${key}  (예: supabase-20260915-180000.json)`);
+    process.exit(1);
+  }
+
+  const res = await get(`${REMOTE_PREFIX}${key}`, { access: "private" });
+  if (!res || res.statusCode !== 200 || !res.stream) {
+    console.error(`Blob 에서 찾지 못했습니다: ${REMOTE_PREFIX}${key}\n목록: npm run db:backup -- --list-remote`);
+    process.exit(1);
+  }
+  const text = Buffer.from(await new Response(res.stream).arrayBuffer()).toString("utf-8");
+
+  // 저장 전에 형식을 검사한다. 깨진 파일을 .data/backups 에 두면 --list 에 섞여 헷갈린다.
+  let dump;
+  try {
+    dump = JSON.parse(text);
+  } catch (err) {
+    console.error(`JSON 으로 읽을 수 없습니다: ${err.message}`);
+    process.exit(1);
+  }
+  if (!dump || typeof dump !== "object" || !dump.tables || typeof dump.tables !== "object") {
+    console.error("백업 파일 형식이 올바르지 않습니다 (tables 가 없음). lib/db/backup.ts 의 BackupDump 형식이어야 합니다.");
+    process.exit(1);
+  }
+
+  // 크론이 만든 파일은 이미 --restore 가 읽는 형식(created_at, source, tables)이라 그대로 둔다.
+  // 다만 압축돼 있어 사람이 보기 어려우니 로컬 백업과 같이 들여쓰기해서 저장한다.
+  fs.mkdirSync(backupDir, { recursive: true });
+  const dest = path.join(backupDir, key);
+  fs.writeFileSync(dest, JSON.stringify(dump, null, 2), "utf-8");
+
+  const total = Object.values(dump.tables).reduce((a, r) => a + (Array.isArray(r) ? r.length : 0), 0);
+  console.log(`저장: ${dest}`);
+  console.log(`백업 시각: ${dump.created_at ?? "?"}  출처: ${dump.source ?? "?"}`);
+  console.log(`전체 ${total}행`);
+  for (const [t, rows] of Object.entries(dump.tables)) {
+    if (Array.isArray(rows) && rows.length) console.log(`  ${t}: ${rows.length}`);
+  }
+  const extra = Object.keys(dump.tables).filter((t) => !TABLES.includes(t));
+  if (extra.length) {
+    console.log(`\n참고: ${extra.join(", ")} 은(는) --restore 가 건드리지 않습니다 (계정 테이블은 복원 대상이 아님).`);
+  }
+  console.log(`\n캠페인 하나만 복구: npm run db:backup -- --from ${key} --campaigns`);
+  process.exit(0);
+}
+
+// ---------- 여기부터는 DB 연결이 필요하다 ----------
+
+const envName = isTest ? "SUPABASE_TEST_DB_URL" : "SUPABASE_DB_URL";
+const url = process.env[envName];
+if (!url) {
+  console.error(`${envName} 이 .env.local 에 없습니다.`);
+  process.exit(1);
 }
 
 /** 백업 파일을 읽는다. 경로는 절대경로거나 .data/backups 안의 파일명. */
@@ -350,10 +524,12 @@ try {
       process.exit(1);
     }
 
-    const counts = Object.entries(dump.tables).filter(([, rows]) => rows.length > 0);
     console.log(`복원 대상: ${isTest ? "테스트" : "운영"} (${new URL(url).hostname})`);
     console.log(`백업 시각: ${dump.created_at}`);
-    console.log(`담긴 행  : ${counts.map(([t, r]) => `${t}=${r.length}`).join(" ") || "(없음)"}`);
+    console.log(`담긴 행  : ${describeCounts(dump.tables) || "(없음)"}`);
+    // 크론 백업에는 profiles 처럼 이 스크립트가 복원하지 않는 테이블이 섞여 있다. 그건 그대로 둔다.
+    const skipped = Object.keys(dump.tables).filter((t) => !TABLES.includes(t));
+    if (skipped.length) console.log(`건너뜀  : ${skipped.join(", ")} (계정 테이블은 복원하지 않는다)`);
 
     if (!confirmed) {
       console.error(

@@ -9,8 +9,9 @@ import {
   resetUserPassword,
   deleteUser,
 } from "@/lib/auth/users";
+import { rotateSignupInviteCode } from "@/lib/auth/settings";
 import type { UserRole } from "@/lib/auth/session";
-import { type ActionResult, runAdminAction } from "@/lib/actions/result";
+import { type ActionResult, runAdminAction, runOwnerAction } from "@/lib/actions/result";
 
 /**
  * 사용자 관리 서버 액션.
@@ -91,6 +92,18 @@ export async function deleteUserAction(userId: string): Promise<ActionResult<nul
     await deleteUser(admin, userId);
     return null;
   });
+  revalidatePath(USERS_PATH);
+  return res;
+}
+
+/**
+ * 가입 초대 코드를 새로 만든다. **대표 관리자만.**
+ *
+ * 코드를 아는 사람만 가입 신청을 할 수 있으므로, 코드를 바꿀 수 있다는 것은
+ * 누구를 들일지 정하는 권한과 같다. 그래서 관리자가 아니라 대표로 좁힌다.
+ */
+export async function rotateInviteCodeAction(): Promise<ActionResult<{ code: string }>> {
+  const res = await runOwnerAction(async (owner) => ({ code: await rotateSignupInviteCode(owner) }));
   revalidatePath(USERS_PATH);
   return res;
 }

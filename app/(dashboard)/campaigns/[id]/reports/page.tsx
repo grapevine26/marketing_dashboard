@@ -67,7 +67,15 @@ export default async function ReportsListPage({
                 <div className="flex items-center justify-between text-xs text-text-muted font-mono">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5" />
-                    {new Date(rep.generated_at || rep.created_at).toLocaleString()}
+                    {/* 서버 컴포넌트라 기본 시간대가 서버(UTC)를 따른다. 한국 시간으로 못 박는다. */}
+                    {new Date(rep.generated_at || rep.created_at).toLocaleString("ko-KR", {
+                      timeZone: "Asia/Seoul",
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </span>
                   <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-semibold text-[10px]">
                     스냅샷 보존

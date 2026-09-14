@@ -13,7 +13,13 @@ const ROLE_ICONS = { owner: Crown, admin: ShieldCheck, staff: Shield } as const;
 
 function formatDate(iso: string | null): string {
   if (!iso) return "-";
-  return new Date(iso).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
+  // 서버 렌더(UTC)와 브라우저(KST)가 다른 날짜를 내면 하이드레이션 경고가 난다. 시간대를 고정한다.
+  return new Date(iso).toLocaleDateString("ko-KR", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 }
 
 export default function ProfileClient({

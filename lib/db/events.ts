@@ -6,7 +6,7 @@
  *
  * - 행사를 지우면 초대·체크리스트·운영안은 DB fk cascade 가 함께 지운다. 코드에서 따로 걸러내지 않는다.
  * - 초대의 applicant_id 는 fk `on delete set null` 이라 지원자가 지워져도 초대 기록은 남는다.
- * - 운영안은 행사당 하나(event_id unique)라 upsert 로 저장한다.
+ * - 운영안은 행사당 하나(event_id unique)다. 문서 전체를 덮어쓰므로 optimistic-lock 의 낙관적 잠금으로 저장한다.
  *
  * 캠페인·지원자 행은 다른 도메인 모듈을 거치지 않고 직접 조회한다(순환 의존 방지).
  * 유일한 예외는 운영안 템플릿 확인이다. 내장 템플릿은 DB 가 아니라 코드에 있어서
@@ -25,6 +25,7 @@ import {
   type EventPlanRow,
   type EventRow,
 } from "./mappers";
+import { writeWithOptimisticLock } from "./optimistic-lock";
 import { getPptTemplateById } from "./ppt-templates";
 import {
   EVENT_STATUS_LABELS,
@@ -647,15 +648,19 @@ export async function getEventPlan(eventId: string): Promise<EventPlan | null> {
 }
 
 /**
- * 운영안 저장. 있으면 덮어쓰고 없으면 만든다(event_id 기준 upsert).
+ * 운영안 저장. 있으면 덮어쓰고 없으면 만든다(event_id 기준).
  * - 행사가 없으면 ValidationError.
  * - 템플릿은 반드시 kind === "event" 여야 한다. 내장 템플릿도 허용되므로
  *   DB 를 직접 보지 않고 `getPptTemplateById` (내장 + 업로드 합산) 로 확인한다.
+ * - 문서 전체를 덮어쓰므로 낙관적 잠금을 건다. 화면이 불러올 때 받은 updated_at 을
+ *   `expected_updated_at` 으로 보내면, 그 사이 다른 사람이 저장한 경우 ValidationError.
+ *   안 보내면(옛 화면) 잠금 없이 저장한다.
  */
 export async function saveEventPlan(data: {
   event_id: string;
   template_id: string;
   field_values: Record<string, string>;
+  expected_updated_at?: string | null;
 }): Promise<EventPlan> {
   const values = cleanFieldValues(data.field_values);
   const ev = await requireEventBrief(data.event_id);
@@ -665,21 +670,13 @@ export async function saveEventPlan(data: {
     throw new ValidationError("행사용 PPT 템플릿을 선택해주세요.");
   }
 
-  const row = unwrap(
-    await db()
-      .from("event_plans")
-      .upsert(
-        {
-          event_id: data.event_id,
-          template_id: template.id,
-          field_values: values,
-          updated_at: nowIso(),
-        },
-        { onConflict: "event_id" }
-      )
-      .select("*")
-      .single<EventPlanRow>()
-  );
+  const row = await writeWithOptimisticLock<EventPlanRow>({
+    table: "event_plans",
+    keyColumn: "event_id",
+    keyValue: data.event_id,
+    values: { event_id: data.event_id, template_id: template.id, field_values: values },
+    expectedUpdatedAt: data.expected_updated_at,
+  });
   const plan = rowToEventPlan(row);
 
   await insertAuditLog({

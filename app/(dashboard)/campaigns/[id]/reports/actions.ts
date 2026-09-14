@@ -1,19 +1,18 @@
 "use server";
 
-import { createReport, updateReportCustomSections } from "@/lib/db";
+// 규칙: 액션 본문 첫 문장은 `return runAuthedAction(...)`. 존재 확인·DB 조회를 그 앞에서 하면 인증 전에 실행된다.
+
+import { createReport, updateReportCustomSections, ValidationError } from "@/lib/db";
 import { CustomSection } from "@/lib/db/types";
 import { revalidatePath } from "next/cache";
-import { ActionResult, runAuthedAction, fail } from "@/lib/actions/result";
+import { ActionResult, runAuthedAction } from "@/lib/actions/result";
 
 export async function createReportAction(campaignId: string): Promise<ActionResult<{ id: string }>> {
-  const res = await runAuthedAction(async () => {
+  return runAuthedAction(async () => {
     const report = await createReport(campaignId);
+    revalidatePath(`/campaigns/${campaignId}/reports`);
     return { id: report.id };
   });
-  if (res.ok) {
-    revalidatePath(`/campaigns/${campaignId}/reports`);
-  }
-  return res;
 }
 
 export async function saveReportSectionsAction(params: {
@@ -21,12 +20,10 @@ export async function saveReportSectionsAction(params: {
   campaignId: string;
   customSections: CustomSection[];
 }): Promise<ActionResult<{ saved: true }>> {
-  const res = await runAuthedAction(async () => {
+  return runAuthedAction(async () => {
     const report = await updateReportCustomSections(params.reportId, params.customSections);
-    if (!report) throw new Error("not found");
+    if (!report) throw new ValidationError("보고서가 이미 삭제되었거나 찾을 수 없습니다. 화면을 새로고침해주세요.");
+    revalidatePath(`/campaigns/${params.campaignId}/reports/${params.reportId}`);
     return { saved: true as const };
   });
-  if (!res.ok) return fail(res.error);
-  revalidatePath(`/campaigns/${params.campaignId}/reports/${params.reportId}`);
-  return res;
 }

@@ -1,5 +1,13 @@
 import { headers } from "next/headers";
 
+/**
+ * **서버리스에서는 `throttle.ts` 를 쓸 것.**
+ *
+ * 여기의 Map 은 프로세스 메모리라 Vercel 함수 인스턴스마다 따로 있고 요청이 끝나면 사라진다.
+ * 로그인·가입처럼 반드시 막혀야 하는 곳은 DB 에 세는 `lib/security/throttle.ts` 를 쓴다.
+ * 이 파일은 같은 인스턴스 안에서 잠깐 튀는 요청을 눌러 주는 정도로만 의미가 있다.
+ */
+
 interface RateLimitRecord {
   timestamps: number[];
 }

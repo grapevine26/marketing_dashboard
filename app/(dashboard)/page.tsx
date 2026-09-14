@@ -2,7 +2,8 @@ import Link from "next/link";
 import { toKstDateString, parseMonthParam, buildMonthGrid, shiftMonth } from "@/lib/seeding/dday";
 import { collectOverviewItems, collectHomeSummary } from "@/lib/overview/collect";
 import { getAuditLogs, getCampaigns, getSnsAccounts } from "@/lib/db";
-import { getCurrentUser, isOwner } from "@/lib/auth/session";
+import { getCurrentUser, isManager, isOwner } from "@/lib/auth/session";
+import { countPendingUsers } from "@/lib/auth/users";
 import CalendarOverviewClient, { UrgentItemsWidget } from "./CalendarOverviewClient";
 import PendingApprovalSnsCard from "./PendingApprovalSnsCard";
 import ScheduledSnsThisWeekCard from "./ScheduledSnsThisWeekCard";
@@ -11,6 +12,9 @@ import {
   FolderKanban,
   PartyPopper,
   Activity,
+  BookOpen,
+  Plus,
+  UserPlus,
 } from "lucide-react";
 
 export const revalidate = 0;
@@ -28,18 +32,23 @@ export default async function DashboardOverviewPage({
 }: {
   searchParams: Promise<{ month?: string }>;
 }) {
-  const canSeeLogs = isOwner((await getCurrentUser())?.role ?? "staff");
+  const role = (await getCurrentUser())?.role ?? "staff";
+  const canSeeLogs = isOwner(role);
+  // 승인 대기자는 승인할 수 있는 사람(관리자 이상)에게만 알린다.
+  // layout 이 같은 값을 이미 세지만 레이아웃→페이지로 props 를 넘길 수 없어 여기서 한 번 더 센다(count 쿼리 하나).
+  const canApproveUsers = isManager(role);
   const { month } = await searchParams;
   const todayKst = toKstDateString();
   const currentMonth = parseMonthParam(month, todayKst);
 
-  const [{ items, failedSources }, summary, recentLogs, campaigns, snsAccounts] = await Promise.all([
+  const [{ items, failedSources }, summary, recentLogs, campaigns, snsAccounts, pendingUserCount] = await Promise.all([
     collectOverviewItems(todayKst),
     collectHomeSummary(todayKst),
     // 활동 기록은 대표 관리자만 본다. 나머지에게는 아예 내려보내지 않는다(화면에서 숨기는 것으로는 부족하다).
     canSeeLogs ? getAuditLogs({ limit: 5 }) : Promise.resolve([]),
     getCampaigns(),
     getSnsAccounts(),
+    canApproveUsers ? countPendingUsers() : Promise.resolve(0),
   ]);
 
   const urgentItems = items.filter((item) => item.daysDiff <= 3);
@@ -51,6 +60,28 @@ export default async function DashboardOverviewPage({
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto font-sans">
+      {/* 0. 가입 승인 대기 알림. 관리자 이상에게만, 대기자가 있을 때만 보인다.
+          사이드바 배지는 메뉴를 펼쳐야 보이므로 첫 화면에서 한 번 더 짚어 준다. */}
+      {canApproveUsers && pendingUserCount > 0 && (
+        <Link
+          href="/settings/users"
+          className="flex items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-surface border border-accent2/30 hover:border-accent2/60 hover:bg-surface2/30 transition duration-150 group shadow-xs btn-press"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-7 h-7 rounded-xl bg-accent2/10 border border-accent2/20 text-accent2 flex items-center justify-center shrink-0">
+              <UserPlus className="w-3.5 h-3.5" />
+            </div>
+            <span className="text-xs sm:text-sm text-text truncate">
+              가입 승인을 기다리는 사용자가{" "}
+              <strong className="font-bold text-accent2 font-mono tabular-nums">{pendingUserCount}명</strong> 있습니다
+            </span>
+          </div>
+          <span className="text-xs font-semibold text-accent-link inline-flex items-center gap-1 shrink-0 group-hover:underline">
+            사용자 관리 <ArrowUpRight className="w-3.5 h-3.5" />
+          </span>
+        </Link>
+      )}
+
       {/* 1. 상단 클릭형 KPI 통계 카드 (모바일 2열 정렬 및 균일 높이 보장) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* 진행중 캠페인 */}
@@ -153,8 +184,25 @@ export default async function DashboardOverviewPage({
             </div>
 
             {summary.activeCampaigns.length === 0 ? (
-              <div className="p-6 sm:p-8 text-center text-xs text-text-muted border border-dashed border-border rounded-xl sm:rounded-2xl bg-bg">
-                현재 진행중인 캠페인이 없습니다.
+              <div className="p-6 sm:p-8 text-center text-xs text-text-muted border border-dashed border-border rounded-xl sm:rounded-2xl bg-bg space-y-3">
+                <p>현재 진행중인 캠페인이 없습니다.</p>
+                {/* 처음 들어온 사람이 다음에 뭘 할지 바로 알 수 있게 길을 둘 열어 둔다. */}
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <Link
+                    href="/campaigns/new"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-accent text-accent-on text-xs font-bold hover:opacity-90 transition btn-press"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    첫 캠페인 만들기
+                  </Link>
+                  <Link
+                    href="/guide"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface2 border border-border text-xs font-semibold text-text-sub hover:text-text transition btn-press"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    사용 가이드
+                  </Link>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">

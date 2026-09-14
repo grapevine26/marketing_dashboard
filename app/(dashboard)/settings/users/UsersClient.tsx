@@ -14,6 +14,7 @@ import {
   setUserRoleAction,
   resetPasswordAction,
   deleteUserAction,
+  rotateInviteCodeAction,
 } from "./actions";
 import { safeCall } from "@/lib/actions/safeCall";
 import { toast } from "@/components/Toast";
@@ -26,6 +27,7 @@ import {
   Crown,
   KeyRound,
   Loader2,
+  Ticket,
   RotateCcw,
   Shield,
   ShieldCheck,
@@ -51,6 +53,105 @@ interface UsersClientProps {
   currentUserId: string;
   /** 내 등급. 관리자는 직원만 관리할 수 있어 버튼 구성이 달라진다. */
   myRole: UserRole;
+  /** 지금 설정된 가입 초대 코드. 대표 관리자가 아니면 null 로 온다. */
+  inviteCode: string | null;
+}
+
+/**
+ * 가입 초대 코드 카드. 대표 관리자에게만 보인다.
+ *
+ * 코드가 없으면 가입 화면이 아무도 받지 않는다. 그 사실을 여기서 분명히 알려 준다.
+ * 열어 두는 것보다 막아 두는 쪽이 안전해서 그렇게 정했고, 처음 한 번은 사람이 눌러야 한다.
+ */
+function InviteCodeCard({ code, onRotate }: { code: string | null; onRotate: (next: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  const rotate = async () => {
+    setBusy(true);
+    const res = await safeCall(rotateInviteCodeAction());
+    setBusy(false);
+    setConfirming(false);
+    if (!res.ok) return toast.error(res.error || "코드를 만들지 못했습니다.");
+    onRotate(res.data.code);
+    toast.success("새 초대 코드를 만들었습니다. 이전 코드는 이제 쓸 수 없습니다.");
+  };
+
+  const copy = async () => {
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      toast.success("초대 코드를 복사했습니다.");
+    } catch {
+      toast.error("복사하지 못했습니다. 값을 직접 선택해 복사해주세요.");
+    }
+  };
+
+  return (
+    <section className="p-5 rounded-2xl bg-surface border border-border space-y-3">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-sm font-bold text-text flex items-center gap-1.5">
+            <Ticket className="w-4 h-4 text-accent2" />
+            가입 초대 코드
+          </h2>
+          <p className="text-[11px] text-text-sub mt-0.5 leading-relaxed">
+            이 코드를 아는 사람만 가입 신청을 할 수 있습니다. 새로 만들면 이전 코드는 바로 쓸 수 없습니다.
+          </p>
+        </div>
+        {!confirming ? (
+          <button
+            type="button"
+            onClick={() => (code ? setConfirming(true) : rotate())}
+            disabled={busy}
+            className="px-3.5 py-2 rounded-xl bg-surface2 border border-border text-xs font-bold text-text hover:bg-surface3 transition disabled:opacity-40 inline-flex items-center gap-1.5 shrink-0"
+          >
+            {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+            {code ? "새 코드 만들기" : "코드 만들고 가입 열기"}
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-[11px] text-text-sub">이전 코드를 받은 사람은 가입할 수 없게 됩니다.</span>
+            <button
+              type="button"
+              onClick={rotate}
+              disabled={busy}
+              className="px-3 py-2 rounded-xl bg-rose-500/15 text-rose-400 border border-rose-500/25 text-xs font-bold hover:bg-rose-500/25 transition disabled:opacity-40"
+            >
+              바꾸기
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              className="px-3 py-2 rounded-xl bg-surface2 border border-border text-xs font-bold text-text-sub hover:bg-surface3 transition"
+            >
+              취소
+            </button>
+          </div>
+        )}
+      </div>
+
+      {code ? (
+        <div className="flex items-center gap-2">
+          <code className="px-3 py-2 rounded-xl bg-surface2 border border-border font-mono text-base font-bold text-text tracking-[0.2em] select-all">
+            {code}
+          </code>
+          <button
+            type="button"
+            onClick={copy}
+            className="p-2 rounded-xl bg-surface2 border border-border text-text-sub hover:text-text hover:bg-surface3 transition"
+            aria-label="초대 코드 복사"
+          >
+            <Copy className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ) : (
+        <p className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2 leading-relaxed">
+          코드가 없어 지금은 아무도 가입할 수 없습니다. 직원을 받으려면 코드를 만들어 알려주세요.
+        </p>
+      )}
+    </section>
+  );
 }
 
 /** 확인 모달이 필요한 동작. 되돌리기 어렵거나 권한을 잃는 것들만 여기 있다. */
@@ -134,11 +235,13 @@ function confirmCopy(state: ConfirmState): {
   }
 }
 
-export default function UsersClient({ initialUsers, currentUserId, myRole }: UsersClientProps) {
+export default function UsersClient({ initialUsers, currentUserId, myRole, inviteCode }: UsersClientProps) {
   const isOwner = myRole === "owner";
   const router = useRouter();
   const [users, setUsers] = useState<ManagedUser[]>(initialUsers);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // 코드를 새로 만들면 서버가 다시 내려주기 전에 화면부터 바꿔 준다.
+  const [code, setCode] = useState<string | null>(inviteCode);
 
   // 확인 모달
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
@@ -276,15 +379,20 @@ export default function UsersClient({ initialUsers, currentUserId, myRole }: Use
 
   if (users.length === 0) {
     return (
-      <div className="p-12 text-center border border-dashed border-border rounded-2xl bg-surface space-y-3">
-        <Users className="w-8 h-8 text-text-muted mx-auto" />
-        <p className="text-text-sub text-xs sm:text-sm">등록된 사용자가 없습니다.</p>
+      <div className="space-y-6">
+        {isOwner && <InviteCodeCard code={code} onRotate={setCode} />}
+        <div className="p-12 text-center border border-dashed border-border rounded-2xl bg-surface space-y-3">
+          <Users className="w-8 h-8 text-text-muted mx-auto" />
+          <p className="text-text-sub text-xs sm:text-sm">등록된 사용자가 없습니다.</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      {/* 초대 코드는 대표 관리자만 본다. 관리자에게는 서버가 값을 아예 내려보내지 않는다. */}
+      {isOwner && <InviteCodeCard code={code} onRotate={setCode} />}
       {GROUPS.map((group) => {
         const rows = users.filter((u) => u.status === group.status);
         if (rows.length === 0) return null;

@@ -178,11 +178,18 @@ export default function DashboardShell({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            aria-label="메뉴 열기"
+            aria-label={pendingCount > 0 ? `메뉴 열기 (승인 대기 ${pendingCount}명)` : "메뉴 열기"}
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-xl bg-surface border border-border text-text-sub hover:text-text active:scale-95 transition"
+            className="relative p-2 rounded-xl bg-surface border border-border text-text-sub hover:text-text active:scale-95 transition"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {/* 승인 대기자가 있으면 빨간 점. 모바일에서는 사이드바 배지가 서랍을 열어야 보여서 여기서 먼저 알린다. */}
+            {pendingCount > 0 && !mobileMenuOpen && (
+              <span
+                aria-hidden="true"
+                className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-sidebar"
+              />
+            )}
           </button>
         </div>
       </header>
