@@ -9,7 +9,7 @@ import {
   regenerateCampaignToken,
 } from "@/lib/db";
 import { Campaign, CampaignStatus, CampaignTokenType } from "@/lib/db/types";
-import { ActionResult, runAction, fail } from "@/lib/actions/result";
+import { ActionResult, runAuthedAction, fail } from "@/lib/actions/result";
 import { sendWebhookNotification } from "@/lib/notifications/webhook";
 
 export async function updateCampaignStatusAction(
@@ -19,7 +19,7 @@ export async function updateCampaignStatusAction(
   const existing = await getCampaignById(campaignId);
   if (!existing) return fail("캠페인을 찾을 수 없습니다.");
 
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const camp = await updateCampaign(campaignId, { status });
     return { status: camp?.status ?? status };
   });
@@ -35,7 +35,7 @@ export async function deleteCampaignAction(
   const existing = await getCampaignById(campaignId);
   if (!existing) return fail("캠페인을 찾을 수 없습니다.");
 
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const deleted = await deleteCampaign(campaignId);
     if (!deleted) throw new Error("캠페인을 찾을 수 없습니다.");
     return true;
@@ -54,7 +54,7 @@ export async function saveCampaignWebhookAction(
   const existing = await getCampaignById(campaignId);
   if (!existing) return fail("캠페인을 찾을 수 없습니다.");
 
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const updated = await updateCampaignWebhookUrl(campaignId, webhookUrl);
     return { webhook_url: updated?.webhook_url };
   });
@@ -92,7 +92,7 @@ export async function regenerateCampaignTokenAction(
   const existing = await getCampaignById(campaignId);
   if (!existing) return fail("캠페인을 찾을 수 없습니다.");
 
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     return await regenerateCampaignToken(campaignId, tokenType);
   });
   if (res.ok) {

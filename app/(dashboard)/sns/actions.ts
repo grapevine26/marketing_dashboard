@@ -27,7 +27,7 @@ import { generateSnsCaptionDraft } from "@/lib/ai/snsCaptionAssist";
 import { generateSnsPlanDraft } from "@/lib/ai/snsPlanAssist";
 import { labelAnswers } from "@/lib/ai/config";
 import { BUILTIN_SNS_PLACEHOLDERS } from "@/lib/db";
-import { ActionResult, runAction, fail } from "@/lib/actions/result";
+import { ActionResult, runAuthedAction, fail } from "@/lib/actions/result";
 
 function revalidateAccount(accountId?: string) {
   revalidatePath("/sns");
@@ -45,7 +45,7 @@ export async function createSnsAccountAction(data: {
   starts_on: string | null;
   ends_on: string | null;
 }): Promise<ActionResult<{ id: string }>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const account = await createSnsAccount(data);
     return { id: account.id };
   });
@@ -64,7 +64,7 @@ export async function updateSnsAccountAction(
     status?: SnsAccount["status"];
   }
 ): Promise<ActionResult<SnsAccount>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const acc = await updateSnsAccount(accountId, patch);
     if (!acc) throw new Error("not found");
     return acc;
@@ -77,7 +77,7 @@ export async function deleteSnsAccountAction(accountId: string): Promise<ActionR
   const existing = await getSnsAccountById(accountId);
   if (!existing) return fail("계정을 찾을 수 없습니다.");
 
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const deleted = await deleteSnsAccount(accountId);
     if (!deleted) throw new Error("계정을 찾을 수 없습니다.");
     return true;
@@ -89,7 +89,7 @@ export async function deleteSnsAccountAction(accountId: string): Promise<ActionR
 export async function updateSnsIntakeTemplateAction(
   questions: PreSurveyQuestion[]
 ): Promise<ActionResult<{ questions: PreSurveyQuestion[] }>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const t = await updateSnsIntakeTemplate(questions);
     return { questions: t.questions };
   });
@@ -101,7 +101,7 @@ export async function saveSnsAccountIntakeQuestionsAction(data: {
   accountId: string;
   questions: PreSurveyQuestion[];
 }): Promise<ActionResult<{ questions: PreSurveyQuestion[] }>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const updated = await updateSnsAccountIntakeQuestions(data.accountId, data.questions);
     return { questions: updated.intake_questions || [] };
   });
@@ -112,7 +112,7 @@ export async function saveSnsAccountIntakeQuestionsAction(data: {
 export async function resetSnsAccountIntakeQuestionsAction(
   accountId: string
 ): Promise<ActionResult<{ success: boolean }>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     await updateSnsAccountIntakeQuestions(accountId, null);
     return { success: true };
   });
@@ -129,7 +129,7 @@ export async function createSnsContentAction(data: {
   hashtags: string | null;
   mediaNote: string | null;
 }): Promise<ActionResult<SnsContent>> {
-  const res = await runAction(() =>
+  const res = await runAuthedAction(() =>
     createSnsContent({
       account_id: data.accountId,
       title: data.title,
@@ -149,7 +149,7 @@ export async function updateSnsContentAction(
   accountId: string,
   patch: SnsContentPatch
 ): Promise<ActionResult<SnsContent>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const content = await updateSnsContent(contentId, patch);
     if (!content) throw new Error("not found");
     if (content.account_id !== accountId) throw new Error("mismatch");
@@ -160,7 +160,7 @@ export async function updateSnsContentAction(
 }
 
 export async function deleteSnsContentAction(contentId: string, accountId: string): Promise<ActionResult<null>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const deleted = await deleteSnsContent(contentId);
     if (!deleted) throw new Error("not found");
     return null;
@@ -178,7 +178,7 @@ export async function uploadSnsMediaAction(formData: FormData): Promise<ActionRe
   if (!file || !(file instanceof File) || file.size === 0) return fail("업로드할 파일을 선택해주세요.");
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const res = await runAction(() =>
+  const res = await runAuthedAction(() =>
     saveSnsMediaAttachment(contentId, {
       name: file.name,
       buffer,
@@ -208,7 +208,7 @@ export async function confirmSnsMediaUploadAction(input: {
   if (!input.contentId || !input.accountId || !input.attachmentId || !input.storedFilename) {
     return fail("잘못된 요청입니다.");
   }
-  const res = await runAction(() =>
+  const res = await runAuthedAction(() =>
     recordUploadedSnsMedia(input.contentId, {
       attachmentId: input.attachmentId,
       storedFilename: input.storedFilename,
@@ -226,7 +226,7 @@ export async function deleteSnsMediaAction(
   accountId: string
 ): Promise<ActionResult<boolean>> {
   if (!contentId || !attachmentId || !accountId) return fail("잘못된 요청입니다.");
-  const res = await runAction(() => deleteSnsMediaAttachment(contentId, attachmentId));
+  const res = await runAuthedAction(() => deleteSnsMediaAttachment(contentId, attachmentId));
   if (res.ok) revalidateAccount(accountId);
   return res;
 }
@@ -240,7 +240,7 @@ export async function generateSnsAiCaptionAction(data: {
   const account = await getSnsAccountById(data.accountId);
   if (!account) return fail("계정을 찾을 수 없습니다.");
   if (!data.title?.trim()) return fail("콘텐츠 제목/주제를 먼저 입력해주세요.");
-  return runAction(() =>
+  return runAuthedAction(() =>
     generateSnsCaptionDraft({
       brandName: account.company_name,
       platform: account.platform,
@@ -257,7 +257,7 @@ export async function saveSnsPlanAction(data: {
   templateId: string | null;
   fieldValues: Record<string, string>;
 }): Promise<ActionResult<SnsPlan>> {
-  const res = await runAction(() =>
+  const res = await runAuthedAction(() =>
     saveSnsPlan({
       account_id: data.accountId,
       template_id: data.templateId,
@@ -290,7 +290,7 @@ export async function generateSnsAiPlanAction(data: {
   const placeholders = data.placeholders.filter((p) => allowed.includes(p));
   if (placeholders.length === 0) return fail("생성할 항목이 없습니다.");
 
-  return runAction(async () => {
+  return runAuthedAction(async () => {
     const values = await generateSnsPlanDraft({
       brandName: account.company_name,
       platform: account.platform,
@@ -313,7 +313,7 @@ export async function regenerateSnsTokenAction(
   const account = await getSnsAccountById(accountId);
   if (!account) return fail("SNS 계정을 찾을 수 없습니다.");
 
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     return await regenerateSnsToken(accountId, tokenType);
   });
   if (res.ok) {

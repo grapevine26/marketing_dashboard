@@ -3,7 +3,7 @@
 import { updateSeedingRecord } from "@/lib/db";
 import { ProgressStage, SeedingRecord } from "@/lib/db/types";
 import { revalidatePath } from "next/cache";
-import { ActionResult, runAction, fail } from "@/lib/actions/result";
+import { ActionResult, runAuthedAction, fail } from "@/lib/actions/result";
 
 export async function updateSeedingRecordAction(params: {
   seedingId: string;
@@ -20,7 +20,7 @@ export async function updateSeedingRecordAction(params: {
   if (params.seedingId.startsWith("temp_")) {
     return fail("이 지원자의 관리시트 레코드가 아직 없습니다. 지원자 화면에서 선정 상태를 다시 지정해주세요.");
   }
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const updated = await updateSeedingRecord(params.seedingId, params.patch);
     if (!updated) throw new Error("not found");
     return updated;

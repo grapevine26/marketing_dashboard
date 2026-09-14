@@ -13,10 +13,12 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "db:migrate": "node scripts/db-migrate.mjs",
-    "db:backup": "node scripts/db-backup.mjs"
+    "db:backup": "node scripts/db-backup.mjs",
+    "db:make-admin": "node scripts/make-admin.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.19.0",
+    "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.116.0",
     "@vercel/blob": "^2.8.0",
     "exceljs": "^4.4.0",

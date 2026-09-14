@@ -23,7 +23,7 @@ import { MarketingEvent, EventInvitee, EventChecklistItem, EventRsvpStatus, Even
 import { generateEventPlanDraft } from "@/lib/ai/eventPlanAssist";
 import { labelAnswers } from "@/lib/ai/config";
 import { kstLocalInputToIso, formatKstDateTime } from "@/lib/seeding/dday";
-import { ActionResult, runAction, fail } from "@/lib/actions/result";
+import { ActionResult, runAuthedAction, fail } from "@/lib/actions/result";
 
 function revalidateEvent(campaignId: string, eventId?: string) {
   revalidatePath(`/campaigns/${campaignId}`);
@@ -41,7 +41,7 @@ export async function createEventAction(data: {
   venue: string | null;
   memo: string | null;
 }): Promise<ActionResult<{ id: string }>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const ev = await createEvent({
       campaign_id: data.campaignId,
       name: data.name,
@@ -60,7 +60,7 @@ export async function updateEventAction(data: {
   campaignId: string;
   patch: { name?: string; eventAtLocal?: string | null; venue?: string | null; memo?: string | null; status?: EventStatus };
 }): Promise<ActionResult<MarketingEvent>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const ev = await updateEvent(data.eventId, {
       name: data.patch.name,
       event_at: data.patch.eventAtLocal === undefined ? undefined : kstLocalInputToIso(data.patch.eventAtLocal),
@@ -76,7 +76,7 @@ export async function updateEventAction(data: {
 }
 
 export async function deleteEventAction(eventId: string, campaignId: string): Promise<ActionResult<null>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const okDel = await deleteEvent(eventId);
     if (!okDel) throw new Error("not found");
     return null;
@@ -91,7 +91,7 @@ export async function addInviteesFromApplicantsAction(
   applicantIds: string[]
 ): Promise<ActionResult<EventInvitee[]>> {
   if (!Array.isArray(applicantIds) || applicantIds.length === 0) return fail("초청할 지원자를 선택해주세요.");
-  const res = await runAction(() => addEventInviteesFromApplicants(eventId, applicantIds));
+  const res = await runAuthedAction(() => addEventInviteesFromApplicants(eventId, applicantIds));
   if (res.ok) revalidateEvent(campaignId, eventId);
   return res;
 }
@@ -104,7 +104,7 @@ export async function addDirectInviteeAction(data: {
   contact: string | null;
   memo: string | null;
 }): Promise<ActionResult<EventInvitee>> {
-  const res = await runAction(() =>
+  const res = await runAuthedAction(() =>
     addDirectEventInvitee({
       event_id: data.eventId,
       name: data.name,
@@ -123,7 +123,7 @@ export async function updateInviteeAction(
   eventId: string,
   patch: { rsvp_status?: EventRsvpStatus; attended?: boolean; memo?: string | null }
 ): Promise<ActionResult<EventInvitee>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const inv = await updateEventInvitee(inviteeId, patch);
     if (!inv) throw new Error("not found");
     return inv;
@@ -133,7 +133,7 @@ export async function updateInviteeAction(
 }
 
 export async function deleteInviteeAction(inviteeId: string, campaignId: string, eventId: string): Promise<ActionResult<null>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     await deleteEventInvitee(inviteeId);
     return null;
   });
@@ -148,7 +148,7 @@ export async function addChecklistItemAction(data: {
   dueDate: string | null;
   assignee: string | null;
 }): Promise<ActionResult<EventChecklistItem>> {
-  const res = await runAction(() =>
+  const res = await runAuthedAction(() =>
     addEventChecklistItem({
       event_id: data.eventId,
       label: data.label,
@@ -166,7 +166,7 @@ export async function updateChecklistItemAction(
   eventId: string,
   patch: { label?: string; due_date?: string | null; assignee?: string | null; done?: boolean }
 ): Promise<ActionResult<EventChecklistItem>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const item = await updateEventChecklistItem(itemId, patch);
     if (!item) throw new Error("not found");
     return item;
@@ -176,7 +176,7 @@ export async function updateChecklistItemAction(
 }
 
 export async function deleteChecklistItemAction(itemId: string, campaignId: string, eventId: string): Promise<ActionResult<null>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     await deleteEventChecklistItem(itemId);
     return null;
   });
@@ -190,7 +190,7 @@ export async function saveEventPlanAction(data: {
   templateId: string;
   fieldValues: Record<string, string>;
 }): Promise<ActionResult<EventPlan>> {
-  const res = await runAction(() =>
+  const res = await runAuthedAction(() =>
     saveEventPlan({
       event_id: data.eventId,
       template_id: data.templateId,
@@ -223,7 +223,7 @@ export async function generateEventAiDraftAction(data: {
   const placeholders = data.placeholders.filter((p) => template.placeholders.includes(p));
   if (placeholders.length === 0) return fail("생성할 항목이 없습니다.");
 
-  return runAction(async () => {
+  return runAuthedAction(async () => {
     const values = await generateEventPlanDraft({
       eventName: event.name,
       brandName: campaign?.company_name || "브랜드",

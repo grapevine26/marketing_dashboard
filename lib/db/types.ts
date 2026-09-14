@@ -561,7 +561,7 @@ export interface AuditLogEntry {
   id: string;
   campaign_id?: string | null;
   account_id?: string | null;
-  entity_type: "campaign" | "applicant" | "seeding_record" | "sns_account" | "sns_content" | "event";
+  entity_type: "campaign" | "applicant" | "seeding_record" | "sns_account" | "sns_content" | "event" | "user";
   entity_id: string;
   action: string;
   actor_type: AuditActorType;

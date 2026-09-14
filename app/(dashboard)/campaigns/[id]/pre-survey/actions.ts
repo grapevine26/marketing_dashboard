@@ -9,14 +9,14 @@ import {
 import { PreSurveyQuestion } from "@/lib/db/types";
 import { assistPreSurvey, PreSurveyAssistResponse } from "@/lib/ai/preSurveyAssist";
 import { revalidatePath } from "next/cache";
-import { ActionResult, runAction, fail } from "@/lib/actions/result";
+import { ActionResult, runAuthedAction, fail } from "@/lib/actions/result";
 
 export async function saveAgencyPreSurveyAction(params: {
   campaignId: string;
   answers: Record<string, string>;
   usedAiAssist: boolean;
 }): Promise<ActionResult<{ submitted_at: string }>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const r = await upsertPreSurveyResponse({
       campaign_id: params.campaignId,
       answers: params.answers,
@@ -35,7 +35,7 @@ export async function saveCampaignPreSurveyQuestionsAction(params: {
   campaignId: string;
   questions: PreSurveyQuestion[];
 }): Promise<ActionResult<{ questions: PreSurveyQuestion[] }>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const updated = await updateCampaignPreSurveyQuestions(params.campaignId, params.questions);
     return { questions: updated.pre_survey_questions || [] };
   });
@@ -49,7 +49,7 @@ export async function saveCampaignPreSurveyQuestionsAction(params: {
 export async function resetCampaignPreSurveyQuestionsAction(
   campaignId: string
 ): Promise<ActionResult<{ success: boolean }>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     await updateCampaignPreSurveyQuestions(campaignId, null);
     return { success: true };
   });
@@ -71,7 +71,7 @@ export async function getAiAssistAction(params: {
   const question = questions.find((q) => q.id === params.questionId);
   if (!question) return fail("질문을 찾을 수 없습니다.");
 
-  return runAction(() =>
+  return runAuthedAction(() =>
     assistPreSurvey({
       question: question.question,
       userDraft: params.userDraft,

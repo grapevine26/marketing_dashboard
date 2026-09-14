@@ -3,7 +3,7 @@
 import { updateApplicantStatus, getApplicantById, getCampaignById } from "@/lib/db";
 import { ApplicantStatus, Applicant } from "@/lib/db/types";
 import { revalidatePath } from "next/cache";
-import { ActionResult, runAction, fail } from "@/lib/actions/result";
+import { ActionResult, runAuthedAction, fail } from "@/lib/actions/result";
 import { sendWebhookNotification } from "@/lib/notifications/webhook";
 
 /**
@@ -17,7 +17,7 @@ export async function changeApplicantStatusAction(params: {
   const existing = await getApplicantById(params.applicantId);
   if (!existing) return fail("지원자를 찾을 수 없습니다.");
 
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const result = await updateApplicantStatus(params.applicantId, params.status, "agency");
     if (!result) throw new Error("not found");
     return result.applicant;
@@ -56,7 +56,7 @@ export async function updateAgencyMemoAction(params: {
   const existing = await getApplicantById(params.applicantId);
   if (!existing) return fail("지원자를 찾을 수 없습니다.");
 
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const { updateApplicantAgencyMemo } = await import("@/lib/db");
     const updated = await updateApplicantAgencyMemo(params.applicantId, params.memo);
     if (!updated) throw new Error("not found");
@@ -72,7 +72,7 @@ export async function saveCampaignMessageTemplatesAction(params: {
   campaignId: string;
   templates: Record<string, string>;
 }): Promise<ActionResult<{ success: boolean }>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const { updateCampaignMessageTemplates } = await import("@/lib/db");
     const updated = await updateCampaignMessageTemplates(params.campaignId, params.templates);
     if (!updated) throw new Error("not found");

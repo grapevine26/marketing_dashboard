@@ -3,12 +3,12 @@
 import { updatePreSurveyTemplate } from "@/lib/db";
 import { PreSurveyQuestion } from "@/lib/db/types";
 import { revalidatePath } from "next/cache";
-import { ActionResult, runAction } from "@/lib/actions/result";
+import { ActionResult, runAuthedAction } from "@/lib/actions/result";
 
 export async function saveTemplateAction(
   questions: PreSurveyQuestion[]
 ): Promise<ActionResult<{ questions: PreSurveyQuestion[] }>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const t = await updatePreSurveyTemplate(questions);
     return { questions: t.questions };
   });

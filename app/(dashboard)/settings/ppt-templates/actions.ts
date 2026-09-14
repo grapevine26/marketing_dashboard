@@ -16,7 +16,7 @@ import {
 } from "@/lib/db";
 import { PptTemplate } from "@/lib/db/types";
 import { extractPlaceholders } from "@/lib/ppt/engine";
-import { ActionResult, runAction, fail } from "@/lib/actions/result";
+import { ActionResult, runAuthedAction, fail } from "@/lib/actions/result";
 
 export async function uploadPptTemplateAction(
   formData: FormData
@@ -41,7 +41,7 @@ export async function uploadPptTemplateAction(
     return fail("파일을 읽을 수 없습니다. 올바른 .pptx 파일인지 확인해주세요.");
   }
 
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const template = await savePptTemplate({ kind, name, file_buffer: buffer, placeholders });
     return {
       template: { ...template, file_data: undefined },
@@ -81,7 +81,7 @@ export async function confirmPptTemplateUploadAction(input: {
     return fail("파일을 읽을 수 없습니다. 올바른 .pptx 파일인지 확인해주세요.");
   }
 
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const template = await recordUploadedPptTemplate({
       templateId: input.templateId,
       kind: input.kind,
@@ -107,7 +107,7 @@ export async function updatePptTemplateMetaAction(input: {
   kind: PptTemplate["kind"];
 }): Promise<ActionResult<PptTemplate>> {
   if (!input.id || !input.name.trim()) return fail("템플릿 이름을 입력해주세요.");
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const updated = await updatePptTemplateMeta(input.id, { name: input.name.trim(), kind: input.kind });
     if (!updated) throw new Error("템플릿을 찾을 수 없습니다.");
     return updated;
@@ -121,7 +121,7 @@ export async function preparePptTemplateReplaceAction(
   templateId: string
 ): Promise<ActionResult<{ fileKey: string; pathname: string }>> {
   if (!templateId) return fail("잘못된 요청입니다.");
-  return runAction(() => preparePptTemplateReplace(templateId));
+  return runAuthedAction(() => preparePptTemplateReplace(templateId));
 }
 
 /**
@@ -144,7 +144,7 @@ export async function confirmPptTemplateReplaceAction(input: {
     return fail("파일을 읽을 수 없습니다. 올바른 .pptx 파일인지 확인해주세요.");
   }
 
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const template = await recordReplacedPptTemplate({
       templateId: input.templateId,
       fileKey: input.fileKey,
@@ -170,7 +170,7 @@ export async function uploadPptTemplateReplacementAction(
   const fileKey = formData.get("fileKey");
   if (!(file instanceof File) || typeof fileKey !== "string") return fail("필수 항목이 누락되었습니다.");
   const buffer = Buffer.from(await file.arrayBuffer());
-  return runAction(async () => {
+  return runAuthedAction(async () => {
     await putPptTemplateReplacement(fileKey, buffer);
     return null;
   });
@@ -178,13 +178,13 @@ export async function uploadPptTemplateReplacementAction(
 
 /** 지웠던 기본 내장 템플릿을 되살린다. */
 export async function restoreBuiltinPptTemplatesAction(): Promise<ActionResult<{ restored: number }>> {
-  const res = await runAction(async () => ({ restored: await restoreBuiltinPptTemplates() }));
+  const res = await runAuthedAction(async () => ({ restored: await restoreBuiltinPptTemplates() }));
   if (res.ok) revalidatePath("/settings/ppt-templates");
   return res;
 }
 
 export async function deletePptTemplateAction(id: string): Promise<ActionResult<null>> {
-  const res = await runAction(async () => {
+  const res = await runAuthedAction(async () => {
     const deleted = await deletePptTemplate(id);
     if (!deleted) throw new Error("not found");
     return null;

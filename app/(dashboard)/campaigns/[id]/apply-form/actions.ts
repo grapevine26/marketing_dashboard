@@ -5,7 +5,7 @@ import { CampaignFormConfig } from "@/lib/db/types";
 import { generateFormIntro } from "@/lib/ai/formIntroAssist";
 import { labelAnswers } from "@/lib/ai/config";
 import { revalidatePath } from "next/cache";
-import { ActionResult, runAction, fail } from "@/lib/actions/result";
+import { ActionResult, runAuthedAction, fail } from "@/lib/actions/result";
 
 export async function saveFormConfigAction(params: {
   campaignId: string;
@@ -13,7 +13,7 @@ export async function saveFormConfigAction(params: {
   customQuestions: CampaignFormConfig["custom_questions"];
   isPublished: boolean;
 }): Promise<ActionResult<CampaignFormConfig>> {
-  const res = await runAction(() =>
+  const res = await runAuthedAction(() =>
     upsertCampaignFormConfig({
       campaign_id: params.campaignId,
       intro_text: params.introText,
@@ -35,7 +35,7 @@ export async function generateAiIntroAction(
   if (!campaign) return fail("캠페인을 찾을 수 없습니다.");
   const [preSurvey, template] = await Promise.all([getPreSurveyResponse(campaignId), getPreSurveyTemplate()]);
 
-  return runAction(() =>
+  return runAuthedAction(() =>
     generateFormIntro({
       campaignName: campaign.name,
       companyName: campaign.company_name,

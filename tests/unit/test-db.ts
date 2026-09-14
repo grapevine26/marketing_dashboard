@@ -93,6 +93,7 @@ const TABLES = [
   "hidden_builtin_templates", "ppt_templates",
   "reports", "seeding_records", "applicants", "form_configs", "pre_survey_responses", "pre_survey_template",
   "campaigns",
+  "profiles",
 ];
 
 let client: pg.Client | null = null;
@@ -108,6 +109,9 @@ async function conn(): Promise<pg.Client> {
 export async function resetTestDb(): Promise<void> {
   const c = await conn();
   await c.query(`truncate table ${TABLES.map((t) => `public.${t}`).join(", ")} cascade`);
+  // 로그인 계정도 비운다. auth 스키마는 truncate 대상이 아니고, 남아 있으면 아이디가 중복된다.
+  // profiles 는 auth.users 를 참조하므로 여기서 지우면 함께 사라진다.
+  await c.query("delete from auth.users");
 }
 
 export async function closeTestDb(): Promise<void> {
