@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { brandFontConfig, BRAND_FONT_NAME, TILE_BG, TILE_BORDER, TILE_TEXT } from "@/lib/brand-font";
 
 export const dynamic = "force-static";
 
@@ -13,14 +14,14 @@ export function GET() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#16171b",
+          background: TILE_BG,
           borderRadius: "115px",
-          border: "4px solid #292b34",
-          color: "#ececf1",
-          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-          fontSize: "222px",
-          fontWeight: 900,
-          letterSpacing: "-8px",
+          border: `4px solid ${TILE_BORDER}`,
+          color: TILE_TEXT,
+          fontFamily: BRAND_FONT_NAME,
+          fontSize: "287px",
+          fontWeight: 800,
+          letterSpacing: "-13px",
         }}
       >
         RB
@@ -29,6 +30,7 @@ export function GET() {
     {
       width: 512,
       height: 512,
+      fonts: brandFontConfig,
     }
   );
 }

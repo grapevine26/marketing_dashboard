@@ -1,8 +1,24 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import localFont from "next/font/local";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ToastContainer } from "@/components/Toast";
+
+/**
+ * 브랜드 글꼴(Inter ExtraBold). 로고 워드마크에만 쓴다.
+ *
+ * 파일을 저장소에 두고 앱에 같이 담는다. 외부에 요청을 보내지 않으니 네트워크가 막힌 곳에서도
+ * 같게 보이고, 글자가 늦게 바뀌며 깜빡이는 일도 없다. 영문 구간만 담은 파일이라 가볍다.
+ * 아이콘은 같은 글꼴의 ttf 를 lib/brand-font.ts 에서 따로 읽는다. 그리는 방식이 달라서다.
+ */
+const brand = localFont({
+  src: "./fonts/Inter-ExtraBold-latin.woff2",
+  weight: "800",
+  style: "normal",
+  display: "swap",
+  variable: "--font-brand",
+});
 
 export const metadata: Metadata = {
   title: "RB Global | 인플루언서 마케팅 & 올인원 캠페인 운영",
@@ -13,14 +29,8 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "RB Global",
   },
-  icons: {
-    icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
-    ],
-    apple: [
-      { url: "/apple-icon", sizes: "180x180", type: "image/png" },
-    ],
-  },
+  // icons 를 여기에 적지 않는다. app/icon.tsx 와 app/apple-icon.tsx 가 있으면
+  // Next 가 알아서 링크를 넣는다. 두 곳에 적으면 한쪽만 고치는 사고가 난다.
 };
 
 export const viewport: Viewport = {
@@ -36,7 +46,7 @@ const themeInitScript = `
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko" className="dark" data-theme="dark" suppressHydrationWarning>
+    <html lang="ko" className={`dark ${brand.variable}`} data-theme="dark" suppressHydrationWarning>
       <body className="min-h-screen antialiased flex flex-col selection:bg-accent selection:text-accent-on font-sans">
         <Script id="theme-init" strategy="beforeInteractive">{themeInitScript}</Script>
         <ThemeProvider>

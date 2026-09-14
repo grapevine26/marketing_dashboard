@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { brandFontConfig, BRAND_FONT_NAME, TILE_BG, TILE_BORDER, TILE_TEXT } from "@/lib/brand-font";
 
 export const size = {
   width: 180,
@@ -6,7 +7,7 @@ export const size = {
 };
 export const contentType = "image/png";
 
-/** iOS 홈 화면에 추가했을 때 쓰는 아이콘. */
+/** 아이폰 홈 화면에 추가했을 때 쓰는 아이콘. */
 export default function AppleIcon() {
   return new ImageResponse(
     (
@@ -17,14 +18,14 @@ export default function AppleIcon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#16171b",
+          background: TILE_BG,
           borderRadius: "40px",
-          border: "2px solid #292b34",
-          color: "#ececf1",
-          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-          fontSize: "78px",
-          fontWeight: 900,
-          letterSpacing: "-3px",
+          border: `2px solid ${TILE_BORDER}`,
+          color: TILE_TEXT,
+          fontFamily: BRAND_FONT_NAME,
+          fontSize: "101px",
+          fontWeight: 800,
+          letterSpacing: "-4.5px",
         }}
       >
         RB
@@ -32,6 +33,7 @@ export default function AppleIcon() {
     ),
     {
       ...size,
+      fonts: brandFontConfig,
     }
   );
 }
