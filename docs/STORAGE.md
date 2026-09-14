@@ -1,17 +1,95 @@
 # 저장소(스토리지) 구성
 
-작성일 2026-09-08.
+작성일 2026-09-08. Supabase 전환 반영 2026-09-14.
 
-## 왜 바꿨나
+## 두 종류의 저장소
 
-Vercel 서버리스는 요청마다 다른 인스턴스가 뜰 수 있고, 인스턴스마다 임시 디스크가 따로다.
-JSON DB를 `os.tmpdir()` 에 두면 A 인스턴스에서 만든 보고서를 B 인스턴스가 못 본다.
-그래서 새로고침할 때마다 결과보고서가 보였다 안 보였다 했고, 편집 링크는 404가 났다.
+| 데이터 | 저장소 | 코드 |
+| --- | --- | --- |
+| 캠페인, 지원자, 시딩, 보고서, 행사, SNS, 감사 로그 | Supabase Postgres | `lib/db/*.ts` (도메인별 모듈) |
+| SNS 시안 미디어, 업로드한 PPT 템플릿 파일 | Vercel Blob(배포) / 로컬 파일(개발·테스트) | `lib/db/storage.ts` |
 
-이제 모든 읽기/쓰기가 `lib/db/storage.ts` 한 곳을 지나간다.
-배포에서는 모든 인스턴스가 같은 Vercel Blob 을 본다.
+예전에는 JSON 문서 하나(`.data/db.json` 또는 Blob 의 `db/marketing_db.json`)에 모든 데이터를 넣고
+통째로 읽고 썼다. 문서 전체를 덮어쓰는 구조라 낙관적 잠금, 재시도, 10분 간격 백업 같은 장치가
+필요했는데, 테이블로 쪼개면서 전부 없어졌다. 설계 배경은
+`docs/superpowers/specs/2026-09-14-supabase-migration-design.md` 에 있다.
 
-## 백엔드 선택 규칙
+## DB (Supabase)
+
+### 접근 모델
+
+서버만 `service_role` 키로 접근한다. `lib/supabase/admin.ts` 가 `server-only` 로 표시돼 있어
+브라우저 번들에 들어가지 못한다. 모든 테이블은 RLS 가 켜져 있고 정책이 없으므로 anon 키로는
+아무것도 못 본다. 외부 공개 페이지(지원폼, 사전조사, 승인 링크)는 앱 코드가 토큰을 검증한다.
+
+| 환경 변수 | 용도 |
+| --- | --- |
+| `SUPABASE_URL` | 프로젝트 URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | 서버 전용 키 |
+| `SUPABASE_DB_URL` | 마이그레이션 적용용 Postgres 연결 문자열. **Session pooler** 주소를 쓴다. 직접 연결 주소(`db.<ref>.supabase.co`)는 IPv6 전용이라 안 붙는 PC 가 많다. |
+| `SUPABASE_TEST_URL`, `SUPABASE_TEST_SERVICE_ROLE_KEY`, `SUPABASE_TEST_DB_URL` | 테스트 전용 프로젝트. 없으면 DB 단위 테스트는 skip 된다. |
+
+### 스키마와 마이그레이션
+
+스키마 원본은 `supabase/migrations/*.sql` 이다. (`docs/sql/` 은 다른 저장소의 옛 스키마 사본이라
+이 프로젝트와 무관하다.)
+
+```bash
+npm run db:migrate            # 운영 프로젝트
+npm run db:migrate -- --test  # 테스트 프로젝트
+```
+
+`scripts/db-migrate.mjs` 가 `pg` 로 직접 연결해 아직 적용하지 않은 파일만 순서대로 실행하고
+`schema_migrations` 에 기록한다. 재실행해도 안전하다. 새 마이그레이션은 `0002_*.sql` 처럼
+번호를 이어 붙인다.
+
+옛 JSON 의 최상위 키 하나가 테이블 하나다. 중첩 객체(answers, custom_questions, field_values,
+media_attachments, snapshot_data)는 jsonb 컬럼이다. 연쇄 삭제는 fk `on delete cascade` 가 맡는다.
+감사 로그만 fk 가 없다. 삭제 기록이 삭제와 함께 사라지면 안 되기 때문이다.
+
+### 코드 구조
+
+`lib/db/index.ts` 는 re-export 전용이다. 호출 코드는 `@/lib/db` 에서 함수 이름으로 가져온다.
+
+| 파일 | 담당 |
+| --- | --- |
+| `campaigns.ts` | 캠페인, 토큰, 웹훅, 메시지 템플릿, 사전조사, 신청폼 설정 |
+| `applicants.ts` | 지원자, 선정 상태, 시딩 기록 |
+| `reports.ts` | 결과보고서, 스냅샷 |
+| `ppt-templates.ts` | 내장/업로드 PPT 템플릿 |
+| `events.ts` | 행사, 초대, 체크리스트, 운영안 |
+| `sns.ts` | SNS 계정, 인테이크, 운영 계획, 콘텐츠, 미디어, 승인 |
+| `audit.ts` | 감사 로그 |
+| `mappers.ts` | DB 행 → 앱 타입. timestamptz 를 `Z` 형식으로, 옵셔널 필드의 null 을 undefined 로 |
+| `validation.ts` | `ValidationError`, 입력 검증 유틸, `isUuid` |
+| `defaults.ts` | 기본 질문, 내장 템플릿 정의 |
+
+uuid 형식이 아닌 id 는 쿼리 전에 `isUuid` 로 걸러 "없음"(null/false)으로 처리한다.
+그러지 않으면 엉뚱한 URL 파라미터가 uuid 컬럼에 닿아 Postgres 타입 오류로 500 이 난다.
+
+### 내장 PPT 템플릿
+
+내장 템플릿 3개는 DB 에 없다. `defaults.ts` 가 코드로 만들고 읽을 때 DB 행과 합친다.
+사용자가 지운 내장 템플릿 id 만 `hidden_builtin_templates` 에 남긴다. 되살리기는 그 행을 지운다.
+
+### 기본 질문 템플릿
+
+사전조사·SNS 인테이크 기본 질문은 `defaults.ts` 에 있다. 단일 행 테이블이 비어 있으면 처음 읽을 때
+채워 넣는다. 마이그레이션 SQL 에 같은 값을 또 적지 않기 위해서다.
+
+### 여러 테이블을 건드리는 쓰기
+
+트랜잭션 없이 순차로 쓴다(캠페인 생성 → 폼 설정, 선정 → 시딩 기록 → 감사 로그).
+중간 실패 시 앞 단계가 남을 수 있으나 앱이 "없음"을 처리한다. 원자성이 문제가 되는 함수가 생기면
+그 함수만 Postgres 함수(RPC)로 뺀다.
+
+### 백업
+
+Supabase 의 자동 백업을 쓴다. 옛 JSON 백업/복원 스크립트는 없앴다.
+
+## 파일 저장소
+
+### 백엔드 선택 규칙
 
 `BLOB_STORE_ID` 또는 `BLOB_READ_WRITE_TOKEN` 둘 중 하나라도 있으면 Blob 을 쓴다.
 코드 분기는 `isBlobBackend()` 뿐이다.
@@ -23,67 +101,26 @@ JSON DB를 `os.tmpdir()` 에 두면 A 인스턴스에서 만든 보고서를 B �
 
 Vercel 에 스토어를 연결하면 `BLOB_STORE_ID` 가 들어가고, 인증은 자동으로 도는
 OIDC 토큰(`VERCEL_OIDC_TOKEN`)이 맡는다. 읽기·쓰기 토큰은 선택 사항이다.
-그래서 토큰만 보고 판단하면 정상 연결된 프로젝트가 임시 디스크로 떨어진다.
-
 둘 다 없이 Vercel 위에서 돌면 콘솔에 오류 로그를 크게 남긴다 (`warnIfEphemeral`).
 
-## 문제가 생기면
-
-`/api/storage-health` 를 열면 어떤 백엔드를 쓰는지, 어떤 환경 변수가 있는지,
-실제 읽기와 쓰기가 되는지 알려준다. 실패하면 오류 이름과 메시지가 그대로 나온다.
-토큰 값이나 DB 내용은 담지 않는다. 레코드는 개수만 센다.
-
-`?probeWrite=1` 을 붙이면 진짜 DB 문서에 대고 조건부 쓰기까지 재현한다.
-방금 읽은 내용을 그대로 다시 쓰기 때문에 문서는 바뀌지 않지만, 쓰기는 쓰기라 기본값은 꺼짐이다.
-작은 임시 키로 하는 검사는 통과하는데 실제 저장만 실패하는 경우에 쓴다.
-약한 ETag 문제가 정확히 그런 경우였다.
-
-읽기가 실패하면 초기 샘플 데이터로 조용히 대체하지 않고 오류를 낸다.
-샘플을 진짜 데이터처럼 보여주면 그 위에 저장했을 때 실제 데이터를 덮어쓴다.
-직전에 읽어둔 캐시가 있을 때만 그걸로 버틴다.
-
-## 저장 위치
+### 저장 위치
 
 | 데이터 | Blob 키 | 로컬 경로 |
 | --- | --- | --- |
-| JSON DB | `db/marketing_db.json` | `.data/db.json` |
 | SNS 시안 미디어 | `uploads/<첨부ID>.<확장자>` | `.data/uploads/` |
-| 자동 백업 | `backups/db-YYYYMMDD-HHMMSS.json` | `.data/backups/` |
+| 업로드한 PPT 템플릿 | `templates/<템플릿ID>(-<버전>).pptx` | `.data/templates/` |
 
 Blob 은 전부 `access: "private"` 이다. 미디어는 `/api/media/[id]` 가 토큰을 확인한 뒤에만 흘려보낸다.
+테스트는 `UPLOADS_DIR` 로 임시 폴더를 지정한다.
 
-## 배포 준비 (한 번만)
+### 배포 준비 (한 번만)
 
 1. Vercel 프로젝트 → Storage → Create Database → Blob
 2. 프로젝트에 연결하면 `BLOB_READ_WRITE_TOKEN` 이 환경 변수에 자동으로 들어간다
-3. 재배포
+3. 환경 변수에 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` 추가
+4. 재배포
 
-## 동시 쓰기
-
-`mutateDb` 는 두 겹으로 막는다.
-
-같은 인스턴스 안에서는 프로미스 잠금으로 직렬화한다.
-인스턴스가 여러 개면 ETag 낙관적 잠금(`put({ ifMatch })`)을 쓴다.
-그 사이 다른 인스턴스가 저장했으면 `ConcurrentWriteError` 가 나고, 최신 문서를 다시 읽어
-변경을 다시 적용한다. 최대 4번 시도한다. 남의 저장을 덮어쓰지 않는다.
-
-로컬 파일 백엔드도 같은 계약을 지킨다. 버전은 ETag 대신 mtime 을 쓴다.
-
-ETag 는 조건에 싣기 전에 `toStrongEtag` 로 정규화한다.
-응답이 압축돼서 오면 Blob 이 약한 ETag(`W/"..."`)를 주는데, If-Match 는 강한 비교라
-약한 ETag 는 무엇과도 일치하지 않는다. 그대로 실으면 저장이 영원히 거부된다.
-작은 파일은 압축되지 않아 강한 ETag 로 오기 때문에, 작은 키로 시험하면 멀쩡해 보인다.
-이것 때문에 배포에서 저장이 전부 실패했다.
-
-재시도 사이에는 조금씩 늘려가며 기다린다. 곧바로 다시 읽으면 같은 순간을 또 짚기 때문이다.
-
-네 번을 다 쓰고도 커밋하지 못하면 마지막 한 번은 조건 없이 쓴다.
-낙관적 잠금은 동시 저장이 서로를 덮어쓰는 걸 막으려는 장치인데, 그것 때문에 저장 자체가
-안 되면 앱을 못 쓴다. 못 막는 것보다 못 쓰는 게 나쁘다고 보고 그렇게 정했다.
-이때는 last-writer-wins 가 되고, 서버 로그에 오류로 크게 남는다.
-그 로그가 반복되면 저장소 설정을 봐야 한다는 신호다.
-
-## 시안 미디어 업로드
+### 시안 미디어 업로드
 
 Vercel 함수는 요청 본문을 4.5MB 로 자른다. `next.config.ts` 로는 못 올린다.
 그래서 배포에서는 파일이 서버를 거치지 않는다.
@@ -99,71 +136,34 @@ Vercel 함수는 요청 본문을 4.5MB 로 자른다. `next.config.ts` 로는 �
 크기는 클라이언트가 보낸 값이 아니라 저장소에서 읽은 값을 쓴다.
 내용 검사는 Range 로 앞부분만 읽으므로 큰 영상이어도 부담이 없다.
 
-로컬 개발에는 Blob 이 없어서 예전처럼 서버 액션으로 올린다.
+로컬 개발에는 Blob 이 없어서 서버 액션으로 올린다.
 `isBlobBackend()` 결과를 `clientUpload` prop 으로 화면에 내려 두 경로를 가른다.
 
-## PPT 템플릿
+### PPT 템플릿
 
-업로드한 pptx 도 저장소에 둔다(`templates/<템플릿ID>.pptx`). DB 문서에는 키만 남는다.
-
-예전에는 파일을 base64 로 문서 안에 넣었다. 그러면 10MB 템플릿 하나에 문서가 14MB 가 되고,
-그때부터 모든 저장이 매번 그 14MB 를 읽고 다시 쓴다. 백업도 10분마다 그만큼 복사한다.
-`file_data` 는 옛 데이터를 읽기 위해서만 남겨 뒀다. 새로 올리는 건 전부 `file_key` 를 쓴다.
+업로드한 pptx 도 파일 저장소에 둔다. DB 행에는 `file_key` 만 남는다.
 
 업로드 흐름은 시안 미디어와 같다. 브라우저가 `/api/ppt-templates/upload` 에서 토큰을 받아
 저장소로 바로 보내고, 서버는 앞부분이 zip(`PK`)인지 확인한 뒤 등록한다.
 치환 항목(`{{...}}`)은 등록 직전에 저장소에서 파일을 읽어 뽑는다.
-함수 안에서 저장소를 읽는 것이라 요청 본문 한도와는 무관하다.
-
-### 템플릿 수정
 
 이름과 종류는 파일을 건드리지 않고 바꾼다. 행사·SNS 운영안이 템플릿 id 를 저장해두기 때문에,
-지웠다 새로 올리면 그 연결이 전부 끊긴다. 그래서 수정은 id 를 유지하는 방식으로만 한다.
-
-파일 교체도 마찬가지다. 새 키(`<id>-<버전>.pptx`)로 먼저 올리고, 기록이 새 파일을 가리킨 뒤에
-옛 파일을 지운다. 교체가 도중에 실패해도 쓰던 파일이 살아 있다.
+지웠다 새로 올리면 그 연결이 전부 끊긴다. 파일 교체는 새 키(`<id>-<버전>.pptx`)로 먼저 올리고,
+기록이 새 파일을 가리킨 뒤에 옛 파일을 지운다. 교체가 도중에 실패해도 쓰던 파일이 살아 있다.
 
 `/api/ppt-templates/<id>/download` 로 원본을 다시 받을 수 있다.
-기본 내장 템플릿은 코드에서 만들어 내려준다.
-
-### 기본 내장 템플릿 삭제
-
-지울 수 있다. 다만 내장 템플릿은 `migrateDb` 가 문서를 읽을 때마다 채워 넣기 때문에,
-지웠다는 사실을 `hidden_builtin_template_ids` 에 남기지 않으면 다음 읽기에 되살아난다.
-되살리기는 그 목록을 비우면서 동시에 템플릿을 다시 넣는다. 메모리 캐시 때문에
-`migrateDb` 가 바로 돌지 않아서, 그 자리에서 넣어줘야 목록에 나타난다.
-
 보고서 PPTX 라우트는 기본 템플릿이 없으면 남아 있는 보고서 템플릿으로 대신한다.
 
-## 백업과 복원
+## 문제가 생기면
 
-저장할 때 10분 간격으로 자동 백업하고 최근 것만 남긴다.
+`/api/storage-health` 를 열면 DB 가 응답하는지(campaigns 행 수), 파일 저장소가 어떤 백엔드인지,
+실제 파일 쓰기/읽기가 되는지 알려준다. 키 값이나 DB 내용은 담지 않는다.
 
-```bash
-npm run db:restore
-```
-
-목록을 보여준다. 파일명을 주면 복원한다.
-
-```bash
-npm run db:restore -- db-20260908-051500.json
-```
-
-이 스크립트도 `BLOB_READ_WRITE_TOKEN` 을 보고 대상을 고른다.
-배포 데이터를 만지려면 그 토큰을 셸에 넣고 실행할 것.
-복원 전 현재 DB는 `pre-restore-<타임스탬프>.json` 으로 보관된다.
-
-## 나중에 Supabase 로 옮길 때
+## 나중에 파일도 Supabase Storage 로 옮길 때
 
 `lib/db/storage.ts` 의 함수 본문만 갈아끼우면 된다. 호출부는 손대지 않는다.
-
-바꿔야 할 함수는 `readDoc`, `writeDoc`, `putFile`, `readFile`, `statFile`,
-`findFileKeyByPrefix`, `deleteFilesByPrefixes`, `listBackups`, `writeBackupIfDue` 아홉 개다.
-
-지켜야 할 계약은 `tests/unit/storage.test.ts` 에 있다.
-`writeDoc` 은 버전이 어긋나면 반드시 `ConcurrentWriteError` 를 던져야 하고,
-`readFile` 은 Range 를 받으면 `status: 206` 과 `contentRange` 를 채워야 한다.
-그 테스트가 통과하면 나머지는 그대로 돈다.
-
-Supabase 로 가면 문서 전체를 통째로 읽고 쓰는 지금 구조 대신 테이블로 쪼개는 게 맞다.
-그때는 `lib/db/index.ts` 의 쿼리 함수들도 같이 바뀐다. 이 파일은 그 전 단계다.
+바꿔야 할 함수는 `putFile`, `readFile`, `statFile`, `findFileKeyByPrefix`, `deleteFilesByPrefixes` 다섯 개다.
+지켜야 할 계약은 `tests/unit/storage.test.ts` 에 있다. `readFile` 은 Range 를 받으면
+`status: 206` 과 `contentRange` 를 채워야 한다. 브라우저 직접 업로드(`/api/media/upload`,
+`/api/ppt-templates/upload`)는 Blob 의 클라이언트 토큰 방식이라 Supabase 의 signed upload URL 로
+다시 짜야 한다.

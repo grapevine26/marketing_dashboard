@@ -1,3 +1,5 @@
+> **주의 (2026-09-14):** 이 폴더는 다른 저장소(nayounglee0924/marketing)의 스키마 사본이며 이 프로젝트의 DB 와 무관합니다. 이 프로젝트의 스키마 원본은 `supabase/migrations/` 이고, 적용은 `npm run db:migrate` 로 합니다. 참고용으로만 남겨 둡니다.
+
 # 대시보드에서 실행하는 SQL 통합본
 
 `supabase/migrations/`의 마이그레이션을 순서대로 이어붙인 파일들입니다. **원본이 아니라 사본**이므로, 스키마를 고칠 때는 항상 `supabase/migrations/`쪽을 고치고 여기를 다시 생성하세요.
