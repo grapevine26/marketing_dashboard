@@ -28,6 +28,7 @@ export interface ManagedUser {
 
 interface ProfileRow {
   id: string;
+  hidden?: boolean;
   username: string;
   display_name: string;
   role: UserRole;
@@ -50,18 +51,26 @@ function rowToUser(r: ProfileRow, names: Map<string, string>): ManagedUser {
   };
 }
 
-/** 전체 사용자. 대기중인 사람이 먼저 보이도록 정렬한다. */
+/**
+ * 목록에 보여줄 사용자. **숨긴 계정은 아예 빠진다.**
+ *
+ * 숨김은 개발자가 점검용으로 쓰는 계정을 위한 것이다. 고객이 보는 목록에 섞이면 혼란스럽다.
+ * 개수 표시조차 남기지 않는 것은 서비스 소유자의 결정이다. 그래서 이 계정들은 화면 어디에도
+ * 드러나지 않는다. 존재를 확인하려면 `npm run db:hide-user -- --list` 를 쓴다.
+ */
 export async function getUsers(): Promise<ManagedUser[]> {
   const rows = unwrap(
     await db()
       .from("profiles")
-      .select("id, username, display_name, role, status, created_at, approved_at, approved_by")
+      .select("id, username, display_name, role, status, created_at, approved_at, approved_by, hidden")
       .order("created_at", { ascending: true })
       .returns<ProfileRow[]>()
   );
+  // 승인자 이름은 숨긴 계정이 승인했을 수도 있으므로 전체에서 찾는다.
   const names = new Map(rows.map((r) => [r.id, r.display_name]));
   const order: Record<UserStatus, number> = { pending: 0, active: 1, blocked: 2 };
   return rows
+    .filter((r) => !r.hidden)
     .map((r) => rowToUser(r, names))
     .sort((a, b) => order[a.status] - order[b.status] || a.created_at.localeCompare(b.created_at));
 }
@@ -70,7 +79,8 @@ export async function countPendingUsers(): Promise<number> {
   const { count, error } = await db()
     .from("profiles")
     .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
+    .eq("status", "pending")
+    .eq("hidden", false);
   if (error) throw new Error(`[auth] ${error.message}`);
   return count ?? 0;
 }

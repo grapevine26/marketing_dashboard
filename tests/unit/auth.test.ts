@@ -335,6 +335,47 @@ describe.skipIf(!hasTestDb)("사용자 관리", () => {
     expect(newTry.error).toBeNull();
   });
 
+  it("숨긴 계정은 목록과 대기자 수에서 빠지되 권한은 그대로다", async () => {
+    const { getUsers, countPendingUsers, approveUser } = await import("@/lib/auth/users");
+    const { db } = await import("@/lib/db/client");
+
+    const owner = await makeActive(uid("visible"), "보이는 대표", "owner");
+    const hidden = await makeActive(uid("maint"), "유지보수", "owner");
+    const waiting = await signUp(uid("waiting"), "대기자");
+
+    expect((await getUsers()).length).toBe(3);
+    expect(await countPendingUsers()).toBe(1);
+
+    await db().from("profiles").update({ hidden: true }).eq("id", hidden.id);
+
+    // 목록에서 빠진다.
+    const visible = await getUsers();
+    expect(visible.some((u) => u.id === hidden.id)).toBe(false);
+    expect(visible.length).toBe(2);
+
+    // 권한은 그대로다. 숨긴 계정도 승인할 수 있다.
+    await approveUser(hidden, waiting);
+    expect((await getUsers()).find((u) => u.id === waiting)!.status).toBe("active");
+    expect(await countPendingUsers()).toBe(0);
+
+    // 승인자 이름은 숨긴 계정이라도 제대로 붙는다.
+    expect((await getUsers()).find((u) => u.id === waiting)!.approved_by_name).toBe("유지보수");
+
+    // 마지막 대표 보호에도 그대로 들어간다. 대표가 둘이므로 하나는 내릴 수 있다.
+    const { setUserRole } = await import("@/lib/auth/users");
+    await setUserRole(hidden, owner.id, "admin");
+    expect((await getUsers()).find((u) => u.id === owner.id)!.role).toBe("admin");
+  });
+
+  it("숨긴 대기자는 배지에 세지 않는다", async () => {
+    const { countPendingUsers } = await import("@/lib/auth/users");
+    const { db } = await import("@/lib/db/client");
+    const id = await signUp(uid("hiddenwait"), "숨은 대기자");
+    expect(await countPendingUsers()).toBe(1);
+    await db().from("profiles").update({ hidden: true }).eq("id", id);
+    expect(await countPendingUsers()).toBe(0);
+  });
+
   it("없는 사용자에게는 아무 동작도 하지 않는다", async () => {
     const { approveUser } = await import("@/lib/auth/users");
     const boss = await makeActiveAdmin(uid("boss"), "관리자");
