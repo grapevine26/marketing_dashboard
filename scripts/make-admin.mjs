@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * 첫 관리자를 만든다.
+ * 첫 대표 관리자를 만든다.
  *
  *   npm run db:make-admin <아이디>
  *   npm run db:make-admin <아이디> -- --test
  *
- * 승인은 관리자만 할 수 있는데, 처음에는 관리자가 하나도 없다. 그 닭과 달걀을 푸는 스크립트다.
- * 평범하게 가입한 뒤 이 명령으로 그 계정을 관리자 겸 활성으로 올린다.
+ * 등급 변경은 대표 관리자만 할 수 있는데, 처음에는 대표가 하나도 없다.
+ * 그 닭과 달걀을 푸는 스크립트다. 평범하게 가입한 뒤 이 명령으로 대표 겸 활성으로 올린다.
  * Supabase 대시보드에서 손으로 고치는 것보다 안전하고, 무엇이 바뀌는지 눈에 보인다.
  *
  * 두 번째부터는 앱 안의 사용자 관리 화면에서 한다.
@@ -25,7 +25,7 @@ const isTest = args.includes("--test");
 const username = args.find((a) => !a.startsWith("--"));
 
 if (!username) {
-  console.error("아이디를 적어주세요.\n  npm run db:make-admin <아이디>");
+  console.error("아이디를 적어주세요.\n  npm run db:make-admin <아이디>        (대표 관리자로 올린다)");
   process.exit(1);
 }
 
@@ -57,17 +57,17 @@ try {
   }
 
   const before = rows[0];
-  if (before.role === "admin" && before.status === "active") {
-    console.log(`"${username}" 은(는) 이미 활성 관리자입니다. 바꿀 것이 없습니다.`);
+  if (before.role === "owner" && before.status === "active") {
+    console.log(`"${username}" 은(는) 이미 활성 대표 관리자입니다. 바꿀 것이 없습니다.`);
     process.exit(0);
   }
 
   await client.query(
-    "update public.profiles set role = 'admin', status = 'active', approved_at = coalesce(approved_at, now()) where id = $1",
+    "update public.profiles set role = 'owner', status = 'active', approved_at = coalesce(approved_at, now()) where id = $1",
     [before.id]
   );
-  console.log(`"${before.display_name}" (@${username}) 계정을 관리자로 올렸습니다.`);
-  console.log(`  역할 ${before.role} → admin`);
+  console.log(`"${before.display_name}" (@${username}) 계정을 대표 관리자로 올렸습니다.`);
+  console.log(`  역할 ${before.role} → owner`);
   console.log(`  상태 ${before.status} → active`);
   console.log(`\n이제 로그인해서 설정 > 사용자 관리에서 다른 사람을 승인할 수 있습니다. (${isTest ? "테스트" : "운영"})`);
 } finally {

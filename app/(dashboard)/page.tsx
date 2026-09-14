@@ -2,7 +2,7 @@ import Link from "next/link";
 import { toKstDateString, parseMonthParam, buildMonthGrid, shiftMonth } from "@/lib/seeding/dday";
 import { collectOverviewItems, collectHomeSummary } from "@/lib/overview/collect";
 import { getAuditLogs, getCampaigns, getSnsAccounts } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser, isManager } from "@/lib/auth/session";
 import CalendarOverviewClient, { UrgentItemsWidget } from "./CalendarOverviewClient";
 import PendingApprovalSnsCard from "./PendingApprovalSnsCard";
 import ScheduledSnsThisWeekCard from "./ScheduledSnsThisWeekCard";
@@ -28,7 +28,7 @@ export default async function DashboardOverviewPage({
 }: {
   searchParams: Promise<{ month?: string }>;
 }) {
-  const isAdmin = (await getCurrentUser())?.role === "admin";
+  const isAdmin = isManager((await getCurrentUser())?.role ?? "staff");
   const { month } = await searchParams;
   const todayKst = toKstDateString();
   const currentMonth = parseMonthParam(month, todayKst);

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ManagedUser } from "@/lib/auth/users";
-import type { UserStatus } from "@/lib/auth/session";
+import { ROLE_LABELS, type UserRole, type UserStatus } from "@/lib/auth/roles";
 import { MIN_PASSWORD_LENGTH, PASSWORD_RULE_TEXT } from "@/lib/auth/username";
 import type { ActionResult } from "@/lib/actions/result";
 import {
@@ -23,6 +23,7 @@ import {
   Check,
   Clock,
   Copy,
+  Crown,
   KeyRound,
   Loader2,
   RotateCcw,
@@ -48,6 +49,8 @@ interface UsersClientProps {
   initialUsers: ManagedUser[];
   /** 현재 로그인한 관리자. 본인 줄을 구분하는 데 쓴다. */
   currentUserId: string;
+  /** 내 등급. 관리자는 직원만 관리할 수 있어 버튼 구성이 달라진다. */
+  myRole: UserRole;
 }
 
 /** 확인 모달이 필요한 동작. 되돌리기 어렵거나 권한을 잃는 것들만 여기 있다. */
@@ -56,6 +59,8 @@ type ConfirmKind = "reject" | "block" | "delete" | "demote";
 interface ConfirmState {
   kind: ConfirmKind;
   user: ManagedUser;
+  /** 강등 확인일 때 어떤 등급으로 내릴지. */
+  nextRole?: UserRole;
 }
 
 const GROUPS: { status: UserStatus; label: string; hint: string }[] = [
@@ -84,6 +89,7 @@ function confirmCopy(state: ConfirmState): {
   tone: "danger" | "warn";
 } {
   const who = `${state.user.display_name}(@${state.user.username})`;
+  const nextRole = state.nextRole;
   switch (state.kind) {
     case "reject":
       return {
@@ -112,19 +118,24 @@ function confirmCopy(state: ConfirmState): {
         confirmLabel: "영구 삭제",
         tone: "danger",
       };
-    case "demote":
+    case "demote": {
+      const to = nextRole ?? "staff";
       return {
-        title: "관리자 권한 회수",
-        lead: `${who}의 관리자 권한을 회수할까요?`,
+        title: "등급 내리기",
+        lead: `${who}의 등급을 [${ROLE_LABELS[to]}](으)로 내릴까요?`,
         detail:
-          "직원으로 바뀝니다. 이 사용자 관리 화면에 더 이상 들어올 수 없고, 가입 승인·차단·삭제도 할 수 없게 됩니다. 대시보드의 나머지 기능은 그대로 씁니다.",
-        confirmLabel: "권한 회수",
+          to === "staff"
+            ? "사용자 관리와 활동 기록에 더 이상 들어올 수 없습니다. 대시보드의 나머지 기능은 그대로 씁니다."
+            : "등급 변경과 다른 관리자에 대한 조치를 더 이상 할 수 없습니다. 직원 관리와 활동 기록은 그대로 볼 수 있습니다.",
+        confirmLabel: "등급 내리기",
         tone: "warn",
       };
+    }
   }
 }
 
-export default function UsersClient({ initialUsers, currentUserId }: UsersClientProps) {
+export default function UsersClient({ initialUsers, currentUserId, myRole }: UsersClientProps) {
+  const isOwner = myRole === "owner";
   const router = useRouter();
   const [users, setUsers] = useState<ManagedUser[]>(initialUsers);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -195,7 +206,7 @@ export default function UsersClient({ initialUsers, currentUserId }: UsersClient
         case "delete":
           return deleteUserAction(user.id);
         case "demote":
-          return setUserRoleAction(user.id, "staff");
+          return setUserRoleAction(user.id, confirmState.nextRole ?? "staff");
       }
     };
 
@@ -296,6 +307,8 @@ export default function UsersClient({ initialUsers, currentUserId }: UsersClient
               {rows.map((u) => {
                 const isMe = u.id === currentUserId;
                 const busy = busyId === u.id;
+                // 관리자는 직원만 다룬다. 서버도 막지만 못 쓸 버튼을 보여줄 이유가 없다.
+                const canManage = isOwner || u.role === "staff";
 
                 return (
                   <div
@@ -317,17 +330,21 @@ export default function UsersClient({ initialUsers, currentUserId }: UsersClient
 
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold inline-flex items-center gap-1 ${
-                            u.role === "admin"
+                            u.role === "owner"
+                              ? "bg-amber-500/15 text-amber-400 border border-amber-500/25"
+                              : u.role === "admin"
                               ? "bg-violet-500/15 text-violet-400 border border-violet-500/25"
                               : "bg-surface2 text-text-sub border border-border"
                           }`}
                         >
-                          {u.role === "admin" ? (
+                          {u.role === "owner" ? (
+                            <Crown className="w-3 h-3" />
+                          ) : u.role === "admin" ? (
                             <ShieldCheck className="w-3 h-3" />
                           ) : (
                             <Shield className="w-3 h-3" />
                           )}
-                          {u.role === "admin" ? "관리자" : "직원"}
+                          {ROLE_LABELS[u.role]}
                         </span>
 
                         <span
@@ -357,7 +374,7 @@ export default function UsersClient({ initialUsers, currentUserId }: UsersClient
                     <div className="flex items-center gap-1.5 flex-wrap lg:justify-end shrink-0">
                       {busy && <Loader2 className="w-3.5 h-3.5 animate-spin text-text-muted mr-0.5" />}
 
-                      {u.status === "pending" && (
+                      {u.status === "pending" && canManage && (
                         <>
                           <button
                             type="button"
@@ -390,38 +407,38 @@ export default function UsersClient({ initialUsers, currentUserId }: UsersClient
                         </>
                       )}
 
-                      {u.status === "active" && (
+                      {u.status === "active" && canManage && (
                         <>
-                          {u.role === "admin" ? (
-                            <button
-                              type="button"
+                          {/* 등급 변경은 대표 관리자만 할 수 있다. 자기 자신은 바꿀 수 없다. */}
+                          {isOwner && !isMe && (
+                            <select
                               disabled={busy}
-                              onClick={() => {
-                                setConfirmState({ kind: "demote", user: u });
-                                setConfirmError(null);
-                              }}
-                              className={BTN_PLAIN}
-                            >
-                              <ShieldOff className="w-3.5 h-3.5" />
-                              <span>관리자 해제</span>
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={busy}
-                              onClick={() =>
+                              value={u.role}
+                              onChange={(e) => {
+                                const next = e.target.value as UserRole;
+                                if (next === u.role) return;
+                                const goingDown =
+                                  (u.role === "owner" && next !== "owner") ||
+                                  (u.role === "admin" && next === "staff");
+                                if (goingDown) {
+                                  setConfirmState({ kind: "demote", user: u, nextRole: next });
+                                  setConfirmError(null);
+                                  return;
+                                }
                                 runDirect(
                                   u,
-                                  () => setUserRoleAction(u.id, "admin"),
-                                  { role: "admin" },
-                                  `${u.display_name}를 관리자로 지정했습니다.`
-                                )
-                              }
-                              className={BTN_PLAIN}
+                                  () => setUserRoleAction(u.id, next),
+                                  { role: next },
+                                  `${u.display_name}의 등급을 [${ROLE_LABELS[next]}](으)로 바꿨습니다.`
+                                );
+                              }}
+                              className="px-2 py-1.5 rounded-lg bg-surface2 border border-border text-[11px] font-semibold text-text-sub focus:outline-none focus:border-blue-500/40 disabled:opacity-60"
+                              title="등급 변경"
                             >
-                              <ShieldCheck className="w-3.5 h-3.5" />
-                              <span>관리자 지정</span>
-                            </button>
+                              <option value="owner">대표 관리자</option>
+                              <option value="admin">관리자</option>
+                              <option value="staff">직원</option>
+                            </select>
                           )}
 
                           <button
@@ -472,7 +489,7 @@ export default function UsersClient({ initialUsers, currentUserId }: UsersClient
                         </>
                       )}
 
-                      {u.status === "blocked" && (
+                      {u.status === "blocked" && canManage && (
                         <>
                           <button
                             type="button"

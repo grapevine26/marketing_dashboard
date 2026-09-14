@@ -11,16 +11,11 @@ import { createAuthClient } from "../supabase/auth";
  * Next.js 문서가 권하는 방식이다: 프록시는 낙관적 검사, 데이터에 닿는 곳에서 진짜 검사.
  */
 
-export type UserRole = "admin" | "staff";
-export type UserStatus = "pending" | "active" | "blocked";
+// 등급 정의는 클라이언트에서도 쓰므로 서버 전용이 아닌 파일에 둔다. 여기서는 다시 내보내기만 한다.
+export { ROLE_LABELS, isManager, type UserRole, type UserStatus, type SessionUser } from "./roles";
+import { isManager, type UserRole, type UserStatus, type SessionUser } from "./roles";
 
-export interface SessionUser {
-  id: string;
-  username: string;
-  display_name: string;
-  role: UserRole;
-  status: UserStatus;
-}
+
 
 interface ProfileRow {
   id: string;
@@ -69,19 +64,29 @@ export async function requireUser(): Promise<SessionUser> {
   return user;
 }
 
-/** 관리자만 통과시킨다. */
+/** 관리 화면에 들어갈 수 있는 사람만 통과시킨다(대표 관리자·관리자). */
 export async function requireAdmin(): Promise<SessionUser> {
   const user = await requireUser();
-  if (user.role !== "admin") redirect("/");
+  if (!isManager(user.role)) redirect("/");
   return user;
 }
 
-/** 활성 관리자 수. 마지막 관리자를 잃지 않도록 확인하는 데 쓴다. */
-export async function countActiveAdmins(): Promise<number> {
+/** 대표 관리자만 통과시킨다. 등급 변경처럼 가장 무거운 일에 쓴다. */
+export async function requireOwner(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (user.role !== "owner") redirect("/");
+  return user;
+}
+
+/**
+ * 활성 대표 관리자 수. 마지막 한 명을 잃지 않도록 확인하는 데 쓴다.
+ * 대표가 0명이 되면 아무도 등급을 바꿀 수 없어 앱이 잠긴다.
+ */
+export async function countActiveOwners(): Promise<number> {
   const { count, error } = await db()
     .from("profiles")
     .select("id", { count: "exact", head: true })
-    .eq("role", "admin")
+    .eq("role", "owner")
     .eq("status", "active");
   if (error) throw new Error(`[auth] ${error.message}`);
   return count ?? 0;

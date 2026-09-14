@@ -2,7 +2,7 @@ import "server-only";
 import { db, unwrap, unwrapMaybe } from "../db/client";
 import { insertAuditLog } from "../db/audit";
 import { ValidationError, isUuid, nowIso } from "../db/validation";
-import { countActiveAdmins, type SessionUser, type UserRole, type UserStatus } from "./session";
+import { countActiveOwners, ROLE_LABELS, type SessionUser, type UserRole, type UserStatus } from "./session";
 import { normalizeUsername, usernameToEmail, validateDisplayName, validatePassword } from "./username";
 import { getAdminClient } from "../supabase/admin";
 
@@ -101,13 +101,13 @@ async function logUserAction(actor: SessionUser, target: ProfileRow, action: str
 }
 
 /**
- * 마지막 활성 관리자를 잃는 동작을 막는다.
- * 관리자가 하나도 없으면 아무도 승인할 수 없게 되어 앱이 잠긴다.
+ * 마지막 활성 대표 관리자를 잃는 동작을 막는다.
+ * 대표가 0명이 되면 아무도 등급을 바꿀 수 없어 앱이 잠긴다.
  */
-async function guardLastAdmin(target: ProfileRow, what: string): Promise<void> {
-  if (target.role !== "admin" || target.status !== "active") return;
-  if ((await countActiveAdmins()) <= 1) {
-    throw new ValidationError(`마지막 관리자는 ${what} 수 없습니다. 다른 관리자를 먼저 지정하세요.`);
+async function guardLastOwner(target: ProfileRow, what: string): Promise<void> {
+  if (target.role !== "owner" || target.status !== "active") return;
+  if ((await countActiveOwners()) <= 1) {
+    throw new ValidationError(`마지막 대표 관리자는 ${what} 수 없습니다. 다른 대표 관리자를 먼저 지정하세요.`);
   }
 }
 
@@ -117,8 +117,23 @@ function guardSelf(actor: SessionUser, target: ProfileRow, what: string): void {
   }
 }
 
+/**
+ * 관리자는 직원만 관리한다.
+ *
+ * 관리자끼리 서로를 차단·삭제할 수 있으면 다툼이 생겼을 때 서로 지워버릴 수 있다.
+ * 대표 관리자를 건드리는 것은 더 말할 것도 없다. 그래서 대상이 직원이 아니면 대표만 통과시킨다.
+ */
+function guardTargetRank(actor: SessionUser, target: ProfileRow, what: string): void {
+  if (actor.role === "owner") return;
+  if (target.role === "staff") return;
+  throw new ValidationError(
+    `${ROLE_LABELS[target.role]} 계정은 대표 관리자만 ${what} 수 있습니다.`
+  );
+}
+
 export async function approveUser(actor: SessionUser, userId: string): Promise<void> {
   const target = await readProfile(userId);
+  guardTargetRank(actor, target, "승인할");
   if (target.status === "active") return;
   unwrap(
     await db()
@@ -133,7 +148,8 @@ export async function approveUser(actor: SessionUser, userId: string): Promise<v
 export async function blockUser(actor: SessionUser, userId: string): Promise<void> {
   const target = await readProfile(userId);
   guardSelf(actor, target, "차단할");
-  await guardLastAdmin(target, "차단할");
+  guardTargetRank(actor, target, "차단할");
+  await guardLastOwner(target, "차단할");
   if (target.status === "blocked") return;
   unwrap(await db().from("profiles").update({ status: "blocked" }).eq("id", userId).select("id"));
   await logUserAction(actor, target, "user.blocked", `${actor.display_name}가 ${target.display_name}(${target.username}) 계정을 차단했습니다.`);
@@ -141,6 +157,7 @@ export async function blockUser(actor: SessionUser, userId: string): Promise<voi
 
 export async function unblockUser(actor: SessionUser, userId: string): Promise<void> {
   const target = await readProfile(userId);
+  guardTargetRank(actor, target, "차단 해제할");
   if (target.status === "active") return;
   unwrap(
     await db()
@@ -152,17 +169,38 @@ export async function unblockUser(actor: SessionUser, userId: string): Promise<v
   await logUserAction(actor, target, "user.unblocked", `${actor.display_name}가 ${target.display_name}(${target.username}) 계정의 차단을 해제했습니다.`);
 }
 
+/**
+ * 등급 변경. **대표 관리자만 할 수 있다.**
+ *
+ * 관리자가 등급을 바꿀 수 있으면 스스로를 대표로 올리거나 다른 관리자를 내릴 수 있어
+ * 등급 체계가 의미를 잃는다. 그래서 여기만 대표로 좁힌다.
+ */
 export async function setUserRole(actor: SessionUser, userId: string, role: UserRole): Promise<void> {
-  if (role !== "admin" && role !== "staff") throw new ValidationError("역할 값이 올바르지 않습니다.");
+  if (role !== "owner" && role !== "admin" && role !== "staff") {
+    throw new ValidationError("역할 값이 올바르지 않습니다.");
+  }
+  if (actor.role !== "owner") {
+    throw new ValidationError("등급 변경은 대표 관리자만 할 수 있습니다.");
+  }
   const target = await readProfile(userId);
   if (target.role === role) return;
-  if (role === "staff") {
+
+  // 등급이 내려가는 경우에만 지킬 것이 있다. 올리는 것은 언제든 된다.
+  const goingDown =
+    (target.role === "owner" && role !== "owner") || (target.role === "admin" && role === "staff");
+  if (goingDown) {
     guardSelf(actor, target, "강등할");
-    await guardLastAdmin(target, "강등할");
+    await guardLastOwner(target, "강등할");
   }
+
   unwrap(await db().from("profiles").update({ role }).eq("id", userId).select("id"));
-  const label = role === "admin" ? "관리자 권한을 부여했습니다" : "관리자 권한을 회수했습니다";
-  await logUserAction(actor, target, "user.role_changed", `${actor.display_name}가 ${target.display_name}(${target.username})에게 ${label}.`);
+  await logUserAction(
+    actor,
+    target,
+    "user.role_changed",
+    `${actor.display_name}가 ${target.display_name}(${target.username})의 등급을 ` +
+      `[${ROLE_LABELS[target.role]}]에서 [${ROLE_LABELS[role]}](으)로 바꿨습니다.`
+  );
 }
 
 /**
@@ -171,6 +209,7 @@ export async function setUserRole(actor: SessionUser, userId: string, role: User
  */
 export async function resetUserPassword(actor: SessionUser, userId: string, newPassword: string): Promise<void> {
   const target = await readProfile(userId);
+  guardTargetRank(actor, target, "비밀번호를 초기화할");
   const password = validatePassword(newPassword);
   const { error } = await getAdminClient().auth.admin.updateUserById(target.id, { password });
   if (error) throw new Error(`[auth] 비밀번호 변경 실패: ${error.message}`);
@@ -181,7 +220,8 @@ export async function resetUserPassword(actor: SessionUser, userId: string, newP
 export async function deleteUser(actor: SessionUser, userId: string): Promise<void> {
   const target = await readProfile(userId);
   guardSelf(actor, target, "삭제할");
-  await guardLastAdmin(target, "삭제할");
+  guardTargetRank(actor, target, "삭제할");
+  await guardLastOwner(target, "삭제할");
   // 지우기 전에 기록한다. 감사 로그는 대상이 사라져도 남아야 한다.
   await logUserAction(actor, target, "user.deleted", `${actor.display_name}가 ${target.display_name}(${target.username}) 계정을 삭제했습니다.`);
   const { error } = await getAdminClient().auth.admin.deleteUser(target.id);

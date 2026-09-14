@@ -23,8 +23,9 @@ export default async function UsersSettingsPage() {
         </p>
       </div>
 
-      {/* 자기 자신을 구분해 "나" 표시를 하고 차단·삭제 버튼을 숨기려면 현재 관리자 id 가 필요하다. */}
-      <UsersClient initialUsers={users} currentUserId={admin.id} />
+      {/* 자기 자신을 구분하려면 id 가, 어떤 버튼을 보일지 정하려면 내 등급이 필요하다.
+          관리자는 직원만 관리한다. 서버도 막지만 화면에서도 안 보이는 편이 낫다. */}
+      <UsersClient initialUsers={users} currentUserId={admin.id} myRole={admin.role} />
     </div>
   );
 }

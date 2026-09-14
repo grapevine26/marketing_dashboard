@@ -22,7 +22,7 @@ import ThemeToggleButton from "@/components/ThemeToggleButton";
 import RefreshOnFocus from "@/components/RefreshOnFocus";
 import MoaLogo from "@/components/MoaLogo";
 import InstallAppButton from "@/components/InstallAppButton";
-import type { SessionUser } from "@/lib/auth/session";
+import { isManager, type SessionUser } from "@/lib/auth/roles";
 import { logoutAction } from "@/app/login/actions";
 
 /**
@@ -112,7 +112,7 @@ export default function DashboardShell({
       ],
     },
     // 사용자 관리는 관리자에게만 보인다. 승인 대기자가 있으면 개수를 배지로 알린다.
-    ...(user.role === "admin"
+    ...(isManager(user.role)
       ? [
           {
             group: "관리",

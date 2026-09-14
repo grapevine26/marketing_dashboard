@@ -118,14 +118,19 @@ describe.skipIf(!hasTestDb)("사용자 관리", () => {
   }
 
   function asActor(id: string, username: string, displayName: string): SessionUser {
-    return { id, username, display_name: displayName, role: "admin", status: "active" };
+    return { id, username, display_name: displayName, role: "owner", status: "active" };
   }
 
-  async function makeActiveAdmin(username: string, displayName: string): Promise<SessionUser> {
+  async function makeActive(username: string, displayName: string, role: "owner" | "admin" | "staff"): Promise<SessionUser> {
     const { db } = await import("@/lib/db/client");
     const id = await signUp(username, displayName);
-    await db().from("profiles").update({ role: "admin", status: "active" }).eq("id", id);
-    return asActor(id, username, displayName);
+    await db().from("profiles").update({ role, status: "active" }).eq("id", id);
+    return { id, username, display_name: displayName, role, status: "active" };
+  }
+
+  /** 기존 테스트가 쓰는 이름. 대표 관리자를 만든다. */
+  async function makeActiveAdmin(username: string, displayName: string): Promise<SessionUser> {
+    return makeActive(username, displayName, "owner");
   }
 
   it("가입하면 트리거가 대기 상태의 프로필을 만든다", async () => {
@@ -183,40 +188,57 @@ describe.skipIf(!hasTestDb)("사용자 관리", () => {
     expect((await getUsers()).find((u) => u.id === staffId)!.status).toBe("active");
   });
 
-  it("마지막 관리자는 강등·차단·삭제할 수 없다", async () => {
-    const { setUserRole, blockUser, deleteUser, getUsers } = await import("@/lib/auth/users");
-    const boss = await makeActiveAdmin(uid("boss"), "유일한 관리자");
-    const helperName = uid("helper");
-    const helperId = await signUp(helperName, "도우미");
-    const helper = asActor(helperId, helperName, "도우미");
+  it("등급 변경은 대표 관리자만 할 수 있다", async () => {
+    const { setUserRole, getUsers } = await import("@/lib/auth/users");
+    const owner = await makeActive(uid("owner"), "대표", "owner");
+    const admin = await makeActive(uid("admin"), "관리자", "admin");
+    const staff = await makeActive(uid("staff"), "직원", "staff");
 
-    await expect(setUserRole(helper, boss.id, "staff")).rejects.toThrow(/마지막 관리자/);
-    await expect(blockUser(helper, boss.id)).rejects.toThrow(/마지막 관리자/);
-    await expect(deleteUser(helper, boss.id)).rejects.toThrow(/마지막 관리자/);
+    // 관리자는 등급을 못 바꾼다.
+    await expect(setUserRole(admin, staff.id, "admin")).rejects.toThrow(/대표 관리자만/);
 
-    // 관리자가 둘이 되면 한 명은 내릴 수 있다.
-    const second = await makeActiveAdmin(uid("second"), "두 번째 관리자");
-    await setUserRole(second, boss.id, "staff");
-    expect((await getUsers()).find((u) => u.id === boss.id)!.role).toBe("staff");
+    // 대표는 올리고 내릴 수 있다.
+    await setUserRole(owner, staff.id, "admin");
+    expect((await getUsers()).find((u) => u.id === staff.id)!.role).toBe("admin");
+    await setUserRole(owner, staff.id, "staff");
+    expect((await getUsers()).find((u) => u.id === staff.id)!.role).toBe("staff");
+
+    // 대표를 새로 세울 수도 있다.
+    await setUserRole(owner, admin.id, "owner");
+    expect((await getUsers()).find((u) => u.id === admin.id)!.role).toBe("owner");
   });
 
-  it("관리자가 다른 관리자를 직원으로 내릴 수 있다. 단 자기 자신과 마지막 한 명은 안 된다", async () => {
-    const { setUserRole, getUsers } = await import("@/lib/auth/users");
-    const first = await makeActiveAdmin(uid("adminone"), "관리자 갑");
-    const second = await makeActiveAdmin(uid("admintwo"), "관리자 을");
+  it("관리자는 직원만 관리한다. 대표와 다른 관리자는 건드릴 수 없다", async () => {
+    const { blockUser, deleteUser, resetUserPassword, getUsers } = await import("@/lib/auth/users");
+    const owner = await makeActive(uid("owner"), "대표", "owner");
+    const admin = await makeActive(uid("admin"), "관리자", "admin");
+    const other = await makeActive(uid("other"), "다른 관리자", "admin");
+    const staff = await makeActive(uid("staff"), "직원", "staff");
 
-    // 관리자가 둘일 때: 서로는 내릴 수 있다.
-    await setUserRole(first, second.id, "staff");
-    expect((await getUsers()).find((u) => u.id === second.id)!.role).toBe("staff");
+    await expect(blockUser(admin, owner.id)).rejects.toThrow(/대표 관리자만/);
+    await expect(deleteUser(admin, other.id)).rejects.toThrow(/대표 관리자만/);
+    await expect(resetUserPassword(admin, owner.id, "new-password-123")).rejects.toThrow(/대표 관리자만/);
 
-    // 이제 관리자가 갑 한 명뿐이다.
-    await expect(setUserRole(first, first.id, "staff")).rejects.toThrow(/자기 자신/);
-    const demoted = { ...second, role: "staff" as const };
-    await expect(setUserRole(demoted, first.id, "staff")).rejects.toThrow(/마지막 관리자/);
+    // 직원은 다룰 수 있다.
+    await blockUser(admin, staff.id);
+    expect((await getUsers()).find((u) => u.id === staff.id)!.status).toBe("blocked");
+  });
 
-    // 다시 관리자로 올리는 것은 언제든 된다.
+  it("마지막 대표 관리자는 내리거나 차단하거나 지울 수 없다", async () => {
+    const { setUserRole, blockUser, deleteUser, getUsers } = await import("@/lib/auth/users");
+    const first = await makeActive(uid("ownerone"), "대표 하나", "owner");
+    const second = await makeActive(uid("ownertwo"), "대표 둘", "owner");
+
+    // 대표가 둘일 때는 서로 내릴 수 있다.
     await setUserRole(first, second.id, "admin");
     expect((await getUsers()).find((u) => u.id === second.id)!.role).toBe("admin");
+
+    // 이제 대표가 하나뿐이다.
+    await expect(setUserRole(first, first.id, "admin")).rejects.toThrow(/자기 자신/);
+    const stillOwner = { ...second, role: "owner" as const };
+    await expect(setUserRole(stillOwner, first.id, "staff")).rejects.toThrow(/마지막 대표 관리자/);
+    await expect(blockUser(stillOwner, first.id)).rejects.toThrow(/마지막 대표 관리자/);
+    await expect(deleteUser(stillOwner, first.id)).rejects.toThrow(/마지막 대표 관리자/);
   });
 
   it("자기 자신은 차단·삭제할 수 없다", async () => {

@@ -9,7 +9,7 @@ import {
   getEventsByCampaignId,
   getAuditLogs,
 } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser, isManager } from "@/lib/auth/session";
 import TokenShareBox from "./TokenShareBox";
 import CampaignStatusSelect from "./CampaignStatusSelect";
 import CampaignIntegrationsCard from "./CampaignIntegrationsCard";
@@ -38,7 +38,7 @@ export default async function CampaignDetailPage({
   const campaign = await getCampaignById(id);
   if (!campaign) notFound();
 
-  const isAdmin = (await getCurrentUser())?.role === "admin";
+  const isAdmin = isManager((await getCurrentUser())?.role ?? "staff");
   const [applicants, seedingRecords, preSurvey, formConfig, events, auditLogs] = await Promise.all([
     getApplicantsByCampaignId(id),
     getSeedingRecordsByCampaignId(id),

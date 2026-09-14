@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/auth/session";
+import { requireUser, isManager } from "@/lib/auth/session";
 import { countPendingUsers } from "@/lib/auth/users";
 import DashboardShell from "./DashboardShell";
 
@@ -18,7 +18,7 @@ export default async function DashboardLayout({
 }) {
   const user = await requireUser();
   // 대기자 수는 승인할 수 있는 사람에게만 의미가 있다. 관리자가 아니면 조회 자체를 하지 않는다.
-  const pendingCount = user.role === "admin" ? await countPendingUsers() : 0;
+  const pendingCount = isManager(user.role) ? await countPendingUsers() : 0;
 
   return (
     <DashboardShell user={user} pendingCount={pendingCount}>
