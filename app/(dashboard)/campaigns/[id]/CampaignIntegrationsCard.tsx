@@ -208,6 +208,10 @@ export default function CampaignIntegrationsCard({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       {actorBadge(log.actor_type)}
+                      {/* 누가 했는지. 로그인 전에 쌓인 기록과 공개 링크 경로에는 이름이 없다. */}
+                      {log.actor_name && (
+                        <span className="text-[10px] text-text-sub font-medium shrink-0">{log.actor_name}</span>
+                      )}
                       <span className="font-semibold text-text">{log.summary}</span>
                     </div>
                     <span className="text-[10px] text-text-muted font-mono">

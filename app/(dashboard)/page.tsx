@@ -224,7 +224,11 @@ export default async function DashboardOverviewPage({
                             minute: "2-digit",
                           })}
                         </span>
-                        {context && <span className="truncate max-w-[140px] text-text-sub">· {context}</span>}
+                        <span className="flex items-center gap-1 truncate max-w-[200px] text-text-sub">
+                          {/* 누가 했는지. 로그인 전 기록과 공개 링크 경로에는 이름이 없다. */}
+                          {log.actor_name && <span className="truncate">{log.actor_name}</span>}
+                          {context && <span className="truncate">· {context}</span>}
+                        </span>
                       </div>
                     </div>
                   );
