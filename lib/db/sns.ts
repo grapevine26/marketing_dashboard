@@ -41,6 +41,7 @@ import {
   ALLOWED_SNS_MEDIA_MIME_TYPES,
   MAX_SNS_MEDIA_BYTES,
   SNS_CONTENT_STATUSES,
+  SNS_CONTENT_STATUS_LABELS,
   type PreSurveyQuestion,
   type SnsAccount,
   type SnsContent,
@@ -194,6 +195,15 @@ export async function createSnsAccount(data: {
     })
   );
 
+  await insertAuditLog({
+    account_id: row.id,
+    entity_type: "sns_account",
+    entity_id: row.id,
+    action: "sns_account.created",
+    actor_type: "agency",
+    summary: `[${company}] (@${handle}) SNS 계정을 등록했습니다.`,
+  });
+
   return rowToSnsAccount(row);
 }
 
@@ -226,12 +236,30 @@ export async function updateSnsAccount(
     throw new ValidationError("계약 종료일은 시작일 이후여야 합니다.");
   }
 
+  // 바꿀 값이 하나도 없으면 쓰기도 로그도 없다. 여기를 지나면 실제로 수정된 것이다.
   if (Object.keys(update).length === 0) return rowToSnsAccount(current);
 
   const row = unwrap(
     await db().from("sns_accounts").update(update).eq("id", id).select("*").single<SnsAccountRow>()
   );
-  return rowToSnsAccount(row);
+  const account = rowToSnsAccount(row);
+
+  // 운영중/계약종료가 실제로 바뀐 경우에만 상태 문구로 남긴다. 나머지는 일반 수정으로 본다.
+  const statusChanged = update.status !== undefined && update.status !== current.status;
+  const statusLabel = account.status === "ended" ? "계약종료" : "운영중";
+  await insertAuditLog({
+    account_id: id,
+    entity_type: "sns_account",
+    entity_id: id,
+    action: "sns_account.updated",
+    actor_type: "agency",
+    summary: statusChanged
+      ? `[${account.company_name}] SNS 계정 상태를 [${statusLabel}](으)로 변경했습니다.`
+      : `[${account.company_name}] SNS 계정 정보를 수정했습니다.`,
+    details: statusChanged ? { previous: current.status, next: account.status } : null,
+  });
+
+  return account;
 }
 
 /** 공개 링크 토큰 재발급. 이전 링크는 즉시 무효가 된다. 감사 로그를 남긴다. */
@@ -386,6 +414,19 @@ export async function updateSnsAccountIntakeQuestions(
       .select("*")
       .single<SnsAccountRow>()
   );
+
+  await insertAuditLog({
+    account_id: accountId,
+    entity_type: "sns_account",
+    entity_id: accountId,
+    action: "sns_account.intake_questions_changed",
+    actor_type: "agency",
+    summary:
+      cleaned === null
+        ? `[${row.company_name}] 사전조사 질문을 공용 템플릿으로 되돌렸습니다.`
+        : `[${row.company_name}] 사전조사 질문을 수정했습니다. (${cleaned.length}개)`,
+  });
+
   return rowToSnsAccount(row);
 }
 
@@ -433,6 +474,17 @@ export async function saveSnsIntakeResponse(data: {
       .select("*")
       .single<SnsIntakeResponseRow>()
   );
+
+  // 광고주가 공개 링크로 제출하는 경로다. 로그인이 없으므로 actor_type 은 company 로 남긴다.
+  await insertAuditLog({
+    account_id: data.account_id,
+    entity_type: "sns_account",
+    entity_id: data.account_id,
+    action: "sns_account.intake_submitted",
+    actor_type: "company",
+    summary: `광고주가 [${account.company_name}] 사전조사 응답을 제출했습니다.`,
+  });
+
   return rowToSnsIntakeResponse(row);
 }
 
@@ -453,7 +505,9 @@ export async function saveSnsPlan(data: {
   field_values: Record<string, string>;
 }): Promise<SnsPlan> {
   const values = cleanFieldValues(data.field_values);
-  if (!(await snsAccountExists(data.account_id))) throw new ValidationError("계정을 찾을 수 없습니다.");
+  // 존재 확인 겸 브랜드명을 쓰려고 행을 통째로 읽는다(쿼리 수는 존재 확인 때와 같다).
+  const account = await readSnsAccountRow(data.account_id);
+  if (!account) throw new ValidationError("계정을 찾을 수 없습니다.");
 
   let templateId: string | null = null;
   if (data.template_id) {
@@ -472,6 +526,16 @@ export async function saveSnsPlan(data: {
       .select("*")
       .single<SnsPlanRow>()
   );
+
+  await insertAuditLog({
+    account_id: data.account_id,
+    entity_type: "sns_account",
+    entity_id: data.account_id,
+    action: "sns_account.plan_saved",
+    actor_type: "agency",
+    summary: `[${account.company_name}] 운영 계획을 저장했습니다.`,
+  });
+
   return rowToSnsPlan(row);
 }
 
@@ -544,6 +608,16 @@ export async function createSnsContent(data: {
       .select("*")
       .single<SnsContentRow>()
   );
+
+  await insertAuditLog({
+    account_id: data.account_id,
+    entity_type: "sns_content",
+    entity_id: row.id,
+    action: "sns_content.created",
+    actor_type: "agency",
+    summary: `[${title}] 콘텐츠를 등록했습니다.`,
+  });
+
   return rowToSnsContent(row);
 }
 
@@ -597,12 +671,43 @@ export async function updateSnsContent(id: string, patch: SnsContentPatch): Prom
     }
   }
 
+  // 바꿀 값이 없으면 쓰기도 로그도 없다. 모달의 저장 버튼으로만 불리므로 자동 저장 잡음은 없다.
   if (Object.keys(update).length === 0) return rowToSnsContent(current);
+
+  // 조회해 둔 현재 행과 비교해 무엇이 바뀌었는지 본다(추가 쿼리 없음).
+  const statusChanged = update.status !== undefined;
+  // 수치를 비우는 것(null)은 성과 입력으로 치지 않는다. 실제 값이 새로 들어온 경우만 문구에 드러낸다.
+  const perfEntered = perfKeys.some((key) => update[key] != null && update[key] !== current[key]);
 
   const row = unwrap(
     await db().from("sns_contents").update(update).eq("id", id).select("*").single<SnsContentRow>()
   );
-  return rowToSnsContent(row);
+  const content = rowToSnsContent(row);
+
+  const changes: string[] = [];
+  if (statusChanged) {
+    const statusLabel = SNS_CONTENT_STATUS_LABELS[content.status] ?? content.status;
+    changes.push(`상태를 [${statusLabel}](으)로 변경`);
+  }
+  if (perfEntered) {
+    changes.push(
+      `성과 수치를 입력(조회수 ${content.view_count ?? 0} · 좋아요 ${content.like_count ?? 0} · 댓글 ${content.comment_count ?? 0})`
+    );
+  }
+  await insertAuditLog({
+    account_id: content.account_id,
+    entity_type: "sns_content",
+    entity_id: content.id,
+    action: "sns_content.updated",
+    actor_type: "agency",
+    summary:
+      changes.length > 0
+        ? `[${content.title}] 콘텐츠의 ${changes.join("하고 ")}했습니다.`
+        : `[${content.title}] 콘텐츠 내용을 수정했습니다.`,
+    details: statusChanged ? { previous: current.status, next: content.status } : null,
+  });
+
+  return content;
 }
 
 /** 콘텐츠 삭제. 행을 지운 뒤 첨부 파일을 저장소에서 지운다. 없는 id 면 false. */
@@ -610,6 +715,16 @@ export async function deleteSnsContent(id: string): Promise<boolean> {
   const current = await readSnsContentRow(id);
   if (!current) return false;
   const removedMedia = current.media_attachments?.map((att) => att.id) ?? [];
+
+  // 지운 뒤에는 제목을 알 수 없으므로 삭제 전에 남긴다(계정 삭제와 같은 방식).
+  await insertAuditLog({
+    account_id: current.account_id,
+    entity_type: "sns_content",
+    entity_id: current.id,
+    action: "sns_content.deleted",
+    actor_type: "agency",
+    summary: `[${current.title}] 콘텐츠를 삭제했습니다.`,
+  });
 
   unwrap(await db().from("sns_contents").delete().eq("id", id));
 

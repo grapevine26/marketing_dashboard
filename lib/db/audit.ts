@@ -1,6 +1,7 @@
 import { db, unwrap } from "./client";
 import { rowToAuditLog, type AuditLogRow } from "./mappers";
 import type { AuditActorType, AuditLogEntry } from "./types";
+import { getActor } from "../auth/context";
 
 export interface AuditLogInput {
   campaign_id?: string | null;
@@ -19,6 +20,9 @@ export interface AuditLogInput {
  * 옛 JSON 시절의 1000건 상한은 없다. 인덱스로 조회 비용을 잡는다.
  */
 export async function insertAuditLog(entry: AuditLogInput): Promise<AuditLogEntry> {
+  // 행위자 이름을 따로 주지 않으면 현재 로그인한 사용자를 쓴다.
+  // 공개 라우트(지원폼·사전조사·승인 링크)에는 로그인이 없어 비어 있고, 그때는 이름 없이 남는다.
+  const actorName = entry.actor_name ?? getActor()?.display_name ?? null;
   const row = unwrap(
     await db()
       .from("audit_logs")
@@ -29,7 +33,7 @@ export async function insertAuditLog(entry: AuditLogInput): Promise<AuditLogEntr
         entity_id: entry.entity_id,
         action: entry.action,
         actor_type: entry.actor_type,
-        actor_name: entry.actor_name || null,
+        actor_name: actorName,
         summary: entry.summary,
         details: entry.details || null,
       })

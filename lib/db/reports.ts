@@ -8,6 +8,7 @@
  * 다른 도메인 모듈(campaigns, applicants)을 import 하지 않고 필요한 행을 직접 조회한다.
  * 모듈 간 순환 의존을 피하기 위해서다.
  */
+import { insertAuditLog } from "./audit";
 import { db, unwrap, unwrapMaybe } from "./client";
 import {
   rowToApplicant,
@@ -68,7 +69,22 @@ export async function saveReportSections(
       .select("*")
       .maybeSingle<ReportRow>()
   );
-  return row ? rowToReport(row) : null;
+  // 없는 보고서면 아무것도 안 바뀌었으므로 로그도 남기지 않는다.
+  if (!row) return null;
+  const report = rowToReport(row);
+
+  // audit_logs.entity_type 에 보고서 전용 값이 없어 campaign 을 쓴다.
+  // campaign_id 는 update 가 돌려준 행에서 가져온다(추가 조회 없음).
+  await insertAuditLog({
+    campaign_id: report.campaign_id,
+    entity_type: "campaign",
+    entity_id: report.campaign_id,
+    action: "report.sections_saved",
+    actor_type: "agency",
+    summary: `[${report.title}] 보고서의 본문 섹션을 저장했습니다. (${sections.length}개)`,
+  });
+
+  return report;
 }
 
 // ---------- 스냅샷 ----------
@@ -160,5 +176,17 @@ export async function createReport(campaignId: string, title?: string): Promise<
       .select("*")
       .single<ReportRow>()
   );
-  return rowToReport(row);
+  const report = rowToReport(row);
+
+  // audit_logs.entity_type 에 보고서 전용 값이 없어 campaign 을 쓴다.
+  await insertAuditLog({
+    campaign_id: campaignId,
+    entity_type: "campaign",
+    entity_id: campaignId,
+    action: "report.created",
+    actor_type: "agency",
+    summary: `[${report.title}] 보고서를 생성했습니다.`,
+  });
+
+  return report;
 }

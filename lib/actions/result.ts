@@ -1,5 +1,6 @@
 import { ValidationError } from "@/lib/db";
 import { requireAdmin, requireUser, type SessionUser } from "@/lib/auth/session";
+import { withActor } from "@/lib/auth/context";
 
 /**
  * 서버 액션 공통 반환 타입.
@@ -58,7 +59,8 @@ export async function runAuthedAction<T>(
   fn: (user: SessionUser) => Promise<T>
 ): Promise<ActionResult<T>> {
   const user = await requireUser();
-  return runAction(() => fn(user));
+  // 사용자를 요청 컨텍스트에 담는다. 감사 로그가 "누가" 했는지 알아내는 통로다.
+  return withActor(user, () => runAction(() => fn(user)));
 }
 
 /** 관리자만 실행할 수 있는 액션. 사용자 관리처럼 권한이 필요한 곳에 쓴다. */
@@ -66,5 +68,5 @@ export async function runAdminAction<T>(
   fn: (user: SessionUser) => Promise<T>
 ): Promise<ActionResult<T>> {
   const user = await requireAdmin();
-  return runAction(() => fn(user));
+  return withActor(user, () => runAction(() => fn(user)));
 }

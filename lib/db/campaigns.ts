@@ -15,6 +15,7 @@
  */
 
 import { insertAuditLog } from "./audit";
+import { CAMPAIGN_STATUS_LABELS } from "./types";
 import { db, unwrap, unwrapMaybe } from "./client";
 import { DEFAULT_PRE_SURVEY_QUESTIONS } from "./defaults";
 import {
@@ -144,6 +145,15 @@ export async function createCampaign(data: {
       })
   );
 
+  await insertAuditLog({
+    campaign_id: row.id,
+    entity_type: "campaign",
+    entity_id: row.id,
+    action: "campaign.created",
+    actor_type: "agency",
+    summary: `[${name}] 캠페인을 만들었습니다. (${company} / ${type === "shipping" ? "제품배송형" : "현장방문형"})`,
+  });
+
   return rowToCampaign(row);
 }
 
@@ -160,10 +170,27 @@ export async function updateCampaign(
   if (Object.keys(update).length === 0) return getCampaignById(id);
   if (!isUuid(id)) return null;
 
+  // 상태 변경을 문구에 드러내려면 바뀌기 전 값이 필요하다.
+  const before = patch.status !== undefined ? await getCampaignById(id) : null;
+
   const row = unwrapMaybe(
     await db().from("campaigns").update(update).eq("id", id).select("*").maybeSingle<CampaignRow>()
   );
-  return row ? rowToCampaign(row) : null;
+  if (!row) return null;
+
+  const statusChanged = before && patch.status !== undefined && before.status !== row.status;
+  await insertAuditLog({
+    campaign_id: row.id,
+    entity_type: "campaign",
+    entity_id: row.id,
+    action: statusChanged ? "campaign.status_changed" : "campaign.updated",
+    actor_type: "agency",
+    summary: statusChanged
+      ? `[${row.name}] 캠페인 상태를 [${CAMPAIGN_STATUS_LABELS[row.status]}](으)로 바꿨습니다.`
+      : `[${row.name}] 캠페인 정보를 수정했습니다.`,
+    details: statusChanged ? { previous: before.status, next: row.status } : null,
+  });
+  return rowToCampaign(row);
 }
 
 export async function updateCampaignMessageTemplates(
@@ -183,7 +210,16 @@ export async function updateCampaignMessageTemplates(
       .select("*")
       .maybeSingle<CampaignRow>()
   );
-  return row ? rowToCampaign(row) : null;
+  if (!row) return null;
+  await insertAuditLog({
+    campaign_id: row.id,
+    entity_type: "campaign",
+    entity_id: row.id,
+    action: "campaign.message_templates_saved",
+    actor_type: "agency",
+    summary: `[${row.name}] 안내문 템플릿을 저장했습니다.`,
+  });
+  return rowToCampaign(row);
 }
 
 export async function deleteCampaign(id: string): Promise<boolean> {
@@ -331,6 +367,13 @@ export async function updatePreSurveyTemplate(
       .select("*")
       .single<PreSurveyTemplateRow>()
   );
+  await insertAuditLog({
+    entity_type: "campaign",
+    entity_id: String(PRE_SURVEY_TEMPLATE_ID),
+    action: "pre_survey_template.saved",
+    actor_type: "agency",
+    summary: `공용 사전조사 문항을 저장했습니다. (${cleaned.length}개)`,
+  });
   return { id: PRE_SURVEY_TEMPLATE_ID, questions: row.questions ?? cleaned };
 }
 
@@ -360,6 +403,16 @@ export async function updateCampaignPreSurveyQuestions(
       .maybeSingle<CampaignRow>()
   );
   if (!row) throw new ValidationError("캠페인을 찾을 수 없습니다.");
+  await insertAuditLog({
+    campaign_id: row.id,
+    entity_type: "campaign",
+    entity_id: row.id,
+    action: "campaign.pre_survey_questions_changed",
+    actor_type: "agency",
+    summary: cleaned
+      ? `[${row.name}] 캠페인 전용 사전조사 문항을 저장했습니다. (${cleaned.length}개)`
+      : `[${row.name}] 사전조사 문항을 공용 템플릿으로 되돌렸습니다.`,
+  });
   return rowToCampaign(row);
 }
 
@@ -412,6 +465,15 @@ export async function savePreSurveyResponse(data: {
       .select("*")
       .single<PreSurveyResponseRow>()
   );
+  // 광고주가 공개 링크로 제출하는 경로다. 로그인이 없으므로 행위자 이름은 비어 있다.
+  await insertAuditLog({
+    campaign_id: data.campaign_id,
+    entity_type: "campaign",
+    entity_id: data.campaign_id,
+    action: "pre_survey.submitted",
+    actor_type: "company",
+    summary: `광고주가 사전조사 답변을 제출했습니다.${data.used_ai_assist ? " (AI 추천 사용)" : ""}`,
+  });
   return rowToPreSurveyResponse(row);
 }
 
@@ -479,5 +541,17 @@ export async function saveFormConfig(data: {
       .select("*")
       .single<FormConfigRow>()
   );
+  // 모집 상태(접수중/마감)가 바뀌는 게 가장 중요한 변화라 문구에 드러낸다.
+  const published = Boolean(data.is_published);
+  const changedPublish = existing !== null && published !== undefined;
+  await insertAuditLog({
+    campaign_id: data.campaign_id,
+    entity_type: "campaign",
+    entity_id: data.campaign_id,
+    action: "form_config.saved",
+    actor_type: "agency",
+    summary: `지원 신청폼을 저장했습니다. (문항 ${questions.length}개, ${published ? "접수중" : "접수 마감"})`,
+    details: changedPublish ? { is_published: published } : null,
+  });
   return rowToFormConfig(row);
 }

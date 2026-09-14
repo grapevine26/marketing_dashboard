@@ -12,6 +12,7 @@
  * 유일한 예외는 운영안 템플릿 확인이다. 내장 템플릿은 DB 가 아니라 코드에 있어서
  * `ppt-templates` 모듈이 합쳐 주는 결과를 써야 한다.
  */
+import { insertAuditLog } from "./audit";
 import { db, unwrap, unwrapMaybe } from "./client";
 import {
   rowToEvent,
@@ -25,13 +26,14 @@ import {
   type EventRow,
 } from "./mappers";
 import { getPptTemplateById } from "./ppt-templates";
-import type {
-  EventChecklistItem,
-  EventInvitee,
-  EventPlan,
-  EventRsvpStatus,
-  EventStatus,
-  MarketingEvent,
+import {
+  EVENT_STATUS_LABELS,
+  type EventChecklistItem,
+  type EventInvitee,
+  type EventPlan,
+  type EventRsvpStatus,
+  type EventStatus,
+  type MarketingEvent,
 } from "./types";
 import {
   cleanFieldValues,
@@ -57,13 +59,47 @@ import {
  * 쿼리 전에 걸러야 한다. 각 함수는 형식이 틀리면 null / false / 빈 배열 / ValidationError 를 돌려준다.
  */
 
-/** 행사가 있는지만 확인한다. 없으면 ValidationError. 초대·체크리스트·운영안 생성 전에 부른다. */
-async function assertEventExists(eventId: string): Promise<void> {
+/**
+ * 감사 로그에 쓰는 행사 최소 정보.
+ * 초대·체크리스트·운영안은 행사 id 만 알고 캠페인 id 와 행사명을 모른다.
+ * 로그의 campaign_id(캠페인 상세가 이걸로 거른다)와 행사명 문구를 채우려면 이 세 컬럼이 필요하다.
+ */
+type EventBrief = Pick<EventRow, "id" | "campaign_id" | "name">;
+
+/** 감사 로그 문구에 쓰는 RSVP 상태 이름. 화면(EventDetailClient)의 선택지 문구와 맞춘다. */
+const RSVP_STATUS_LABELS: Record<EventRsvpStatus, string> = {
+  pending: "미응답",
+  attending: "참석",
+  not_attending: "불참",
+};
+
+/**
+ * 행사가 있는지 확인하고 로그용 최소 정보를 돌려준다. 없으면 ValidationError.
+ * 초대·체크리스트·운영안 생성 전에 부른다. 어차피 하던 존재 확인 조회라 쿼리는 늘지 않는다.
+ */
+async function requireEventBrief(eventId: string): Promise<EventBrief> {
   if (!isUuid(eventId)) throw new ValidationError("행사를 찾을 수 없습니다.");
   const row = unwrapMaybe(
-    await db().from("events").select("id").eq("id", eventId).maybeSingle<{ id: string }>()
+    await db()
+      .from("events")
+      .select("id, campaign_id, name")
+      .eq("id", eventId)
+      .maybeSingle<EventBrief>()
   );
   if (!row) throw new ValidationError("행사를 찾을 수 없습니다.");
+  return row;
+}
+
+/** 위와 같지만 없으면 null. 초대·체크리스트 수정/삭제처럼 던지지 않는 함수에서 쓴다. */
+async function getEventBrief(eventId: string): Promise<EventBrief | null> {
+  if (!isUuid(eventId)) return null;
+  return unwrapMaybe(
+    await db()
+      .from("events")
+      .select("id, campaign_id, name")
+      .eq("id", eventId)
+      .maybeSingle<EventBrief>()
+  );
 }
 
 // ---------- 행사 ----------
@@ -130,7 +166,17 @@ export async function createEvent(data: {
       .select("*")
       .single<EventRow>()
   );
-  return rowToEvent(row);
+  const event = rowToEvent(row);
+
+  await insertAuditLog({
+    campaign_id: event.campaign_id,
+    entity_type: "event",
+    entity_id: event.id,
+    action: "event.created",
+    actor_type: "agency",
+    summary: `[${event.name}] 행사를 만들었습니다.`,
+  });
+  return event;
 }
 
 /**
@@ -155,12 +201,40 @@ export async function updateEvent(
   const row = unwrapMaybe(
     await db().from("events").update(changes).eq("id", eventId).select("*").maybeSingle<EventRow>()
   );
-  return row ? rowToEvent(row) : null;
+  if (!row) return null;
+  const event = rowToEvent(row);
+
+  // 상태를 함께 보냈으면 어떤 상태가 됐는지 문구에 드러낸다(준비중/행사완료/취소됨).
+  await insertAuditLog({
+    campaign_id: event.campaign_id,
+    entity_type: "event",
+    entity_id: event.id,
+    action: "event.updated",
+    actor_type: "agency",
+    summary: changes.status
+      ? `[${event.name}] 행사 상태를 [${EVENT_STATUS_LABELS[event.status]}](으)로 변경했습니다.`
+      : `[${event.name}] 행사 정보를 수정했습니다.`,
+    details: changes.status ? { status: event.status } : null,
+  });
+  return event;
 }
 
 /** 행사 삭제. 초대·체크리스트·운영안은 fk cascade 로 함께 지워진다. 지운 행이 없으면 false. */
 export async function deleteEvent(eventId: string): Promise<boolean> {
   if (!isUuid(eventId)) return false;
+  // 지우고 나면 행사명·캠페인 id 를 읽을 수 없어서 먼저 조회하고 로그부터 남긴다.
+  const ev = await getEventBrief(eventId);
+  if (!ev) return false;
+
+  await insertAuditLog({
+    campaign_id: ev.campaign_id,
+    entity_type: "event",
+    entity_id: ev.id,
+    action: "event.deleted",
+    actor_type: "agency",
+    summary: `[${ev.name}] 행사를 삭제했습니다.`,
+  });
+
   const rows = unwrap(
     await db().from("events").delete().eq("id", eventId).select("id").returns<{ id: string }[]>()
   );
@@ -243,6 +317,18 @@ export async function addEventInviteesFromApplicants(
   const rows = unwrap(
     await db().from("event_invitees").insert(toInsert).select("*").returns<EventInviteeRow[]>()
   );
+
+  // 한 번에 여러 명을 가져오므로 사람마다 남기지 않고 한 줄로 묶는다.
+  if (rows.length > 0) {
+    await insertAuditLog({
+      campaign_id: ev.campaign_id,
+      entity_type: "event",
+      entity_id: ev.id,
+      action: "event.invitee_added",
+      actor_type: "agency",
+      summary: `[${ev.name}] 지원자 ${rows.length}명을 초대 명단에 추가했습니다.`,
+    });
+  }
   return rows.map(rowToEventInvitee);
 }
 
@@ -256,7 +342,7 @@ export async function addDirectEventInvitee(data: {
 }): Promise<EventInvitee> {
   const name = requireText(data.name, "이름", 100);
   const snsUrl = optionalUrl(data.sns_url, "SNS URL");
-  await assertEventExists(data.event_id);
+  const ev = await requireEventBrief(data.event_id);
 
   const row = unwrap(
     await db()
@@ -275,7 +361,17 @@ export async function addDirectEventInvitee(data: {
       .select("*")
       .single<EventInviteeRow>()
   );
-  return rowToEventInvitee(row);
+  const invitee = rowToEventInvitee(row);
+
+  await insertAuditLog({
+    campaign_id: ev.campaign_id,
+    entity_type: "event",
+    entity_id: ev.id,
+    action: "event.invitee_added",
+    actor_type: "agency",
+    summary: `[${ev.name}] 초대 명단에 ${invitee.name}님을 추가했습니다.`,
+  });
+  return invitee;
 }
 
 /** 초대 부분 수정(RSVP·참석 여부·메모). 초대가 없으면 null. 바꿀 필드가 없으면 현재 행을 돌려준다. */
@@ -289,12 +385,13 @@ export async function updateEventInvitee(
   if (patch.attended !== undefined) changes.attended = Boolean(patch.attended);
   if (patch.memo !== undefined) changes.memo = optionalText(patch.memo, 1000);
 
-  if (Object.keys(changes).length === 0) {
-    const row = unwrapMaybe(
-      await db().from("event_invitees").select("*").eq("id", inviteeId).maybeSingle<EventInviteeRow>()
-    );
-    return row ? rowToEventInvitee(row) : null;
-  }
+  // 바뀐 게 RSVP·참석 체크인지 메모뿐인지 가리려면 이전 값이 필요하다.
+  // 바꿀 필드가 없을 때 어차피 하던 조회를 앞으로 옮긴 것이라 쿼리는 늘지 않는다.
+  const current = unwrapMaybe(
+    await db().from("event_invitees").select("*").eq("id", inviteeId).maybeSingle<EventInviteeRow>()
+  );
+  if (!current) return null;
+  if (Object.keys(changes).length === 0) return rowToEventInvitee(current);
 
   const row = unwrapMaybe(
     await db()
@@ -304,12 +401,61 @@ export async function updateEventInvitee(
       .select("*")
       .maybeSingle<EventInviteeRow>()
   );
-  return row ? rowToEventInvitee(row) : null;
+  if (!row) return null;
+  const invitee = rowToEventInvitee(row);
+
+  // 메모는 입력칸에서 포커스가 빠질 때마다 자동 저장되므로, 메모만 바뀐 경우는 로그를 남기지 않는다.
+  const rsvpChanged = invitee.rsvp_status !== current.rsvp_status;
+  const attendedChanged = invitee.attended !== current.attended;
+  if (rsvpChanged || attendedChanged) {
+    // 캠페인 id·행사명은 초대 행에 없다. 로그를 남길 때만 행사 행을 읽는다.
+    const ev = await getEventBrief(invitee.event_id);
+    if (ev) {
+      const parts: string[] = [];
+      if (rsvpChanged) {
+        parts.push(`참석 여부를 [${RSVP_STATUS_LABELS[invitee.rsvp_status]}](으)로 변경`);
+      }
+      if (attendedChanged) {
+        parts.push(invitee.attended ? "현장 참석을 체크" : "현장 참석 체크를 해제");
+      }
+      await insertAuditLog({
+        campaign_id: ev.campaign_id,
+        entity_type: "event",
+        entity_id: ev.id,
+        action: "event.invitee_updated",
+        actor_type: "agency",
+        summary: `[${ev.name}] ${invitee.name}님의 ${parts.join("하고 ")}했습니다.`,
+      });
+    }
+  }
+  return invitee;
 }
 
 /** 초대 삭제. 지운 행이 없으면 false. */
 export async function deleteEventInvitee(inviteeId: string): Promise<boolean> {
   if (!isUuid(inviteeId)) return false;
+  // 지우고 나면 이름을 읽을 수 없어서 먼저 조회하고 로그부터 남긴다.
+  const current = unwrapMaybe(
+    await db()
+      .from("event_invitees")
+      .select("id, event_id, name")
+      .eq("id", inviteeId)
+      .maybeSingle<Pick<EventInviteeRow, "id" | "event_id" | "name">>()
+  );
+  if (!current) return false;
+
+  const ev = await getEventBrief(current.event_id);
+  if (ev) {
+    await insertAuditLog({
+      campaign_id: ev.campaign_id,
+      entity_type: "event",
+      entity_id: ev.id,
+      action: "event.invitee_removed",
+      actor_type: "agency",
+      summary: `[${ev.name}] 초대 명단에서 ${current.name}님을 삭제했습니다.`,
+    });
+  }
+
   const rows = unwrap(
     await db().from("event_invitees").delete().eq("id", inviteeId).select("id").returns<{ id: string }[]>()
   );
@@ -359,7 +505,7 @@ export async function addEventChecklistItem(data: {
 }): Promise<EventChecklistItem> {
   const label = requireText(data.label, "할 일 내용", 300);
   const dueDate = optionalDate(data.due_date, "마감일");
-  await assertEventExists(data.event_id);
+  const ev = await requireEventBrief(data.event_id);
 
   const last = unwrapMaybe(
     await db()
@@ -387,7 +533,17 @@ export async function addEventChecklistItem(data: {
       .select("*")
       .single<EventChecklistItemRow>()
   );
-  return rowToEventChecklistItem(row);
+  const item = rowToEventChecklistItem(row);
+
+  await insertAuditLog({
+    campaign_id: ev.campaign_id,
+    entity_type: "event",
+    entity_id: ev.id,
+    action: "event.checklist_added",
+    actor_type: "agency",
+    summary: `[${ev.name}] 준비 체크리스트에 [${item.label}] 항목을 추가했습니다.`,
+  });
+  return item;
 }
 
 /** 체크리스트 항목 부분 수정. 항목이 없으면 null. 바꿀 필드가 없으면 현재 행을 돌려준다. */
@@ -402,16 +558,17 @@ export async function updateEventChecklistItem(
   if (patch.assignee !== undefined) changes.assignee = optionalText(patch.assignee, 100);
   if (patch.done !== undefined) changes.done = Boolean(patch.done);
 
-  if (Object.keys(changes).length === 0) {
-    const row = unwrapMaybe(
-      await db()
-        .from("event_checklist_items")
-        .select("*")
-        .eq("id", itemId)
-        .maybeSingle<EventChecklistItemRow>()
-    );
-    return row ? rowToEventChecklistItem(row) : null;
-  }
+  // 완료 체크가 바뀌었는지 보려면 이전 값이 필요하다.
+  // 바꿀 필드가 없을 때 어차피 하던 조회를 앞으로 옮긴 것이라 쿼리는 늘지 않는다.
+  const current = unwrapMaybe(
+    await db()
+      .from("event_checklist_items")
+      .select("*")
+      .eq("id", itemId)
+      .maybeSingle<EventChecklistItemRow>()
+  );
+  if (!current) return null;
+  if (Object.keys(changes).length === 0) return rowToEventChecklistItem(current);
 
   const row = unwrapMaybe(
     await db()
@@ -421,12 +578,52 @@ export async function updateEventChecklistItem(
       .select("*")
       .maybeSingle<EventChecklistItemRow>()
   );
-  return row ? rowToEventChecklistItem(row) : null;
+  if (!row) return null;
+  const item = rowToEventChecklistItem(row);
+
+  // 캠페인 id·행사명은 체크리스트 행에 없어서 행사 행을 읽어 온다.
+  const ev = await getEventBrief(item.event_id);
+  if (ev) {
+    const doneChanged = item.done !== current.done;
+    await insertAuditLog({
+      campaign_id: ev.campaign_id,
+      entity_type: "event",
+      entity_id: ev.id,
+      action: "event.checklist_updated",
+      actor_type: "agency",
+      summary: doneChanged
+        ? `[${ev.name}] 체크리스트 [${item.label}] 항목을 ${item.done ? "완료 처리" : "완료 해제"}했습니다.`
+        : `[${ev.name}] 체크리스트 [${item.label}] 항목을 수정했습니다.`,
+    });
+  }
+  return item;
 }
 
 /** 체크리스트 항목 삭제. 지운 행이 없으면 false. */
 export async function deleteEventChecklistItem(itemId: string): Promise<boolean> {
   if (!isUuid(itemId)) return false;
+  // 지우고 나면 항목 내용을 읽을 수 없어서 먼저 조회하고 로그부터 남긴다.
+  const current = unwrapMaybe(
+    await db()
+      .from("event_checklist_items")
+      .select("id, event_id, label")
+      .eq("id", itemId)
+      .maybeSingle<Pick<EventChecklistItemRow, "id" | "event_id" | "label">>()
+  );
+  if (!current) return false;
+
+  const ev = await getEventBrief(current.event_id);
+  if (ev) {
+    await insertAuditLog({
+      campaign_id: ev.campaign_id,
+      entity_type: "event",
+      entity_id: ev.id,
+      action: "event.checklist_removed",
+      actor_type: "agency",
+      summary: `[${ev.name}] 체크리스트에서 [${current.label}] 항목을 삭제했습니다.`,
+    });
+  }
+
   const rows = unwrap(
     await db()
       .from("event_checklist_items")
@@ -461,7 +658,7 @@ export async function saveEventPlan(data: {
   field_values: Record<string, string>;
 }): Promise<EventPlan> {
   const values = cleanFieldValues(data.field_values);
-  await assertEventExists(data.event_id);
+  const ev = await requireEventBrief(data.event_id);
 
   const template = await getPptTemplateById(data.template_id);
   if (!template || template.kind !== "event") {
@@ -483,5 +680,15 @@ export async function saveEventPlan(data: {
       .select("*")
       .single<EventPlanRow>()
   );
-  return rowToEventPlan(row);
+  const plan = rowToEventPlan(row);
+
+  await insertAuditLog({
+    campaign_id: ev.campaign_id,
+    entity_type: "event",
+    entity_id: ev.id,
+    action: "event.plan_saved",
+    actor_type: "agency",
+    summary: `[${ev.name}] 행사 운영안을 [${template.name}] 템플릿으로 저장했습니다.`,
+  });
+  return plan;
 }

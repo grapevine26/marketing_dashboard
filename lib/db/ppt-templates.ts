@@ -1,4 +1,5 @@
 import { db, unwrap, unwrapMaybe } from "./client";
+import { insertAuditLog } from "./audit";
 import { rowToPptTemplate, type PptTemplateRow } from "./mappers";
 import { ValidationError, isUuid, nowIso, oneOf, requireText } from "./validation";
 import { allBuiltinTemplates, builtinTemplate, isBuiltinTemplateId } from "./defaults";
@@ -102,6 +103,26 @@ async function readFileHead(fileKey: string): Promise<Buffer | null> {
 // ---------- 조회 ----------
 
 /** 내장(지운 것 제외, defaults 순서) 뒤에 업로드본(uploaded_at 오름차순)을 붙인다. */
+const KIND_LABEL: Record<PptTemplate["kind"], string> = {
+  event: "행사 운영안",
+  sns: "SNS 제안서",
+  report: "결과보고서",
+};
+
+/**
+ * 템플릿은 캠페인·계정에 매이지 않는 공용 자원이라 campaign_id·account_id 가 없다.
+ * entity_type 은 스키마가 허용하는 값 중 가장 가까운 campaign 을 쓴다.
+ */
+async function logTemplate(id: string, action: string, summary: string) {
+  await insertAuditLog({
+    entity_type: "campaign",
+    entity_id: id,
+    action,
+    actor_type: "agency",
+    summary,
+  });
+}
+
 export async function getPptTemplates(kind?: PptTemplate["kind"]): Promise<PptTemplate[]> {
   const hidden = await hiddenBuiltinIds();
   const builtins = allBuiltinTemplates().filter((t) => !hidden.has(t.id));
@@ -164,6 +185,7 @@ export async function savePptTemplate(data: {
         .select("*")
         .single<PptTemplateRow>()
     );
+    await logTemplate(row.id, "ppt_template.uploaded", `[${row.name}] ${KIND_LABEL[row.kind]} 템플릿을 올렸습니다.`);
     return rowToPptTemplate(row);
   } catch (err) {
     // 행이 없는 파일은 아무도 못 찾는다. 남기지 않는다.
@@ -241,6 +263,7 @@ export async function recordUploadedPptTemplate(input: {
         .select("*")
         .single<PptTemplateRow>()
     );
+    await logTemplate(row.id, "ppt_template.uploaded", `[${row.name}] ${KIND_LABEL[row.kind]} 템플릿을 올렸습니다.`);
     return rowToPptTemplate(row);
   } catch (err) {
     await purgeTemplateFile(input.templateId);
@@ -295,7 +318,9 @@ export async function updatePptTemplateMeta(
   const row = unwrapMaybe(
     await db().from(TABLE).update(fields).eq("id", id).select("*").maybeSingle<PptTemplateRow>()
   );
-  return row ? rowToPptTemplate(row) : null;
+  if (!row) return null;
+  await logTemplate(row.id, "ppt_template.updated", `[${row.name}] 템플릿 정보를 수정했습니다. (${KIND_LABEL[row.kind]})`);
+  return rowToPptTemplate(row);
 }
 
 // ---------- 파일 교체 ----------
@@ -368,6 +393,7 @@ export async function recordReplacedPptTemplate(input: {
   // 기록이 새 파일을 가리킨 다음에 옛 파일을 지운다.
   if (previousKey && previousKey !== input.fileKey) await purgeTemplateKey(previousKey);
 
+  await logTemplate(row.id, "ppt_template.replaced", `[${row.name}] 템플릿 파일을 교체했습니다. 이 템플릿을 쓰던 운영안은 그대로 이어집니다.`);
   return rowToPptTemplate(row);
 }
 
@@ -386,6 +412,7 @@ export async function restoreBuiltinPptTemplates(): Promise<number> {
   if (count === 0) return 0;
   // 전체 삭제. PostgREST 는 필터 없는 delete 를 막을 수 있어 항상 참인 조건을 붙인다.
   unwrap(await db().from(HIDDEN_TABLE).delete().not("template_id", "is", null));
+  await logTemplate("builtin", "ppt_template.builtins_restored", `지웠던 기본 내장 템플릿 ${count}개를 되살렸습니다.`);
   return count;
 }
 
@@ -400,6 +427,8 @@ export async function deletePptTemplate(id: string): Promise<boolean> {
         .from(HIDDEN_TABLE)
         .upsert({ template_id: id }, { onConflict: "template_id", ignoreDuplicates: true })
     );
+    const builtin = builtinTemplate(id);
+    await logTemplate(id, "ppt_template.builtin_hidden", `[${builtin?.name ?? "기본 템플릿"}] 기본 내장 템플릿을 목록에서 지웠습니다. 되살릴 수 있습니다.`);
     return true;
   }
   if (!isUuid(id)) return false;
@@ -408,6 +437,8 @@ export async function deletePptTemplate(id: string): Promise<boolean> {
     await db().from(TABLE).delete().eq("id", id).select("*").returns<PptTemplateRow[]>()
   );
   if (removed.length === 0) return false;
+
+  await logTemplate(id, "ppt_template.deleted", `[${removed[0].name}] 템플릿을 삭제했습니다. 이 템플릿을 쓰던 운영안은 PPT 를 받을 수 없습니다.`);
 
   // 행이 지워진 다음에 파일을 지운다. id 접두사라 교체본(`<id>-<버전>.pptx`)까지 함께 치운다.
   await purgeTemplateFile(id);
