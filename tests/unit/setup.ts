@@ -2,23 +2,22 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { beforeEach, afterAll } from "vitest";
+import { hasTestDb, resetTestDb, closeTestDb } from "./test-db";
 
-// 각 테스트 파일이 자기만의 임시 JSON DB를 쓰도록 DB_FILE을 격리한다.
+// 업로드 파일(시안 미디어, PPT 템플릿)은 테스트 실행마다 임시 폴더를 쓴다.
+// 템플릿 폴더는 uploads 의 형제 폴더이므로 같은 임시 폴더 아래에 생긴다.
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "marketing-mvp-test-"));
-process.env.DB_FILE = path.join(dir, `db-${process.pid}-${Math.random().toString(36).slice(2)}.json`);
+process.env.UPLOADS_DIR = path.join(dir, "uploads");
 process.env.GEMINI_API_KEY = "";
 
-beforeEach(() => {
-  // 파일과 메모리 캐시를 모두 비워 테스트 간 상태가 새지 않게 한다.
-  try {
-    fs.rmSync(process.env.DB_FILE as string, { force: true });
-  } catch {
-    /* ignore */
-  }
-  (globalThis as unknown as { _marketingDbCache?: unknown })._marketingDbCache = undefined;
+beforeEach(async () => {
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(dir, { recursive: true });
+  if (hasTestDb) await resetTestDb();
 });
 
-afterAll(() => {
+afterAll(async () => {
+  await closeTestDb();
   try {
     fs.rmSync(dir, { recursive: true, force: true });
   } catch {

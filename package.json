@@ -12,10 +12,11 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "db:restore": "node scripts/db-restore.mjs"
+    "db:migrate": "node scripts/db-migrate.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.19.0",
+    "@supabase/supabase-js": "^2.116.0",
     "@vercel/blob": "^2.8.0",
     "exceljs": "^4.4.0",
     "jszip": "^3.10.1",
@@ -31,10 +32,12 @@
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pdfkit": "^0.17.6",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
+    "pg": "^8.23.0",
     "playwright": "^1.62.1",
     "postcss": "^8",
     "tailwindcss": "^4",
