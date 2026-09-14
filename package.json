@@ -15,7 +15,8 @@
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:backup": "node scripts/db-backup.mjs",
     "db:make-admin": "node scripts/make-admin.mjs",
-    "db:hide-user": "node scripts/hide-user.mjs"
+    "db:hide-user": "node scripts/hide-user.mjs",
+    "doc:pdf": "node scripts/make-doc-pdf.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.19.0",
