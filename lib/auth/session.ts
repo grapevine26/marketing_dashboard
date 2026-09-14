@@ -1,5 +1,6 @@
 import "server-only";
 import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
 import { db, unwrapMaybe } from "../db/client";
 import { createAuthClient } from "../supabase/auth";
 
@@ -61,6 +62,23 @@ export async function requireUser(): Promise<SessionUser> {
   if (!user) redirect("/login");
   if (user.status === "pending") redirect("/pending");
   if (user.status === "blocked") redirect("/blocked");
+  return user;
+}
+
+/**
+ * 라우트 핸들러(route.ts)용 가드.
+ *
+ * 페이지와 서버 액션은 `requireUser` 가 지키지만, route.ts 는 레이아웃을 거치지 않고
+ * 프록시는 쿠키 유무만 본다. 그래서 파일 내려받기·업로드 같은 라우트는 여기서 따로 막아야 한다.
+ * 리다이렉트 대신 JSON 오류를 돌려준다. 파일 요청에 로그인 화면 HTML 을 주면 더 헷갈린다.
+ *
+ * 승인 대기·차단 계정은 세션이 있어도 거부한다. 차단은 세션을 끊지 않으므로 이 검사가 없으면
+ * 차단된 사람이 갖고 있던 쿠키로 계속 내려받을 수 있다.
+ */
+export async function requireApiUser(): Promise<SessionUser | NextResponse> {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+  if (user.status !== "active") return NextResponse.json({ error: "사용할 수 없는 계정입니다." }, { status: 403 });
   return user;
 }
 

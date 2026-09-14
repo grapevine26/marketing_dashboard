@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireApiUser } from "@/lib/auth/session";
 import { getReportById, getPptTemplateById, getPptTemplates, getPptTemplateBuffer, ValidationError, BUILTIN_REPORT_TEMPLATE_ID } from "@/lib/db";
 import { generateReportPPTX } from "@/lib/reports/pptx";
 import { fileDownloadResponse } from "@/lib/http/fileResponse";
@@ -14,6 +15,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ reportId: string }> }
 ) {
+  const auth = await requireApiUser();
+  if (auth instanceof NextResponse) return auth;
   const { reportId } = await params;
   const report = await getReportById(reportId);
   if (!report) return textResponse("보고서를 찾을 수 없습니다.", 404);

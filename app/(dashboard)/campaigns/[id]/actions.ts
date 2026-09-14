@@ -7,6 +7,7 @@ import {
   deleteCampaign,
   updateCampaignWebhookUrl,
   regenerateCampaignToken,
+  ValidationError,
 } from "@/lib/db";
 import { Campaign, CampaignStatus, CampaignTokenType } from "@/lib/db/types";
 import { ActionResult, runAuthedAction, fail } from "@/lib/actions/result";
@@ -68,21 +69,23 @@ export async function testCampaignWebhookAction(
   campaignId: string,
   webhookUrl: string
 ): Promise<ActionResult<{ ok: boolean; status?: number }>> {
-  const existing = await getCampaignById(campaignId);
-  if (!existing) return fail("캠페인을 찾을 수 없습니다.");
+  // 이 파일에서 유일하게 감싸지 않았던 액션이다. 서버 액션은 공개 경로로도 호출할 수 있어서
+  // 감싸지 않으면 캠페인 id 만 아는 외부인이 자기 웹훅으로 캠페인 이름을 빼내거나 스팸을 보낼 수 있다.
+  return runAuthedAction(async () => {
+    const existing = await getCampaignById(campaignId);
+    if (!existing) throw new ValidationError("캠페인을 찾을 수 없습니다.");
 
-  const result = await sendWebhookNotification(webhookUrl, {
-    event: "test.ping",
-    title: "웹훅 연동 테스트 성공",
-    message: `'${existing.name}' 캠페인의 웹훅 알림 연동이 성공적으로 확인되었습니다!`,
-    campaign_id: existing.id,
-    campaign_name: existing.name,
+    const result = await sendWebhookNotification(webhookUrl, {
+      event: "test.ping",
+      title: "웹훅 연동 테스트 성공",
+      message: `'${existing.name}' 캠페인의 웹훅 알림 연동이 성공적으로 확인되었습니다!`,
+      campaign_id: existing.id,
+      campaign_name: existing.name,
+    });
+
+    if (!result.ok) throw new ValidationError(result.error || "웹훅 발송 실패");
+    return { ok: true, status: result.status };
   });
-
-  if (!result.ok) {
-    return fail(result.error || "웹훅 발송 실패");
-  }
-  return { ok: true, data: { ok: true, status: result.status } };
 }
 
 export async function regenerateCampaignTokenAction(

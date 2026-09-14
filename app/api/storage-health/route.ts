@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireApiUser } from "@/lib/auth/session";
 import { describeStorage, putFile, readFile, deleteFilesByPrefixes } from "@/lib/db/storage";
 import { db } from "@/lib/db/client";
 
@@ -19,6 +20,8 @@ function describeError(err: unknown) {
 }
 
 export async function GET() {
+  const auth = await requireApiUser();
+  if (auth instanceof NextResponse) return auth;
   const env = {
     file: describeStorage(),
     supabase: {

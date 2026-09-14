@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireApiUser } from "@/lib/auth/session";
 import { getCampaignById, getEventById, getEventPlan, getPptTemplateById, getPptTemplateBuffer } from "@/lib/db";
 import { fillTemplate } from "@/lib/ppt/engine";
 import { fileDownloadResponse } from "@/lib/http/fileResponse";
@@ -17,6 +18,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; eventId: string }> }
 ) {
+  const auth = await requireApiUser();
+  if (auth instanceof NextResponse) return auth;
   const { id, eventId } = await params;
   const [campaign, event, plan] = await Promise.all([
     getCampaignById(id),

@@ -1,5 +1,5 @@
 import { ValidationError } from "@/lib/db";
-import { requireAdmin, requireUser, type SessionUser } from "@/lib/auth/session";
+import { requireAdmin, requireOwner, requireUser, type SessionUser } from "@/lib/auth/session";
 import { withActor } from "@/lib/auth/context";
 
 /**
@@ -27,19 +27,26 @@ function briefCause(err: unknown): string {
 /**
  * ValidationError는 사용자에게 메시지를 그대로 보여준다.
  *
- * 그 외 오류는 "처리 중 오류" 한 줄로만 감싸다가, 배포에서 원인을 짐작만 하게 되는 문제가
- * 반복돼서 원인 한 줄을 같이 붙인다. 이 앱은 승인된 직원만 쓰는 내부 도구고, 사용자가 서버
- * 로그를 직접 볼 수 없는 환경(휴대폰)에서 쓰기 때문에 이 편이 낫다고 판단했다.
- * 스택 트레이스나 환경 변수 값은 넣지 않는다.
+ * 그 외 오류는 "처리 중 오류" 한 줄로 감싼다. 원인 한 줄을 붙이는 것은 **로그인한 직원에게만**이다.
+ * 배포에서 원인을 짐작만 하게 되는 문제가 반복돼서 붙이기 시작했는데, 같은 함수를 공개 폼
+ * (지원서·사전조사·승인 링크)도 쓰고 있었다. DB 오류에는 테이블·컬럼·제약 이름이 들어가므로
+ * 로그인하지 않은 사람에게는 보여주지 않는다. 스택 트레이스나 환경 변수 값은 어디에도 넣지 않는다.
  */
-export async function runAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
+export async function runAction<T>(
+  fn: () => Promise<T>,
+  opts: { exposeCause?: boolean } = {}
+): Promise<ActionResult<T>> {
   try {
     const data = await fn();
     return ok(data);
   } catch (err) {
     if (err instanceof ValidationError) return fail(err.message);
     console.error("Action failed:", err);
-    return fail(`처리 중 오류가 발생했습니다. (${briefCause(err)})`);
+    return fail(
+      opts.exposeCause
+        ? `처리 중 오류가 발생했습니다. (${briefCause(err)})`
+        : "처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+    );
   }
 }
 
@@ -60,7 +67,7 @@ export async function runAuthedAction<T>(
 ): Promise<ActionResult<T>> {
   const user = await requireUser();
   // 사용자를 요청 컨텍스트에 담는다. 감사 로그가 "누가" 했는지 알아내는 통로다.
-  return withActor(user, () => runAction(() => fn(user)));
+  return withActor(user, () => runAction(() => fn(user), { exposeCause: true }));
 }
 
 /** 관리자만 실행할 수 있는 액션. 사용자 관리처럼 권한이 필요한 곳에 쓴다. */
@@ -68,5 +75,13 @@ export async function runAdminAction<T>(
   fn: (user: SessionUser) => Promise<T>
 ): Promise<ActionResult<T>> {
   const user = await requireAdmin();
-  return withActor(user, () => runAction(() => fn(user)));
+  return withActor(user, () => runAction(() => fn(user), { exposeCause: true }));
+}
+
+/** 대표 관리자만 실행할 수 있는 액션. 활동 기록 조회처럼 화면이 대표 전용인 곳의 짝이다. */
+export async function runOwnerAction<T>(
+  fn: (user: SessionUser) => Promise<T>
+): Promise<ActionResult<T>> {
+  const user = await requireOwner();
+  return withActor(user, () => runAction(() => fn(user), { exposeCause: true }));
 }

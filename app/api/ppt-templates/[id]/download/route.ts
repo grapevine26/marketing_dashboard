@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireApiUser } from "@/lib/auth/session";
 import { getPptTemplateById, getPptTemplateBuffer } from "@/lib/db";
 import { fileDownloadResponse } from "@/lib/http/fileResponse";
 
@@ -14,6 +15,8 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireApiUser();
+  if (auth instanceof NextResponse) return auth;
   const { id } = await params;
   const template = await getPptTemplateById(id);
   if (!template) {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireApiUser } from "@/lib/auth/session";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { MAX_PPT_TEMPLATE_BYTES } from "@/lib/db/types";
 import { isBlobBackend } from "@/lib/db/storage";
@@ -14,6 +15,8 @@ const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.
  * 파일이 진짜 pptx 인지는 업로드가 끝난 뒤 recordUploadedPptTemplate 가 앞부분을 읽어 확인한다.
  */
 export async function POST(request: Request) {
+  const auth = await requireApiUser();
+  if (auth instanceof NextResponse) return auth;
   if (!isBlobBackend()) {
     return NextResponse.json(
       { error: "이 배포에는 Blob 저장소가 연결돼 있지 않습니다." },

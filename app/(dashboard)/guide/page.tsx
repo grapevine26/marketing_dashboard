@@ -167,11 +167,12 @@ export default function GuidePage() {
           <div className="p-5 rounded-2xl bg-surface border border-amber-500/25 space-y-2">
             <h3 className="text-sm font-bold text-text flex items-center gap-2">
               <KeyRound className="w-4 h-4 text-warn" />
-              <span>로그인이 없습니다</span>
+              <span>계정과 공유 링크는 다릅니다</span>
             </h3>
             <p className="text-xs text-text-2 leading-relaxed">
-              대시보드와 공유 링크 모두 비밀번호가 없습니다. 주소를 아는 사람은 누구나 들어옵니다. 공유 링크는 필요한
-              사람에게만 보내고, 담당자가 바뀌거나 잘못 전달했다면 그 링크의 <strong>[재발급]</strong>을 눌러 이전 주소를
+              대시보드는 아이디와 비밀번호로 들어오고, 가입 후 관리자가 승인해야 쓸 수 있습니다. 반면 광고주와
+              인플루언서에게 보내는 <strong>공유 링크에는 비밀번호가 없습니다</strong>. 주소를 아는 사람은 누구나 열 수
+              있으니 필요한 사람에게만 보내고, 잘못 전달했다면 그 링크의 <strong>[재발급]</strong>을 눌러 이전 주소를
               차단하세요.
             </p>
           </div>
@@ -207,6 +208,50 @@ export default function GuidePage() {
             <p className="text-xs text-text-2 leading-relaxed">
               지원폼과 공개 설문은 같은 접속 위치에서 <strong>10분에 5회</strong>까지만 제출됩니다. 담당자가 테스트하다 막힐 수
               있는데 고장이 아니라 스팸 방지 장치이며 10분 뒤 자동으로 풀립니다.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* 계정과 권한 */}
+      <section id="account" className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Users className="w-5 h-5 text-accent2" />
+          <h2 className="text-lg font-bold text-text">계정과 권한</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-5 rounded-2xl bg-surface border border-border space-y-2">
+            <h3 className="text-sm font-bold text-text">가입부터 로그인까지</h3>
+            <p className="text-xs text-text-2 leading-relaxed">
+              로그인 화면의 <strong>[가입하기]</strong>에서 아이디·이름·비밀번호를 정해 신청합니다. 이메일은 쓰지 않습니다.
+              신청 직후에는 <strong>승인 대기</strong> 화면만 보이고, 관리자가 승인하면 그때부터 들어올 수 있습니다.
+              <strong>[로그인 상태 유지]</strong>를 켜면 브라우저를 닫아도 로그인이 남습니다. 공용 PC에서는 끄세요.
+            </p>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-surface border border-border space-y-2">
+            <h3 className="text-sm font-bold text-text">등급은 셋입니다</h3>
+            <p className="text-xs text-text-2 leading-relaxed">
+              <strong>직원</strong>은 캠페인·행사·SNS 업무 전체를 합니다. <strong>관리자</strong>는 여기에 더해 직원의
+              가입 승인·차단·비밀번호 초기화를 합니다. <strong>대표 관리자</strong>만 등급을 바꾸고 관리자를 관리하며,
+              활동 기록을 볼 수 있습니다. 등급은 대표 관리자가 [관리 → 사용자 관리]에서 정합니다.
+            </p>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-surface border border-border space-y-2">
+            <h3 className="text-sm font-bold text-text">내 정보</h3>
+            <p className="text-xs text-text-2 leading-relaxed">
+              왼쪽 아래 <strong>[내 정보]</strong>에서 화면에 표시되는 이름과 비밀번호를 바꿉니다. 비밀번호를 바꾸려면
+              지금 쓰는 비밀번호를 함께 넣어야 합니다. 아이디와 등급은 스스로 바꿀 수 없습니다.
+            </p>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-surface border border-amber-500/25 space-y-2">
+            <h3 className="text-sm font-bold text-text">비밀번호를 잊었을 때</h3>
+            <p className="text-xs text-text-2 leading-relaxed">
+              이메일이 없어 스스로 찾을 수 없습니다. <strong>관리자에게 초기화를 요청</strong>하세요. 관리자가
+              [사용자 관리]에서 임시 비밀번호를 정해 알려주면, 로그인한 뒤 [내 정보]에서 바로 바꾸세요.
             </p>
           </div>
         </div>
@@ -254,7 +299,7 @@ export default function GuidePage() {
 
         <p className="text-[11px] text-text-muted leading-relaxed">
           링크 카드의 <strong>[재발급]</strong>은 새 주소를 만들고 이전 주소를 즉시 차단합니다. 되돌릴 수 없으므로 확인 창이 한
-          번 뜨고, 재발급 기록은 캠페인 허브 하단의 활동 기록에 남습니다.
+          번 뜨고, 재발급 기록은 활동 기록에 남습니다(대표 관리자만 볼 수 있습니다).
         </p>
       </section>
 
@@ -676,8 +721,9 @@ export default function GuidePage() {
           <div className="p-5 rounded-2xl bg-surface border border-border space-y-2">
             <h3 className="text-sm font-bold text-text">활동 기록</h3>
             <p className="text-xs text-text-2 leading-relaxed">
-              선정 변경, 메모 수정, 관리시트 단계 변경, 시안 승인, 링크 재발급, 삭제가 캠페인 허브 하단에 시간순으로 남습니다.
-              광고주가 공유 링크에서 처리한 것도 함께 기록됩니다.
+              선정 변경, 메모 수정, 관리시트 단계 변경, 시안 승인, 링크 재발급, 삭제가 누가 언제 했는지와 함께 자동으로
+              남습니다. 광고주가 공유 링크에서 처리한 것도 기록됩니다. 기록은 <strong>대표 관리자만</strong> 볼 수 있으며,
+              [관리 → 활동 기록]에서 전체를, 첫 화면과 캠페인 허브에서 최근 것을 봅니다.
             </p>
           </div>
 

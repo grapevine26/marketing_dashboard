@@ -125,6 +125,11 @@ export default function LoginClient({ next }: { next: string | null }) {
           가입하기
         </Link>
       </p>
+      <p className="text-center text-[11px] text-text-muted leading-relaxed">
+        비밀번호를 잊으셨나요? 이메일이 없어 스스로 찾을 수 없습니다.
+        <br />
+        관리자에게 초기화를 요청하세요.
+      </p>
     </form>
   );
 }

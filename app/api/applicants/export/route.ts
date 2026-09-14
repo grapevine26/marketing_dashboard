@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireApiUser } from "@/lib/auth/session";
 import { getCampaignById, getCampaignByToken, getApplicantsByCampaignId, getFormConfig } from "@/lib/db";
 import { applicantsToCSV } from "@/lib/applicants/csv";
 import { applicantsToXlsx } from "@/lib/applicants/xlsx";
@@ -15,6 +16,13 @@ export async function GET(request: NextRequest) {
   const campaignId = searchParams.get("campaignId");
   const token = searchParams.get("token");
   const format = searchParams.get("format");
+
+  // 토큰(광고주 공유 링크)이 없으면 로그인한 직원이어야 한다.
+  // 프록시는 쿠키 유무만 보므로, 가입만 한 대기 계정이나 차단된 계정도 여기까지 온다.
+  if (!token) {
+    const auth = await requireApiUser();
+    if (auth instanceof NextResponse) return auth;
+  }
 
   const campaign = token
     ? await getCampaignByToken("applicants_share", token)

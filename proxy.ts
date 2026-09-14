@@ -13,23 +13,30 @@ import { createProxyAuthClient, PERSIST_COOKIE } from "@/lib/supabase/auth";
  * 세션 토큰 갱신도 여기서 한다. 서버 컴포넌트는 쿠키를 쓸 수 없어서 갱신을 맡을 수 없다.
  */
 
-/** 로그인 없이 열려야 하는 경로. 광고주와 인플루언서가 쓰는 링크들이다. */
+/** 로그인 없이 열려야 하는 경로(정확히 일치). */
+const PUBLIC_PATHS = ["/login", "/signup"];
+
+/**
+ * 로그인 없이 열려야 하는 경로(접두사). 광고주와 인플루언서가 쓰는 링크들이다.
+ * 접두사는 반드시 `/` 로 끝낸다. `/login` 처럼 두면 `/login-admin` 같은 경로까지 열린다.
+ *
+ * `/api/media/` 아래의 upload 는 공개가 아니다. 라우트 안에서 requireApiUser 로 따로 막는다.
+ * `/api/storage-health` 는 예전에 공개였다. 호출마다 저장소에 쓰기를 하고 내부 오류를 그대로
+ * 돌려주므로 로그인 뒤로 옮겼다. 배포 점검은 로그인한 브라우저에서 열면 된다.
+ */
 const PUBLIC_PREFIXES = [
-  "/login",
-  "/signup",
   "/apply/",
   "/pre-survey/",
   "/applicants/",
   "/seeding-sheet/",
   "/sns-approval/",
-  "/sns-intake",
+  "/sns-intake/",
   "/api/media/",
   "/api/cron/",
-  "/api/storage-health",
 ];
 
 function isPublic(pathname: string): boolean {
-  return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p));
+  return PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
 }
 
 export async function proxy(request: NextRequest) {

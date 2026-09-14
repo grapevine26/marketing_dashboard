@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireApiUser } from "@/lib/auth/session";
 import {
   getCampaignById,
   getCampaignByToken,
@@ -10,6 +11,7 @@ import { seedingSheetToXlsx } from "@/lib/seeding/sheetXlsx";
 import { mergeSeedingRows } from "@/lib/seeding/rows";
 import { toKstDateString } from "@/lib/seeding/dday";
 import { fileDownloadResponse } from "@/lib/http/fileResponse";
+import { sanitizeApplicantForCompany } from "@/lib/db/types";
 
 /**
  * 관리시트 데이터 내보내기 (CSV 및 Excel .xlsx).
@@ -22,6 +24,13 @@ export async function GET(request: NextRequest) {
   const token = searchParams.get("token");
   const format = searchParams.get("format");
 
+  // 토큰(광고주 공유 링크)이 없으면 로그인한 직원이어야 한다.
+  // 프록시는 쿠키 유무만 보므로, 가입만 한 대기 계정이나 차단된 계정도 여기까지 온다.
+  if (!token) {
+    const auth = await requireApiUser();
+    if (auth instanceof NextResponse) return auth;
+  }
+
   const campaign = token
     ? await getCampaignByToken("seeding_sheet_share", token)
     : campaignId
@@ -32,10 +41,13 @@ export async function GET(request: NextRequest) {
     return new NextResponse("Campaign not found", { status: 404 });
   }
 
-  const [applicants, seedingRecords] = await Promise.all([
+  const [rawApplicants, seedingRecords] = await Promise.all([
     getApplicantsByCampaignId(campaign.id),
     getSeedingRecordsByCampaignId(campaign.id),
   ]);
+  // 광고주 공유 링크로 받는 파일에는 배송지·연락처를 넣지 않는다. 화면(seeding-sheet/[token])과 같은 기준이다.
+  // 화면에서는 빼고 파일에서는 넣으면 파일이 곧 유출 경로가 된다.
+  const applicants = token ? rawApplicants.map(sanitizeApplicantForCompany) : rawApplicants;
 
   const rows = mergeSeedingRows(campaign.id, applicants, seedingRecords);
 

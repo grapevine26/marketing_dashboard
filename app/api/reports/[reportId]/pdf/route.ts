@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireApiUser } from "@/lib/auth/session";
 import { getReportById, ValidationError } from "@/lib/db";
 import { generateReportPDF } from "@/lib/reports/pdf";
 import { fileDownloadResponse } from "@/lib/http/fileResponse";
@@ -7,6 +8,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ reportId: string }> }
 ) {
+  const auth = await requireApiUser();
+  if (auth instanceof NextResponse) return auth;
   const { reportId } = await params;
   const report = await getReportById(reportId);
   if (!report) {

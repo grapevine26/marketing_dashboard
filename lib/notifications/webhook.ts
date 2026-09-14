@@ -98,7 +98,8 @@ export async function sendWebhookNotification(
     });
 
     if (!res.ok) {
-      console.warn(`[webhook] 발송 실패 (${res.status}): ${valid.url}`);
+      // URL 전체를 찍지 않는다. 슬랙·디스코드 웹훅 주소는 가진 사람이 곧 보낼 수 있는 자격증명이다.
+      console.warn(`[webhook] 발송 실패 (${res.status}): ${new URL(valid.url).host}`);
       return { ok: false, status: res.status, error: `HTTP ${res.status} 응답` };
     }
     return { ok: true, status: res.status };

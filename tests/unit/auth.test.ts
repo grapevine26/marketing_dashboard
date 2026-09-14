@@ -456,3 +456,33 @@ describe("화면 접근 등급", () => {
     expect(page).not.toContain("requireAdmin()");
   });
 });
+
+describe("라우트 핸들러 인증", () => {
+  it("모든 route.ts 가 자체 인증 또는 토큰·시크릿 검사를 가진다", async () => {
+    // 프록시는 쿠키 유무만 보고, 레이아웃은 route.ts 를 감싸지 않는다.
+    // 그래서 route.ts 는 파일 안에서 직접 막아야 한다. 새 라우트를 만들며 잊는 것을 여기서 잡는다.
+    const { readFileSync, readdirSync, statSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const routes: string[] = [];
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const p = join(dir, name);
+        if (statSync(p).isDirectory()) walk(p);
+        else if (name === "route.ts") routes.push(p);
+      }
+    };
+    walk("app");
+    expect(routes.length).toBeGreaterThan(5);
+
+    const unguarded = routes.filter((p) => {
+      const src = readFileSync(p, "utf8");
+      const guarded =
+        src.includes("requireApiUser()") ||
+        src.includes("CRON_SECRET") ||
+        // 미디어 조회는 첨부가 속한 계정의 공유 토큰으로 막는다
+        (p.includes("media") && src.includes("token"));
+      return !guarded;
+    });
+    expect(unguarded).toEqual([]);
+  });
+});

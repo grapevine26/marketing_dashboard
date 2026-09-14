@@ -1,5 +1,5 @@
 import { db, unwrap } from "./client";
-import { putFile, listFiles, deleteFilesByPrefixes, type StoredFile } from "./storage";
+import { putFile, listFiles, deleteFilesByPrefixes, isBlobBackend, type StoredFile } from "./storage";
 
 /**
  * DB 전체를 JSON 한 덩어리로 받아 저장소에 둔다. 크론이 매일 부른다.
@@ -32,7 +32,13 @@ export const BACKUP_TABLES = [
   "sns_plans",
   "sns_contents",
   "audit_logs",
+  // 계정의 아이디·이름·등급·승인 상태. 로그인 비밀번호(auth.users)는 이 백업에 들어가지 않는다.
+  // 그건 Supabase 가 따로 보관하며, 사라지면 각자 다시 가입하고 여기 있는 등급을 되살리는 방식이 된다.
+  "profiles",
 ] as const;
+
+/** 정렬 기준. 페이지를 나눠 읽을 때 순서가 고정돼야 행이 빠지거나 겹치지 않는다. */
+const ORDER_COLUMN: Record<string, string> = { hidden_builtin_templates: "template_id" };
 
 const PAGE = 1000;
 
@@ -57,6 +63,7 @@ async function readTable(table: string): Promise<Record<string, unknown>[]> {
       await db()
         .from(table)
         .select("*")
+        .order(ORDER_COLUMN[table] ?? "id")
         .range(from, from + PAGE - 1)
         .returns<Record<string, unknown>[]>()
     );
@@ -92,6 +99,11 @@ function backupName(at: Date): string {
  * 정리에 실패해도 백업 자체는 성공으로 본다. 지우는 것보다 남기는 게 안전하다.
  */
 export async function runBackup(keep = 30): Promise<BackupResult> {
+  // 배포인데 Blob 이 없으면 임시 디스크에 쓰고 성공처럼 보인다. 그 백업은 다음 요청 때 사라진다.
+  // 조용히 성공하는 백업은 없는 것보다 나쁘다. 크론 실패로 눈에 띄게 만든다.
+  if (process.env.VERCEL && !isBlobBackend()) {
+    throw new Error("Blob 저장소가 연결돼 있지 않아 백업을 저장할 곳이 없습니다. BLOB_READ_WRITE_TOKEN 을 확인하세요.");
+  }
   const dump = await buildBackupDump();
   const text = JSON.stringify(dump);
   const key = backupName(new Date(dump.created_at));
