@@ -32,17 +32,21 @@ const TEMPLATE_PREFIX = SHARED_TEMPLATE_PREFIX;
  * 저장소 안의 갈래.
  * - uploads: SNS 시안 미디어
  * - templates: 업로드된 PPT 템플릿
+ * - backups: 크론이 매일 받아두는 DB 덤프 (JSON)
  */
-export type FileScope = "uploads" | "templates";
+export type FileScope = "uploads" | "templates" | "backups";
+
+const BACKUP_PREFIX = "backups/";
 
 function prefixOf(scope: FileScope): string {
-  return scope === "templates" ? TEMPLATE_PREFIX : UPLOAD_PREFIX;
+  if (scope === "templates") return TEMPLATE_PREFIX;
+  if (scope === "backups") return BACKUP_PREFIX;
+  return UPLOAD_PREFIX;
 }
 
 function dirOf(scope: FileScope): string {
-  return scope === "templates"
-    ? path.join(/*turbopackIgnore: true*/ path.dirname(getUploadsDirPath()), "templates")
-    : getUploadsDirPath();
+  if (scope === "uploads") return getUploadsDirPath();
+  return path.join(/*turbopackIgnore: true*/ path.dirname(getUploadsDirPath()), scope);
 }
 
 /**
@@ -222,6 +226,40 @@ export async function findFileKeyByPrefix(prefix: string, scope: FileScope = "up
   const dir = dirOf(scope);
   if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) return null;
   return fs.readdirSync(/*turbopackIgnore: true*/ dir).find((f) => f.startsWith(prefix)) ?? null;
+}
+
+export interface StoredFile {
+  key: string;
+  size: number;
+  uploadedAt: string;
+}
+
+/** 한 갈래의 파일을 전부 나열한다. 백업 보관 개수를 유지하는 데 쓴다. */
+export async function listFiles(scope: FileScope): Promise<StoredFile[]> {
+  if (isBlobBackend()) {
+    const { list } = await import("@vercel/blob");
+    const prefix = prefixOf(scope);
+    const out: StoredFile[] = [];
+    let cursor: string | undefined;
+    do {
+      const res = await list({ prefix, cursor });
+      for (const b of res.blobs) {
+        out.push({ key: b.pathname.slice(prefix.length), size: b.size, uploadedAt: b.uploadedAt.toISOString() });
+      }
+      cursor = res.hasMore ? res.cursor : undefined;
+    } while (cursor);
+    return out.sort((a, b) => b.key.localeCompare(a.key));
+  }
+
+  const dir = dirOf(scope);
+  if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) return [];
+  return fs
+    .readdirSync(/*turbopackIgnore: true*/ dir)
+    .map((f) => {
+      const st = fs.statSync(/*turbopackIgnore: true*/ path.join(dir, f));
+      return { key: f, size: st.size, uploadedAt: new Date(st.mtimeMs).toISOString() };
+    })
+    .sort((a, b) => b.key.localeCompare(a.key));
 }
 
 export async function deleteFilesByPrefixes(prefixes: string[], scope: FileScope = "uploads"): Promise<void> {

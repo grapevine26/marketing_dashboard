@@ -107,6 +107,25 @@ npm run db:backup -- --test                  # 대상을 테스트 프로젝트�
 
 `.data/` 는 git 에 올라가지 않으므로, 중요한 백업은 따로 보관할 것.
 
+**배포에서는 크론이 매일 자동으로 받는다.** `vercel.json` 의 `crons` 가 매일 UTC 18:00
+(한국 시간 새벽 3시)에 `/api/cron/backup` 을 부른다. 결과는 파일이 아니라 저장소(Blob)의
+`backups/supabase-<시각>.json` 으로 간다. 서버리스 디스크는 요청이 끝나면 사라지기 때문이다.
+최근 30개만 남기고 옛것은 지운다.
+
+이 엔드포인트는 DB 전체를 읽으므로 반드시 막아야 한다. `CRON_SECRET` 환경 변수를 두면
+Vercel 이 크론 요청에 `Authorization: Bearer <CRON_SECRET>` 을 붙여 보내고, 라우트가 그걸
+확인한다. **`CRON_SECRET` 이 없으면 아예 동작하지 않는다(503).** 설정이 빠졌을 때 열어두는 것보다
+멈추는 게 안전하기 때문이다.
+
+받아둔 Blob 백업을 로컬로 되돌리려면 Vercel 대시보드의 Blob 탐색기에서 파일을 내려받아
+경로를 그대로 넘기면 된다.
+
+```bash
+npm run db:backup -- --restore /path/to/supabase-20260914-073616.json --yes
+```
+
+크론이 만든 파일과 로컬 스크립트가 만든 파일은 형식이 같아서 서로 호환된다.
+
 복원은 현재 데이터를 전부 지우고 덮어쓴다. `--yes` 가 없으면 실행하지 않고, 덮어쓰기 직전에
 현재 상태를 `pre-restore-<시각>.json` 으로 먼저 받아둔다.
 
@@ -136,6 +155,7 @@ OIDC 토큰(`VERCEL_OIDC_TOKEN`)이 맡는다. 읽기·쓰기 토큰은 선택 �
 | --- | --- | --- |
 | SNS 시안 미디어 | `uploads/<첨부ID>.<확장자>` | `.data/uploads/` |
 | 업로드한 PPT 템플릿 | `templates/<템플릿ID>(-<버전>).pptx` | `.data/templates/` |
+| 크론 DB 백업 | `backups/supabase-<시각>.json` | `.data/backups/` |
 
 Blob 은 전부 `access: "private"` 이다. 미디어는 `/api/media/[id]` 가 토큰을 확인한 뒤에만 흘려보낸다.
 테스트는 `UPLOADS_DIR` 로 임시 폴더를 지정한다.
