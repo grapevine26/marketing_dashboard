@@ -47,15 +47,57 @@ export async function recordAuditLog(entry: AuditLogInput): Promise<AuditLogEntr
   return insertAuditLog(entry);
 }
 
-export async function getAuditLogs(filter?: {
+export interface AuditLogFilter {
   campaign_id?: string;
   account_id?: string;
+  /** 대상 유형. 비우면 전부. */
+  entity_types?: AuditLogEntry["entity_type"][];
+  /** 행위자 구분. 비우면 전부. */
+  actor_types?: AuditActorType[];
+  /** 이 시각 이후만. ISO 문자열. */
+  since?: string;
+  /** 요약 문구와 행위자 이름에서 찾는다. */
+  search?: string;
   limit?: number;
-}): Promise<AuditLogEntry[]> {
+  /** 더 보기. 앞에서 건너뛸 개수. */
+  offset?: number;
+}
+
+export async function getAuditLogs(filter?: AuditLogFilter): Promise<AuditLogEntry[]> {
+  const { rows } = await queryAuditLogs(filter);
+  return rows;
+}
+
+/**
+ * 목록과 "더 볼 게 남았는지" 를 함께 준다. 활동 기록 화면의 더 보기에 쓴다.
+ *
+ * 전체 개수를 세지 않는 이유: 로그는 상한 없이 쌓이는데 매번 count 를 내면 갈수록 느려진다.
+ * 한 건 더 받아보고 남았는지만 판단한다.
+ */
+export async function queryAuditLogs(
+  filter?: AuditLogFilter
+): Promise<{ rows: AuditLogEntry[]; hasMore: boolean }> {
+  const limit = filter?.limit ?? 50;
+  const offset = filter?.offset ?? 0;
+
   let q = db().from("audit_logs").select("*").order("created_at", { ascending: false });
   if (filter?.campaign_id) q = q.eq("campaign_id", filter.campaign_id);
   if (filter?.account_id) q = q.eq("account_id", filter.account_id);
-  q = q.limit(filter?.limit || 50);
+  if (filter?.entity_types?.length) q = q.in("entity_type", filter.entity_types);
+  if (filter?.actor_types?.length) q = q.in("actor_type", filter.actor_types);
+  if (filter?.since) q = q.gte("created_at", filter.since);
+
+  const search = filter?.search?.trim();
+  if (search) {
+    // 쉼표·괄호는 PostgREST 의 or 문법을 깨뜨리므로 뺀다.
+    const safe = search.replace(/[,()*]/g, " ").trim();
+    if (safe) q = q.or(`summary.ilike.%${safe}%,actor_name.ilike.%${safe}%`);
+  }
+
+  // 한 건 더 받아 다음 쪽이 있는지 본다.
+  q = q.range(offset, offset + limit);
+
   const rows = unwrap(await q.returns<AuditLogRow[]>());
-  return rows.map(rowToAuditLog);
+  const hasMore = rows.length > limit;
+  return { rows: rows.slice(0, limit).map(rowToAuditLog), hasMore };
 }

@@ -21,12 +21,15 @@ interface CampaignIntegrationsCardProps {
   campaignId: string;
   initialWebhookUrl?: string | null;
   auditLogs: AuditLogEntry[];
+  /** 활동 기록은 관리자만 본다. */
+  isAdmin: boolean;
 }
 
 export default function CampaignIntegrationsCard({
   campaignId,
   initialWebhookUrl,
   auditLogs,
+  isAdmin,
 }: CampaignIntegrationsCardProps) {
   const [webhookUrl, setWebhookUrl] = useState(initialWebhookUrl || "");
   const [isSaving, setIsSaving] = useState(false);
@@ -171,7 +174,9 @@ export default function CampaignIntegrationsCard({
         </div>
       </div>
 
-      {/* 2. Audit Log (감사 로그) */}
+      {/* 2. Audit Log (감사 로그). 관리자만 본다.
+          직원에게 빈 칸으로 보이면 "활동이 없다"는 뜻으로 오해하므로 칸 자체를 숨긴다. */}
+      {isAdmin && (
       <div className="p-5 sm:p-6 rounded-3xl bg-surface border border-border space-y-4 shadow-xl flex flex-col justify-between">
         <div>
           <div className="flex items-center justify-between">
@@ -230,6 +235,7 @@ export default function CampaignIntegrationsCard({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

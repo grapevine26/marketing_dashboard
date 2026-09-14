@@ -9,6 +9,7 @@ import {
   getEventsByCampaignId,
   getAuditLogs,
 } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth/session";
 import TokenShareBox from "./TokenShareBox";
 import CampaignStatusSelect from "./CampaignStatusSelect";
 import CampaignIntegrationsCard from "./CampaignIntegrationsCard";
@@ -37,13 +38,15 @@ export default async function CampaignDetailPage({
   const campaign = await getCampaignById(id);
   if (!campaign) notFound();
 
+  const isAdmin = (await getCurrentUser())?.role === "admin";
   const [applicants, seedingRecords, preSurvey, formConfig, events, auditLogs] = await Promise.all([
     getApplicantsByCampaignId(id),
     getSeedingRecordsByCampaignId(id),
     getPreSurveyResponse(id),
     getFormConfig(id),
     getEventsByCampaignId(id),
-    getAuditLogs({ campaign_id: id, limit: 10 }),
+    // 활동 기록은 관리자만 본다.
+    isAdmin ? getAuditLogs({ campaign_id: id, limit: 10 }) : Promise.resolve([]),
   ]);
 
   const selectedIds = new Set(applicants.filter((a) => a.status === "selected").map((a) => a.id));
@@ -223,6 +226,7 @@ export default async function CampaignDetailPage({
         campaignId={campaign.id}
         initialWebhookUrl={campaign.webhook_url}
         auditLogs={auditLogs}
+        isAdmin={isAdmin}
       />
     </div>
   );

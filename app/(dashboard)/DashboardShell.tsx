@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Activity,
   FolderKanban,
   Calendar,
   PartyPopper,
@@ -122,6 +123,12 @@ export default function DashboardShell({
                 icon: Users,
                 color: "text-text-sub",
                 badge: pendingCount > 0 ? pendingCount : undefined,
+              },
+              {
+                name: "활동 기록",
+                href: "/settings/activity",
+                icon: Activity,
+                color: "text-text-sub",
               },
             ],
           },
