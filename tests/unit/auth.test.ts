@@ -517,48 +517,111 @@ describe.skipIf(!hasTestDb)("로그인 시도 제한", () => {
   });
 });
 
-describe.skipIf(!hasTestDb)("가입 초대 코드", () => {
-  it("코드가 없으면 아무도 가입할 수 없다", async () => {
-    const { verifySignupInviteCode, NO_INVITE_CODE_TEXT } = await import("@/lib/auth/settings");
-    // 테스트마다 DB 를 비우므로 이 시점에는 코드 행이 없다. 그게 기본 상태다.
-    await expect(verifySignupInviteCode("AAAAAAAA")).rejects.toThrow(NO_INVITE_CODE_TEXT);
+describe.skipIf(!hasTestDb)("가입 초대 링크", () => {
+  /**
+   * 초대 행은 발급자를 profiles 로 참조한다. 발급자가 실재하지 않으면 만들 수 없다.
+   * 그래서 테스트마다 진짜 대표 계정을 하나 만든다. 가짜 id 로는 이 경로를 확인할 수 없다.
+   */
+  let seq = 0;
+  async function makeOwner(): Promise<SessionUser> {
+    const { signUpUser } = await import("@/lib/auth/users");
+    const { db } = await import("@/lib/db/client");
+    const username = `inv_boss_${Date.now().toString(36)}_${seq++}`;
+    await signUpUser({ username, display_name: "대표", password: "test-password-1234" });
+    for (let i = 0; i < 20; i++) {
+      const res = await db().from("profiles").select("id").eq("username", username).maybeSingle<{ id: string }>();
+      if (res.data?.id) {
+        await db().from("profiles").update({ role: "owner", status: "active" }).eq("id", res.data.id);
+        return { id: res.data.id, username, display_name: "대표", role: "owner", status: "active" };
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    throw new Error("대표 계정을 만들지 못했습니다.");
+  }
+
+  /** 관리자 등급은 초대를 만들기 전에 막히므로 실제 계정이 필요 없다. */
+  const admin: SessionUser = {
+    id: "00000000-0000-4000-8000-000000000002",
+    username: "manager",
+    display_name: "관리자",
+    role: "admin",
+    status: "active",
+  };
+
+  it("링크가 없으면 아무도 가입할 수 없다", async () => {
+    const { peekSignupInvite } = await import("@/lib/auth/invites");
+    // 테스트마다 DB 를 비우므로 이 시점에는 초대가 하나도 없다. 그게 기본 상태다.
+    expect(await peekSignupInvite("아무거나")).toBeNull();
+    expect(await peekSignupInvite("")).toBeNull();
   });
 
-  it("대표 관리자가 만든 코드만 통과하고, 틀린 코드는 막힌다", async () => {
-    const { rotateSignupInviteCode, verifySignupInviteCode, getSignupInviteCode, WRONG_INVITE_CODE_TEXT } =
-      await import("@/lib/auth/settings");
-    const owner: SessionUser = {
-      id: "00000000-0000-4000-8000-000000000001",
-      username: "boss",
-      display_name: "대표",
-      role: "owner",
-      status: "active",
-    };
-    const code = await rotateSignupInviteCode(owner);
-    expect(code).toHaveLength(8);
-    expect(await getSignupInviteCode()).toBe(code);
+  it("대표 관리자가 만든 링크만 열리고, 한 번 쓰면 죽는다", async () => {
+    const { createSignupInvite, peekSignupInvite, consumeSignupInvite } = await import("@/lib/auth/invites");
+    const owner = await makeOwner();
 
-    // 대소문자와 앞뒤 공백은 보지 않는다. 사람이 받아 적는 값이라서다.
-    await expect(verifySignupInviteCode(` ${code.toLowerCase()} `)).resolves.toBeUndefined();
-    await expect(verifySignupInviteCode("BBBBBBBB")).rejects.toThrow(WRONG_INVITE_CODE_TEXT);
-    await expect(verifySignupInviteCode("")).rejects.toThrow(WRONG_INVITE_CODE_TEXT);
+    const invite = await createSignupInvite(owner, "김담당");
+    expect(invite.label).toBe("김담당");
+    // 주소에 그대로 들어가는 값이라 추측이 어려워야 한다. 192비트면 base64url 로 32자다.
+    expect(invite.token.length).toBeGreaterThanOrEqual(32);
 
-    // 새로 만들면 이전 코드는 그 자리에서 막힌다.
-    const next = await rotateSignupInviteCode(owner);
-    expect(next).not.toBe(code);
-    await expect(verifySignupInviteCode(code)).rejects.toThrow(WRONG_INVITE_CODE_TEXT);
+    // 열어 보는 것만으로는 죽지 않는다. 새로고침 한 번에 가입을 못 하게 되면 안 된다.
+    expect(await peekSignupInvite(invite.token)).not.toBeNull();
+    expect(await peekSignupInvite(invite.token)).not.toBeNull();
+
+    // 계정이 만들어지는 순간 소모된다.
+    expect(await consumeSignupInvite(invite.token, "kimdamdang")).toBe(true);
+    expect(await peekSignupInvite(invite.token)).toBeNull();
+
+    // 두 번째는 실패한다. 전달받은 사람이 또 써도 열리지 않는다는 뜻이다.
+    expect(await consumeSignupInvite(invite.token, "someoneelse")).toBe(false);
   });
 
-  it("관리자는 코드를 바꿀 수 없다", async () => {
-    const { rotateSignupInviteCode } = await import("@/lib/auth/settings");
-    const admin: SessionUser = {
-      id: "00000000-0000-4000-8000-000000000002",
-      username: "manager",
-      display_name: "관리자",
-      role: "admin",
-      status: "active",
-    };
-    await expect(rotateSignupInviteCode(admin)).rejects.toThrow(/대표 관리자만/);
+  it("링크마다 값이 다르고, 하나를 써도 다른 링크는 살아 있다", async () => {
+    const { createSignupInvite, consumeSignupInvite, peekSignupInvite, listOpenInvites } =
+      await import("@/lib/auth/invites");
+    const owner = await makeOwner();
+
+    const a = await createSignupInvite(owner, "가");
+    const b = await createSignupInvite(owner, "나");
+    expect(a.token).not.toBe(b.token);
+    expect((await listOpenInvites()).length).toBe(2);
+
+    await consumeSignupInvite(a.token, "personA");
+    expect(await peekSignupInvite(b.token)).not.toBeNull();
+    const open = await listOpenInvites();
+    expect(open.map((i) => i.label)).toEqual(["나"]);
+  });
+
+  it("기한이 지난 링크는 열리지 않는다", async () => {
+    const { createSignupInvite, peekSignupInvite, consumeSignupInvite } = await import("@/lib/auth/invites");
+    const { db } = await import("@/lib/db/client");
+    const owner = await makeOwner();
+
+    const invite = await createSignupInvite(owner, "늦은사람");
+    // 기한만 과거로 돌린다. 시간을 기다리지 않고 만료 동작을 확인한다.
+    await db()
+      .from("signup_invites")
+      .update({ expires_at: new Date(Date.now() - 1000).toISOString() })
+      .eq("token", invite.token);
+
+    expect(await peekSignupInvite(invite.token)).toBeNull();
+    expect(await consumeSignupInvite(invite.token, "toolate")).toBe(false);
+  });
+
+  it("회수하면 그 자리에서 쓸 수 없게 된다", async () => {
+    const { createSignupInvite, revokeSignupInvite, peekSignupInvite } = await import("@/lib/auth/invites");
+    const owner = await makeOwner();
+    const invite = await createSignupInvite(owner, "취소할사람");
+    await revokeSignupInvite(owner, invite.token);
+    expect(await peekSignupInvite(invite.token)).toBeNull();
+    // 이미 없는 링크를 또 회수하려 하면 알려준다.
+    await expect(revokeSignupInvite(owner, invite.token)).rejects.toThrow(/이미 사용했거나 없는/);
+  });
+
+  it("관리자는 링크를 만들거나 회수할 수 없다", async () => {
+    const { createSignupInvite, revokeSignupInvite } = await import("@/lib/auth/invites");
+    await expect(createSignupInvite(admin, "몰래")).rejects.toThrow(/대표 관리자만/);
+    await expect(revokeSignupInvite(admin, "아무토큰")).rejects.toThrow(/대표 관리자만/);
   });
 });
 

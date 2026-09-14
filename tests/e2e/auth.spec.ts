@@ -1,17 +1,15 @@
 import { test, expect } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
-import { loadTestEnv } from "./env";
+import { loadTestEnv, E2E_OWNER } from "./env";
 import { NO_AUTH } from "./fixtures";
 
 /**
- * 가입 초대 코드.
+ * 가입 초대 링크.
  *
- * 가입 화면은 로그인 없이 열리는 유일한 쓰기 경로다. `app_settings.signup_invite_code` 행이
- * 없으면 아무도 가입할 수 없고, 있으면 그 코드를 맞힌 사람만 가입한다(승인 대기 상태로).
- * globalSetup 이 app_settings 를 비우고 시작하므로 "코드가 없는 상태"에서 출발한다.
+ * 가입 화면은 로그인 없이 열리는 유일한 쓰기 경로다. 초대 링크가 있어야만 열리고,
+ * 그 링크는 계정이 만들어지는 순간 죽는다. globalSetup 이 signup_invites 를 비우고 시작한다.
  *
  * 시도 횟수 제한(SIGNUP_BY_IP: 1시간 5회)에 걸리지 않도록 가입 시도는 이 파일에서 두 번만 한다.
- * 일부러 틀린 코드를 반복해서 넣지 않는다.
  */
 
 const env = loadTestEnv();
@@ -19,23 +17,24 @@ const admin = createClient(env.url, env.serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const INVITE_CODE = "E2ETEST2";
 const NEW_USER = { username: "e2e_newbie", displayName: "E2E 신입", password: "e2e-newbie-pass-2026!" };
 
-async function setInviteCode(value: string | null): Promise<void> {
-  if (value === null) {
-    const { error } = await admin.from("app_settings").delete().eq("key", "signup_invite_code");
-    if (error) throw new Error(`초대 코드 삭제 실패: ${error.message}`);
-    return;
-  }
-  const { error } = await admin
-    .from("app_settings")
-    .upsert({ key: "signup_invite_code", value, updated_at: new Date().toISOString() }, { onConflict: "key" });
-  if (error) throw new Error(`초대 코드 설정 실패: ${error.message}`);
+/** 대표 관리자가 만든 것과 같은 모양의 초대를 직접 넣는다. 화면을 거치지 않고 준비만 한다. */
+async function createInvite(label: string, expiresInMs = 60 * 60 * 1000): Promise<string> {
+  const token = `e2e-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+  const { data: owner } = await admin.from("profiles").select("id, display_name").eq("username", E2E_OWNER.username).single();
+  const { error } = await admin.from("signup_invites").insert({
+    token,
+    label,
+    created_by: owner?.id ?? null,
+    created_by_name: owner?.display_name ?? "대표",
+    expires_at: new Date(Date.now() + expiresInMs).toISOString(),
+  });
+  if (error) throw new Error(`초대 생성 실패: ${error.message}`);
+  return token;
 }
 
-async function fillSignupForm(page: import("@playwright/test").Page, code: string): Promise<void> {
-  await page.locator("#signup-invite-code").fill(code);
+async function fillSignupForm(page: import("@playwright/test").Page): Promise<void> {
   await page.locator("#signup-username").fill(NEW_USER.username);
   await page.locator("#signup-name").fill(NEW_USER.displayName);
   await page.locator("#signup-password").fill(NEW_USER.password);
@@ -45,29 +44,40 @@ async function fillSignupForm(page: import("@playwright/test").Page, code: strin
 test.describe("가입 (로그인 없이)", () => {
   test.use({ storageState: NO_AUTH });
 
-  test("초대 코드가 설정되기 전에는 가입을 받지 않는다", async ({ page }) => {
-    await setInviteCode(null);
-
+  test("초대 링크 없이는 가입 화면이 열리지 않는다", async ({ page }) => {
+    // 주소만 아는 사람에게는 안내만 보인다. 폼 자체가 없다.
     await page.goto("/signup");
-    await expect(page.getByRole("heading", { name: "RB Global 가입 신청" })).toBeVisible();
-    await fillSignupForm(page, INVITE_CODE);
-    await page.getByRole("button", { name: "가입 신청하기" }).click();
+    await expect(page.getByRole("heading", { name: "초대 링크가 필요합니다" })).toBeVisible();
+    await expect(page.locator("#signup-username")).toHaveCount(0);
 
-    await expect(page.getByText("아직 가입을 받지 않습니다. 관리자에게 문의하세요.")).toBeVisible();
-    // 계정이 만들어지지 않았어야 한다
-    const { data } = await admin.from("profiles").select("username").eq("username", NEW_USER.username);
-    expect(data ?? []).toHaveLength(0);
+    // 아무 토큰이나 지어내도 열리지 않는다.
+    await page.goto("/signup/not-a-real-token");
+    await expect(page.getByRole("heading", { name: "쓸 수 없는 초대 링크입니다" })).toBeVisible();
   });
 
-  test("초대 코드가 있으면 가입되고, 승인 전까지는 대기 화면만 보인다", async ({ page }) => {
-    await setInviteCode(INVITE_CODE);
+  test("기한이 지난 링크는 열리지 않는다", async ({ page }) => {
+    const token = await createInvite("만료된 사람", -1000);
+    await page.goto(`/signup/${token}`);
+    await expect(page.getByRole("heading", { name: "쓸 수 없는 초대 링크입니다" })).toBeVisible();
+  });
 
-    await page.goto("/signup");
-    await fillSignupForm(page, INVITE_CODE.toLowerCase()); // 대소문자는 구분하지 않는다
+  test("초대 링크로 가입되고, 그 링크는 한 번 쓰면 죽는다", async ({ page }) => {
+    const token = await createInvite("E2E 신입");
+
+    await page.goto(`/signup/${token}`);
+    await expect(page.getByRole("heading", { name: "RB Global 가입 신청" })).toBeVisible();
+    // 누구를 위한 링크인지 화면에 보인다.
+    await expect(page.getByText("E2E 신입", { exact: false })).toBeVisible();
+
+    await fillSignupForm(page);
     await page.getByRole("button", { name: "가입 신청하기" }).click();
     await expect(page.getByRole("heading", { name: "가입 신청이 접수되었습니다" })).toBeVisible();
 
-    // 승인 전이므로 로그인해도 대시보드가 아니라 대기 화면이다
+    // 같은 링크를 다시 열면 죽어 있다. 전달받은 사람이 또 써도 열리지 않는다는 뜻이다.
+    await page.goto(`/signup/${token}`);
+    await expect(page.getByRole("heading", { name: "쓸 수 없는 초대 링크입니다" })).toBeVisible();
+
+    // 승인 전이므로 로그인해도 대시보드가 아니라 대기 화면이다.
     await page.goto("/login");
     await page.locator("#login-username").fill(NEW_USER.username);
     await page.locator("#login-password").fill(NEW_USER.password);

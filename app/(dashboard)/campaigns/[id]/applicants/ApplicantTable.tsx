@@ -36,6 +36,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import { guardedSave, useSaveGuard } from "@/components/PendingSaveGuard";
 import { toast } from "@/components/Toast";
 
 type Mode = "agency" | "company";
@@ -100,6 +101,7 @@ export default function ApplicantTable({
   csvHref,
   messageTemplates,
 }: ApplicantTableProps) {
+  const saveGuard = useSaveGuard();
   const router = useRouter();
   const [applicants, setApplicants] = useState<Applicant[]>(initialApplicants);
   const [search, setSearch] = useState("");
@@ -189,16 +191,19 @@ export default function ApplicantTable({
     }
   };
 
+  // 화면을 먼저 바꾸고 저장은 뒤에서 한다. 그 사이에 다른 메뉴로 넘어가면 요청이 끊겨
+  // 화면만 바뀌고 DB 에는 남지 않는다. 가드가 저장이 끝날 때까지 이동을 미뤄 준다.
   const handleStatusChange = async (applicantId: string, nextStatus: ApplicantStatus) => {
     const before = applicants;
     setError(null);
     setPendingId(applicantId);
     setApplicants((prev) => prev.map((a) => (a.id === applicantId ? { ...a, status: nextStatus } : a)));
 
-    const res =
+    const res = await guardedSave(saveGuard, () =>
       mode === "company"
-        ? await safeCall(changeApplicantStatusByTokenAction({ token: shareToken || "", applicantId, status: nextStatus }))
-        : await safeCall(changeApplicantStatusAction({ applicantId, status: nextStatus }));
+        ? safeCall(changeApplicantStatusByTokenAction({ token: shareToken || "", applicantId, status: nextStatus }))
+        : safeCall(changeApplicantStatusAction({ applicantId, status: nextStatus }))
+    );
 
     setPendingId(null);
     if (!res.ok) {

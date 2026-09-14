@@ -225,8 +225,9 @@ export default function GuidePage() {
             <h3 className="text-sm font-bold text-text">가입부터 로그인까지</h3>
             <p className="text-xs text-text-2 leading-relaxed">
               로그인 화면의 <strong>[가입하기]</strong>에서 아이디·이름·비밀번호를 정해 신청합니다. 이메일은 쓰지 않습니다.
-              가입에는 <strong>초대 코드</strong>가 필요합니다. 대표 관리자가 [관리 → 사용자 관리] 상단에서 코드를 만들어
-              직원에게 알려주며, 코드가 없으면 가입이 막혀 있습니다.
+              가입은 <strong>초대 링크</strong>로만 할 수 있습니다. 대표 관리자가 [관리 → 사용자 관리] 상단에서 사람마다
+              링크를 하나씩 만들어 보내며, 링크는 <strong>한 번 가입하면 바로 죽고</strong> 사흘이 지나도 만료됩니다.
+              링크 없이 가입 주소로 들어가면 안내만 보입니다.
               신청 직후에는 <strong>승인 대기</strong> 화면만 보이고, 관리자가 승인하면 그때부터 들어올 수 있습니다.
               <strong>[로그인 상태 유지]</strong>를 켜면 브라우저를 닫아도 로그인이 남습니다. 공용 PC에서는 끄세요.
             </p>

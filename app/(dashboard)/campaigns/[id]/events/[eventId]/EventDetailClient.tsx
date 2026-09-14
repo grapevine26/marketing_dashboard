@@ -44,6 +44,7 @@ import {
   X,
 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import { guardedSave, useSaveGuard } from "@/components/PendingSaveGuard";
 import { toast } from "@/components/Toast";
 
 export interface TemplateOption {
@@ -78,6 +79,7 @@ export default function EventDetailClient({
   initialTab: "invitees" | "plan" | "checklist";
   highlightChecklistId?: string;
 }) {
+  const saveGuard = useSaveGuard();
   const router = useRouter();
   const [event, setEvent] = useState<MarketingEvent>(initialEvent);
   const [activeTab, setActiveTab] = useState<"invitees" | "plan" | "checklist">(initialTab);
@@ -159,13 +161,17 @@ export default function EventDetailClient({
   const exportHref = `/campaigns/${campaign.id}/events/${event.id}/plan/export`;
 
   // ---------- Header ----------
+  // 화면을 먼저 바꾸고 저장은 뒤에서 한다. 그 사이에 다른 메뉴로 넘어가면 요청이 끊겨
+  // 화면만 바뀌고 DB 에는 남지 않는다. 가드가 저장이 끝날 때까지 이동을 미뤄 준다.
   const handleStatusChange = async (status: EventStatus) => {
     if (event.status === status) return;
     const prevEvent = event;
     setStatusSaving(true);
     setError(null);
     setEvent((prev) => ({ ...prev, status }));
-    const res = await safeCall(updateEventAction({ eventId: event.id, campaignId: campaign.id, patch: { status } }));
+    const res = await guardedSave(saveGuard, () =>
+      safeCall(updateEventAction({ eventId: event.id, campaignId: campaign.id, patch: { status } }))
+    );
     setStatusSaving(false);
     if (!res.ok) {
       setEvent(prevEvent);

@@ -25,6 +25,8 @@ const PUBLIC_PATHS = ["/login", "/signup"];
  * 돌려주므로 로그인 뒤로 옮겼다. 배포 점검은 로그인한 브라우저에서 열면 된다.
  */
 const PUBLIC_PREFIXES = [
+  // 초대 링크로 들어오는 가입 화면. 토큰이 주소에 있어 로그인 없이 열려야 한다.
+  "/signup/",
   "/apply/",
   "/pre-survey/",
   "/applicants/",

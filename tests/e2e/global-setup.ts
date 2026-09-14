@@ -83,7 +83,7 @@ async function resetDb(dbUrl: string): Promise<void> {
   const client = new pg.Client({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
   await client.connect();
   try {
-    // 목록을 고정하지 않는다. 다른 작업으로 테이블이 늘어도(auth_throttle, app_settings …) 같이 비운다.
+    // 목록을 고정하지 않는다. 다른 작업으로 테이블이 늘어도(auth_throttle, signup_invites …) 같이 비운다.
     const { rows } = await client.query<{ table_name: string }>(
       `select table_name from information_schema.tables
         where table_schema = 'public' and table_type = 'BASE TABLE' and table_name <> 'schema_migrations'`

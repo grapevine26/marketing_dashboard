@@ -58,6 +58,7 @@ import {
   Sliders,
 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import { guardedSave, useSaveGuard } from "@/components/PendingSaveGuard";
 import { toast } from "@/components/Toast";
 import SnsIntakeQuestionEditor from "./SnsIntakeQuestionEditor";
 
@@ -117,6 +118,7 @@ export default function SnsAccountDetailClient({
   initialTab?: "calendar" | "list" | "intake";
   highlightContentId?: string;
 }) {
+  const saveGuard = useSaveGuard();
   const router = useRouter();
   const [account, setAccount] = useState<SnsAccount>(initialAccount);
   const [activeTab, setActiveTab] = useState<"calendar" | "list" | "intake">(initialTab || "calendar");
@@ -552,7 +554,9 @@ export default function SnsAccountDetailClient({
       return next;
     });
 
-    const res = await safeCall(updateSnsContentAction(c.id, account.id, { status }));
+    const res = await guardedSave(saveGuard, () =>
+      safeCall(updateSnsContentAction(c.id, account.id, { status }))
+    );
 
     setSavingStatusIds((prev) => {
       const next = new Set(prev);

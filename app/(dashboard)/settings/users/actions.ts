@@ -9,7 +9,7 @@ import {
   resetUserPassword,
   deleteUser,
 } from "@/lib/auth/users";
-import { rotateSignupInviteCode } from "@/lib/auth/settings";
+import { createSignupInvite, revokeSignupInvite, type SignupInvite } from "@/lib/auth/invites";
 import type { UserRole } from "@/lib/auth/session";
 import { type ActionResult, runAdminAction, runOwnerAction } from "@/lib/actions/result";
 
@@ -97,13 +97,23 @@ export async function deleteUserAction(userId: string): Promise<ActionResult<nul
 }
 
 /**
- * 가입 초대 코드를 새로 만든다. **대표 관리자만.**
+ * 가입 초대 링크를 만든다. **대표 관리자만.**
  *
- * 코드를 아는 사람만 가입 신청을 할 수 있으므로, 코드를 바꿀 수 있다는 것은
- * 누구를 들일지 정하는 권한과 같다. 그래서 관리자가 아니라 대표로 좁힌다.
+ * 링크를 만들 수 있다는 것은 누구를 들일지 정하는 권한과 같다. 그래서 대표로 좁힌다.
+ * `label` 은 누구에게 줄 링크인지 적어 두는 메모다. 나중에 목록에서 구분하는 데만 쓴다.
  */
-export async function rotateInviteCodeAction(): Promise<ActionResult<{ code: string }>> {
-  const res = await runOwnerAction(async (owner) => ({ code: await rotateSignupInviteCode(owner) }));
+export async function createInviteAction(label: string): Promise<ActionResult<SignupInvite>> {
+  const res = await runOwnerAction((owner) => createSignupInvite(owner, label));
+  revalidatePath(USERS_PATH);
+  return res;
+}
+
+/** 아직 쓰지 않은 초대 링크를 회수한다. 잘못 만들었거나 보내지 않기로 했을 때. */
+export async function revokeInviteAction(token: string): Promise<ActionResult<null>> {
+  const res = await runOwnerAction(async (owner) => {
+    await revokeSignupInvite(owner, token);
+    return null;
+  });
   revalidatePath(USERS_PATH);
   return res;
 }

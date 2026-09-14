@@ -23,6 +23,8 @@ import RefreshOnFocus from "@/components/RefreshOnFocus";
 import RbLogo from "@/components/RbLogo";
 import InstallAppButton from "@/components/InstallAppButton";
 import { isManager, isOwner, type SessionUser } from "@/lib/auth/roles";
+import { PendingSaveProvider, useSaveGuard } from "@/components/PendingSaveGuard";
+import { toast } from "@/components/Toast";
 import { logoutAction } from "@/app/login/actions";
 
 /**
@@ -31,7 +33,23 @@ import { logoutAction } from "@/app/login/actions";
  * 인증 확인은 서버(`layout.tsx`)에서 끝내고, 여기는 그 결과를 props 로 받아 그리기만 한다.
  * 모바일 서랍 메뉴처럼 상태가 필요한 UI 가 있어 클라이언트 컴포넌트로 둔다.
  */
-export default function DashboardShell({
+/**
+ * 저장 중에는 화면을 떠나지 않게 감싼다. 안쪽(DashboardShellInner)이 실제 화면이다.
+ * Provider 를 여기에 두는 이유는 사이드바 링크가 이 안에 있어서다.
+ */
+export default function DashboardShell(props: {
+  user: SessionUser;
+  pendingCount: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <PendingSaveProvider>
+      <DashboardShellInner {...props} />
+    </PendingSaveProvider>
+  );
+}
+
+function DashboardShellInner({
   user,
   pendingCount,
   children,
@@ -142,6 +160,18 @@ export default function DashboardShell({
       : []),
   ];
 
+  const saveGuard = useSaveGuard();
+
+  /**
+   * 저장이 진행 중이면 이동을 미룬다. 취소가 아니라 미루기다.
+   * 가려던 주소는 가드가 기억했다가 저장이 끝나면 대신 이동시킨다.
+   */
+  const guardNavigate = (e: { preventDefault: () => void }, href: string) => {
+    if (saveGuard.allowNavigate(href)) return;
+    e.preventDefault();
+    toast.info("저장 중입니다. 끝나면 바로 이동합니다.");
+  };
+
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
     if (href === "/events") {
@@ -240,6 +270,7 @@ export default function DashboardShell({
                     key={iIdx}
                     href={item.href}
                     onClick={closeMenu}
+                    onNavigate={(e) => guardNavigate(e, item.href)}
                     className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
                       active
                         ? "bg-accent/15 border border-accent/30 text-accent shadow-sm"
@@ -274,6 +305,7 @@ export default function DashboardShell({
               <Link
                 href="/settings/profile"
                 onClick={closeMenu}
+                onNavigate={(e) => guardNavigate(e, "/settings/profile")}
                 className="block group/me"
                 title="내 정보"
               >

@@ -4,7 +4,7 @@ import { ValidationError } from "@/lib/db";
 import { ActionResult, runAction } from "@/lib/actions/result";
 import { normalizeUsername, usernameToEmail } from "@/lib/auth/username";
 import { signUpUser } from "@/lib/auth/users";
-import { verifySignupInviteCode } from "@/lib/auth/settings";
+import { consumeSignupInvite, peekSignupInvite, INVITE_INVALID_TEXT } from "@/lib/auth/invites";
 import { clearPersistence, createAuthClient, rememberPersistence } from "@/lib/supabase/auth";
 import {
   LOGIN_BY_IP,
@@ -127,23 +127,30 @@ export async function signupAction(input: {
   username: unknown;
   display_name: unknown;
   password: unknown;
-  invite_code: unknown;
+  invite_token: unknown;
 }): Promise<ActionResult<{ username: string }>> {
   return runAction(async () => {
-    // IP 당 시도 횟수를 센다. 코드가 틀려도, 아이디가 겹쳐도 한 번으로 친다.
-    // 초대 코드를 맞히려는 시도가 곧 가입 시도이기 때문이다.
+    // IP 당 시도 횟수를 센다. 링크가 죽었어도, 아이디가 겹쳐도 한 번으로 친다.
     const ipKey = signupIpKey(await getClientIp());
     if (await isThrottled([ipKey])) throw new ValidationError(SIGNUP_THROTTLED_TEXT);
     await hitThrottle(ipKey, SIGNUP_BY_IP);
 
-    // 코드를 아이디·비밀번호 검사보다 먼저 본다. 코드가 없는 사람에게 아이디 중복 여부까지 알려줄 이유가 없다.
-    await verifySignupInviteCode(input.invite_code);
+    const token = typeof input.invite_token === "string" ? input.invite_token : "";
+    // 먼저 링크가 살아 있는지 본다. 죽은 링크로 온 사람에게 아이디 중복 여부까지 알려줄 이유가 없다.
+    if (!(await peekSignupInvite(token))) throw new ValidationError(INVITE_INVALID_TEXT);
 
-    return signUpUser({
+    const created = await signUpUser({
       username: input.username,
       display_name: input.display_name,
       password: input.password,
     });
+
+    // **계정을 만든 뒤에** 링크를 소모한다. 비밀번호가 짧아서 실패한 사람이 링크를 잃으면 안 된다.
+    // 여기서 실패하는 경우는 그 짧은 사이에 남이 같은 링크를 쓴 때뿐이고, 계정은 어차피 승인을 받아야 한다.
+    if (!(await consumeSignupInvite(token, created.username))) {
+      console.warn(`[signup] 링크 소모 실패(이미 사용됨). 가입은 완료: ${created.username}`);
+    }
+    return created;
   });
 }
 
