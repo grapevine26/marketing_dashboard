@@ -22,13 +22,65 @@ const testDbUrl = process.env.SUPABASE_TEST_DB_URL;
 
 export const hasTestDb = Boolean(testUrl && testKey && testDbUrl);
 
+/**
+ * 연결 문자열에서 Supabase 프로젝트 ref 를 뽑는다.
+ * - API URL:      https://<ref>.supabase.co
+ * - pooler:       postgresql://postgres.<ref>:…@aws-0-….pooler.supabase.com
+ * - 직접 연결:    postgresql://postgres:…@db.<ref>.supabase.co
+ */
+function projectRef(raw: string | undefined): string | null {
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    const fromUser = /^postgres\.([a-z0-9]+)$/i.exec(u.username);
+    if (fromUser) return fromUser[1];
+    const fromHost = /^(?:db\.)?([a-z0-9]+)\.supabase\.(?:co|com)$/i.exec(u.hostname);
+    if (fromHost && fromHost[1] !== "pooler") return fromHost[1];
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 if (hasTestDb) {
-  // 운영 프로젝트를 테스트 DB 로 잘못 지정하면 테스트가 운영 데이터를 전부 지운다.
-  if (testUrl === prodUrl) {
+  const prodRef = projectRef(prodUrl);
+  const testRef = projectRef(testUrl);
+  const testDbRef = projectRef(testDbUrl);
+  const prodDbRef = projectRef(process.env.SUPABASE_DB_URL);
+
+  // 테스트는 매 테스트마다 모든 테이블을 truncate 한다. 대상이 운영이면 실제 데이터가 전부 사라진다.
+  // 아래 세 가지를 모두 확인한다. 하나라도 어긋나면 한 줄도 지우지 않고 멈춘다.
+
+  // 1. 테스트 API URL 이 운영과 다른가.
+  if (testUrl === prodUrl || (testRef && prodRef && testRef === prodRef)) {
     throw new Error(
-      "SUPABASE_TEST_URL 이 운영 SUPABASE_URL 과 같습니다. 테스트는 모든 테이블을 비우므로 중단합니다."
+      "SUPABASE_TEST_URL 이 운영 SUPABASE_URL 과 같은 프로젝트입니다. 테스트는 모든 테이블을 비우므로 중단합니다."
     );
   }
+
+  // 2. 실제로 truncate 가 접속하는 주소가 운영 프로젝트가 아닌가.
+  //    가장 흔한 사고다. 두 연결 문자열은 프로젝트 ref 만 달라서 잘못 붙여넣기 쉽다.
+  if (testDbRef && prodDbRef && testDbRef === prodDbRef) {
+    throw new Error(
+      "SUPABASE_TEST_DB_URL 이 운영 SUPABASE_DB_URL 과 같은 프로젝트를 가리킵니다. " +
+        "테스트는 이 주소의 모든 테이블을 비우므로 중단합니다."
+    );
+  }
+  if (testDbRef && prodRef && testDbRef === prodRef) {
+    throw new Error(
+      "SUPABASE_TEST_DB_URL 이 운영 프로젝트를 가리킵니다. 테스트는 모든 테이블을 비우므로 중단합니다."
+    );
+  }
+
+  // 3. 테스트 API URL 과 테스트 DB URL 이 같은 프로젝트인가.
+  //    둘이 다르면 어느 한쪽이 잘못 들어간 것이므로, 무엇을 지우게 될지 알 수 없다.
+  if (testRef && testDbRef && testRef !== testDbRef) {
+    throw new Error(
+      `SUPABASE_TEST_URL(${testRef}) 과 SUPABASE_TEST_DB_URL(${testDbRef}) 이 서로 다른 프로젝트입니다. ` +
+        "설정이 어긋났으므로 중단합니다."
+    );
+  }
+
   process.env.SUPABASE_URL = testUrl;
   process.env.SUPABASE_SERVICE_ROLE_KEY = testKey;
 }

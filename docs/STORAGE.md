@@ -29,6 +29,17 @@
 | `SUPABASE_DB_URL` | 마이그레이션 적용용 Postgres 연결 문자열. **Session pooler** 주소를 쓴다. 직접 연결 주소(`db.<ref>.supabase.co`)는 IPv6 전용이라 안 붙는 PC 가 많다. |
 | `SUPABASE_TEST_URL`, `SUPABASE_TEST_SERVICE_ROLE_KEY`, `SUPABASE_TEST_DB_URL` | 테스트 전용 프로젝트. 없으면 DB 단위 테스트는 skip 된다. |
 
+DB 단위 테스트는 매 테스트마다 모든 테이블을 비운다. 그래서 `tests/unit/test-db.ts` 가 시작할 때
+연결 문자열에서 Supabase 프로젝트 ref 를 뽑아 세 가지를 확인하고, 하나라도 어긋나면 한 줄도
+지우지 않고 멈춘다.
+
+1. 테스트 API URL 이 운영과 다른 프로젝트인가
+2. **실제로 truncate 가 접속하는 `SUPABASE_TEST_DB_URL` 이 운영 프로젝트가 아닌가**
+3. 테스트 API URL 과 테스트 DB URL 이 서로 같은 프로젝트인가
+
+2번이 핵심이다. 두 연결 문자열은 프로젝트 ref 만 달라서 잘못 붙여넣기 쉽고, API URL 만
+비교하면 이 사고를 못 잡는다. 이 가드를 우회하지 말 것.
+
 ### 스키마와 마이그레이션
 
 스키마 원본은 `supabase/migrations/*.sql` 이다. (`docs/sql/` 은 다른 저장소의 옛 스키마 사본이라
@@ -85,7 +96,23 @@ uuid 형식이 아닌 id 는 쿼리 전에 `isUuid` 로 걸러 "없음"(null/fal
 
 ### 백업
 
-Supabase 의 자동 백업을 쓴다. 옛 JSON 백업/복원 스크립트는 없앴다.
+Supabase 플랜에 따라 자동 백업이 없거나 보관 기간이 짧을 수 있으므로, 직접 받아둘 수단을 둔다.
+
+```bash
+npm run db:backup                            # 운영 전체를 .data/backups/supabase-<시각>.json 으로
+npm run db:backup -- --list                  # 받아둔 목록
+npm run db:backup -- --restore <파일> --yes   # 그 백업으로 되돌린다
+npm run db:backup -- --test                  # 대상을 테스트 프로젝트로
+```
+
+`.data/` 는 git 에 올라가지 않으므로, 중요한 백업은 따로 보관할 것.
+
+복원은 현재 데이터를 전부 지우고 덮어쓴다. `--yes` 가 없으면 실행하지 않고, 덮어쓰기 직전에
+현재 상태를 `pre-restore-<시각>.json` 으로 먼저 받아둔다.
+
+**주의:** 이 스크립트는 `date` 컬럼(oid 1082)을 문자열 그대로 읽도록 타입 파서를 바꿔 둔다.
+`pg` 기본값은 Date 객체인데, 그걸 JSON 으로 쓰면 한국 시간 자정이 UTC 기준 전날이 되어
+복원할 때마다 날짜가 하루씩 밀린다. 업로드 기한과 체크리스트 마감일에서 실제로 발생했다.
 
 ## 파일 저장소
 
