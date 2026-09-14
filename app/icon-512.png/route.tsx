@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 
 export const dynamic = "force-static";
 
+/** PWA 설치용 512px 아이콘. 안드로이드 스플래시와 앱 목록에서 쓴다. */
 export function GET() {
   return new ImageResponse(
     (
@@ -17,11 +18,12 @@ export function GET() {
           border: "4px solid #292b34",
           color: "#ececf1",
           fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-          fontSize: "340px",
+          fontSize: "222px",
           fontWeight: 900,
+          letterSpacing: "-8px",
         }}
       >
-        M
+        RB
       </div>
     ),
     {

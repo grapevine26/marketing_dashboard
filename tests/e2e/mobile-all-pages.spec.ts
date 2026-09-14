@@ -62,7 +62,7 @@ test.describe("모바일 반응형 UX/UI 전수 검증", () => {
           return document.documentElement.scrollWidth > document.documentElement.clientWidth;
         });
         expect(hasOverflow).toBe(false);
-        await expect(page.getByRole("heading", { name: /MOA.*사용 가이드/ })).toBeVisible();
+        await expect(page.getByRole("heading", { name: /RB Global.*사용 가이드/ })).toBeVisible();
       });
     });
   }

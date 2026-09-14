@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { LogoutButton } from "../login/LoginClient";
 
 export const metadata: Metadata = {
-  title: "승인 대기 | MOA",
+  title: "승인 대기 | RB Global",
 };
 
 /**

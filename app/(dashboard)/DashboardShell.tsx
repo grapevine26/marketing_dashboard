@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import ThemeToggleButton from "@/components/ThemeToggleButton";
 import RefreshOnFocus from "@/components/RefreshOnFocus";
-import MoaLogo from "@/components/MoaLogo";
+import RbLogo from "@/components/RbLogo";
 import InstallAppButton from "@/components/InstallAppButton";
 import { isManager, type SessionUser } from "@/lib/auth/roles";
 import { logoutAction } from "@/app/login/actions";
@@ -166,7 +166,7 @@ export default function DashboardShell({
       {/* Mobile Top Header */}
       <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-sidebar/95 backdrop-blur-md border-b border-border">
         <Link href="/" className="flex items-center">
-          <MoaLogo size={18} />
+          <RbLogo size={18} />
         </Link>
 
         <div className="flex items-center gap-2">
@@ -198,7 +198,7 @@ export default function DashboardShell({
         {/* Sidebar Brand Header */}
         <div className="px-2 flex items-center justify-between">
           <Link href="/" onClick={closeMenu} className="flex items-center">
-            <MoaLogo size={20} />
+            <RbLogo size={20} />
           </Link>
 
           {/* Close button inside mobile drawer */}

@@ -108,7 +108,7 @@ export default function InstallAppButton() {
                 <div className="flex items-center justify-between pb-3 border-b border-border">
                   <div className="flex items-center gap-2">
                     <Download className="w-5 h-5 text-accent-link" />
-                    <h3 className="text-base font-bold text-text">MOA 앱 설치 안내</h3>
+                    <h3 className="text-base font-bold text-text">RB Global 앱 설치 안내</h3>
                   </div>
                   <button
                     type="button"
@@ -127,7 +127,7 @@ export default function InstallAppButton() {
                       <span>PC / 데스크톱 (Chrome, Edge, Whale)</span>
                     </div>
                     <p className="text-text-sub">
-                      브라우저 주소창 우측 상단의 <strong>[설치 아이콘(⊕)]</strong>을 누르거나, 브라우저 메뉴(⋮)에서 <strong>[MOA 설치]</strong>를 클릭하시면 브라우저 주소창 없는 독립형 데스크톱 앱 창으로 실행됩니다.
+                      브라우저 주소창 우측 상단의 <strong>[설치 아이콘(⊕)]</strong>을 누르거나, 브라우저 메뉴(⋮)에서 <strong>[RB Global 설치]</strong>를 클릭하시면 브라우저 주소창 없는 독립형 데스크톱 앱 창으로 실행됩니다.
                     </p>
                   </div>
 

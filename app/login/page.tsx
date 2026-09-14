@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import LoginClient from "./LoginClient";
 
 export const metadata: Metadata = {
-  title: "로그인 | MOA",
+  title: "로그인 | RB Global",
 };
 
 export const revalidate = 0;

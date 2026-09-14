@@ -9,6 +9,10 @@ import { ValidationError } from "../db/validation";
  *
  * 이 도메인은 실제로 메일을 받지 않는다. 그래서 Supabase 에서 이메일 확인(Confirm email)을
  * 꺼야 한다. 켜져 있으면 확인 메일이 발송되고 가입이 끝나지 않는다.
+ *
+ * **이름이 바뀌어도 이 도메인은 그대로 둔다.** 서비스 이름은 RB Global 로 바뀌었지만
+ * 이미 가입한 계정은 모두 `<아이디>@moa.local` 로 저장되어 있다. 여기를 바꾸면
+ * 기존 계정이 전부 로그인하지 못한다. 사용자에게 보이지 않는 값이라 바꿀 이유도 없다.
  */
 
 export const INTERNAL_EMAIL_DOMAIN = "moa.local";

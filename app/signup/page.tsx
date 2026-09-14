@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import SignupClient from "./SignupClient";
 
 export const metadata: Metadata = {
-  title: "가입 신청 | MOA",
+  title: "가입 신청 | RB Global",
 };
 
 /** 가입 화면. 사이드바 없는 전체 화면이다. */

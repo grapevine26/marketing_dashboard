@@ -1,18 +1,22 @@
 import React from "react";
 
-export type MoaLogoVariant = "bold-extended" | "geometric-sans" | "monoline-sans";
+export type RbLogoVariant = "bold-extended" | "geometric-sans" | "monoline-sans";
 
-interface MoaLogoIconProps {
+interface RbLogoIconProps {
   size?: number;
-  variant?: MoaLogoVariant;
+  variant?: RbLogoVariant;
   className?: string;
 }
 
-export function MoaLogoIcon({
+/**
+ * 로고 타일. 이름 전체를 넣을 자리가 없는 곳(파비콘, 앱 아이콘, 좁은 헤더)에서 쓴다.
+ * 두 글자라 한 글자일 때보다 글자 크기를 줄여야 사각형 안에 들어간다.
+ */
+export function RbLogoIcon({
   size = 20,
   variant = "bold-extended",
   className = "",
-}: MoaLogoIconProps) {
+}: RbLogoIconProps) {
   return (
     <div
       style={{
@@ -28,42 +32,43 @@ export function MoaLogoIcon({
           ? "font-medium"
           : "font-bold"
       } ${className}`}
-      aria-label="MOA Logo Icon"
+      aria-label="RB Global Logo Icon"
     >
       <span
         style={{
-          fontSize: `${Math.max(10, Math.round(size * 0.64))}px`,
+          fontSize: `${Math.max(9, Math.round(size * 0.44))}px`,
           lineHeight: 1,
-          transform: variant === "bold-extended" ? "scaleX(1.08)" : undefined,
+          letterSpacing: "-0.02em",
+          transform: variant === "bold-extended" ? "scaleX(1.04)" : undefined,
         }}
       >
-        M
+        RB
       </span>
     </div>
   );
 }
 
-interface MoaLogoProps {
+interface RbLogoProps {
   size?: number;
-  showBadge?: boolean;
   showIcon?: boolean;
-  variant?: MoaLogoVariant;
+  variant?: RbLogoVariant;
   className?: string;
 }
 
 /**
- * MOA 브랜드 로고 컴포넌트
+ * RB Global 브랜드 로고 컴포넌트
  * - bold-extended: [시안 3번] 묵직하고 시원한 볼드 익스텐디드 네오 그로테스크 (기본 활성)
  * - geometric-sans: [시안 2번 킵] 정교한 기하학적 스위스 산세리프
  * - monoline-sans: [시안 5번 킵] 균일한 두께와 여백의 모놀라인 아키텍처럴 산세리프
+ *
+ * 글자를 대문자로 강제하지 않는다. 상호가 "RB GLOBAL" 이 아니라 "RB Global" 이다.
  */
-export default function MoaLogo({
+export default function RbLogo({
   size = 20,
-  showBadge = true,
   showIcon = false,
   variant = "bold-extended",
   className = "",
-}: MoaLogoProps) {
+}: RbLogoProps) {
   const getTypographyStyle = () => {
     switch (variant) {
       case "geometric-sans": // 2번 시안 (킵)
@@ -98,27 +103,21 @@ export default function MoaLogo({
 
   return (
     <div className={`flex items-center gap-2 group select-none ${className}`}>
-      {showIcon && <MoaLogoIcon size={size + 4} variant={variant} />}
-      <div className="flex items-center gap-1.5">
-        <span
-          style={{
-            fontSize: `${size}px`,
-            fontFamily: typoStyle.fontFamily,
-            fontWeight: typoStyle.fontWeight,
-            letterSpacing: typoStyle.letterSpacing,
-            transform: typoStyle.transform,
-            transformOrigin: "left center",
-          }}
-          className="uppercase text-text transition-colors duration-150 group-hover:text-accent-link leading-none"
-        >
-          MOA
-        </span>
-        {showBadge && (
-          <span className="text-[10px] font-bold text-text-muted bg-surface2 border border-border px-1.5 py-0.5 rounded leading-none transition-colors group-hover:text-text-sub ml-0.5">
-            모아
-          </span>
-        )}
-      </div>
+      {showIcon && <RbLogoIcon size={size + 4} variant={variant} />}
+      <span
+        style={{
+          fontSize: `${size}px`,
+          fontFamily: typoStyle.fontFamily,
+          fontWeight: typoStyle.fontWeight,
+          letterSpacing: typoStyle.letterSpacing,
+          transform: typoStyle.transform,
+          transformOrigin: "left center",
+          whiteSpace: "nowrap",
+        }}
+        className="text-text transition-colors duration-150 group-hover:text-accent-link leading-none"
+      >
+        RB Global
+      </span>
     </div>
   );
 }

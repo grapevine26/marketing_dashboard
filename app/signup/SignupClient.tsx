@@ -76,7 +76,7 @@ export default function SignupClient() {
         <div className="w-12 h-12 rounded-2xl bg-bg border border-border flex items-center justify-center mx-auto shadow-inner">
           <UserPlus className="w-5 h-5 text-blue-400" />
         </div>
-        <h1 className="text-xl sm:text-2xl font-extrabold text-text tracking-tight">MOA 가입 신청</h1>
+        <h1 className="text-xl sm:text-2xl font-extrabold text-text tracking-tight">RB Global 가입 신청</h1>
         <p className="text-xs text-text-sub leading-relaxed">
           가입 후 관리자 승인을 받아야 이용할 수 있습니다.
         </p>

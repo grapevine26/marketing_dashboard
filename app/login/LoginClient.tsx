@@ -50,7 +50,7 @@ export default function LoginClient({ next }: { next: string | null }) {
         <div className="w-12 h-12 rounded-2xl bg-bg border border-border flex items-center justify-center mx-auto shadow-inner">
           <LogIn className="w-5 h-5 text-blue-400" />
         </div>
-        <h1 className="text-xl sm:text-2xl font-extrabold text-text tracking-tight">MOA 로그인</h1>
+        <h1 className="text-xl sm:text-2xl font-extrabold text-text tracking-tight">RB Global 로그인</h1>
         <p className="text-xs text-text-sub">승인된 계정만 이용할 수 있습니다.</p>
       </div>
 

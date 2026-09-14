@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { LogoutButton } from "../login/LoginClient";
 
 export const metadata: Metadata = {
-  title: "이용 중지 | MOA",
+  title: "이용 중지 | RB Global",
 };
 
 /**

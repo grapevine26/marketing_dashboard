@@ -91,7 +91,7 @@ export async function sendWebhookNotification(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "User-Agent": "MOA-Marketing-Dashboard/1.0",
+        "User-Agent": "RBGlobal-Marketing-Dashboard/1.0",
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(5000),

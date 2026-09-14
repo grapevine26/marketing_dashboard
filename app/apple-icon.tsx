@@ -6,6 +6,7 @@ export const size = {
 };
 export const contentType = "image/png";
 
+/** iOS 홈 화면에 추가했을 때 쓰는 아이콘. */
 export default function AppleIcon() {
   return new ImageResponse(
     (
@@ -21,11 +22,12 @@ export default function AppleIcon() {
           border: "2px solid #292b34",
           color: "#ececf1",
           fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-          fontSize: "116px",
+          fontSize: "78px",
           fontWeight: 900,
+          letterSpacing: "-3px",
         }}
       >
-        M
+        RB
       </div>
     ),
     {
