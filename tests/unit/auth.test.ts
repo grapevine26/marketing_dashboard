@@ -200,6 +200,25 @@ describe.skipIf(!hasTestDb)("사용자 관리", () => {
     expect((await getUsers()).find((u) => u.id === boss.id)!.role).toBe("staff");
   });
 
+  it("관리자가 다른 관리자를 직원으로 내릴 수 있다. 단 자기 자신과 마지막 한 명은 안 된다", async () => {
+    const { setUserRole, getUsers } = await import("@/lib/auth/users");
+    const first = await makeActiveAdmin(uid("adminone"), "관리자 갑");
+    const second = await makeActiveAdmin(uid("admintwo"), "관리자 을");
+
+    // 관리자가 둘일 때: 서로는 내릴 수 있다.
+    await setUserRole(first, second.id, "staff");
+    expect((await getUsers()).find((u) => u.id === second.id)!.role).toBe("staff");
+
+    // 이제 관리자가 갑 한 명뿐이다.
+    await expect(setUserRole(first, first.id, "staff")).rejects.toThrow(/자기 자신/);
+    const demoted = { ...second, role: "staff" as const };
+    await expect(setUserRole(demoted, first.id, "staff")).rejects.toThrow(/마지막 관리자/);
+
+    // 다시 관리자로 올리는 것은 언제든 된다.
+    await setUserRole(first, second.id, "admin");
+    expect((await getUsers()).find((u) => u.id === second.id)!.role).toBe("admin");
+  });
+
   it("자기 자신은 차단·삭제할 수 없다", async () => {
     const { blockUser, deleteUser } = await import("@/lib/auth/users");
     const me = await makeActiveAdmin(uid("me"), "나");
