@@ -376,6 +376,55 @@ describe.skipIf(!hasTestDb)("사용자 관리", () => {
     expect(await countPendingUsers()).toBe(0);
   });
 
+  it("직원을 한 번에 대표 관리자로 올릴 수 있다", async () => {
+    const { setUserRole, getUsers } = await import("@/lib/auth/users");
+    const owner = await makeActive(uid("boss"), "대표", "owner");
+    const staff = await makeActive(uid("newbie"), "직원", "staff");
+
+    // 관리자를 거치지 않고 바로 올라간다.
+    await setUserRole(owner, staff.id, "owner");
+    expect((await getUsers()).find((u) => u.id === staff.id)!.role).toBe("owner");
+
+    // 한 번에 직원으로 내릴 수도 있다.
+    await setUserRole(owner, staff.id, "staff");
+    expect((await getUsers()).find((u) => u.id === staff.id)!.role).toBe("staff");
+  });
+
+  it("차단과 삭제는 다르다. 차단은 되돌아오고 삭제는 계정이 사라진다", async () => {
+    const { blockUser, unblockUser, deleteUser, getUsers, approveUser } = await import("@/lib/auth/users");
+    const { getAuditLogs } = await import("@/lib/db");
+    const owner = await makeActive(uid("boss"), "대표", "owner");
+
+    // 차단: 계정은 남고 상태만 바뀐다. 되돌리면 그대로 돌아온다.
+    const blockedName = uid("blocked");
+    const blocked = await makeActive(blockedName, "차단될 사람", "staff");
+    await blockUser(owner, blocked.id);
+    const afterBlock = (await getUsers()).find((u) => u.id === blocked.id)!;
+    expect(afterBlock.status).toBe("blocked");
+    expect(afterBlock.display_name).toBe("차단될 사람");
+    await unblockUser(owner, blocked.id);
+    expect((await getUsers()).find((u) => u.id === blocked.id)!.status).toBe("active");
+
+    // 삭제: 계정 자체가 사라진다.
+    const goneName = uid("gone");
+    const goneId = await signUp(goneName, "지워질 사람");
+    await approveUser(owner, goneId);
+    await deleteUser(owner, goneId);
+    expect((await getUsers()).some((u) => u.id === goneId)).toBe(false);
+
+    // 지운 아이디는 다시 쓸 수 있다. 차단은 그렇지 않다.
+    const { signUpUser } = await import("@/lib/auth/users");
+    await expect(signUpUser({ username: goneName, display_name: "새 사람", password: "test-password-1234" }))
+      .resolves.toMatchObject({ username: goneName });
+    await expect(signUpUser({ username: blockedName, display_name: "겹침", password: "test-password-1234" }))
+      .rejects.toThrow(/이미 쓰이고 있는 아이디/);
+
+    // 기록은 둘 다 남는다.
+    const actions = (await getAuditLogs({ limit: 50 })).map((l) => l.action);
+    expect(actions).toContain("user.blocked");
+    expect(actions).toContain("user.deleted");
+  });
+
   it("없는 사용자에게는 아무 동작도 하지 않는다", async () => {
     const { approveUser } = await import("@/lib/auth/users");
     const boss = await makeActiveAdmin(uid("boss"), "관리자");
