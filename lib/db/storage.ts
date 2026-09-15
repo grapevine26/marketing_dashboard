@@ -215,17 +215,33 @@ export async function readFile(
     : { stream, size: fileSize, contentRange: null, status: 200 };
 }
 
-/** attachmentId 로 시작하는 실제 저장 키를 찾는다 (확장자를 모르기 때문). */
+/**
+ * attachmentId 로 시작하는 실제 저장 키를 찾는다 (확장자를 모르기 때문).
+ *
+ * **`<prefix>.<확장자>` 한 칸까지만 인정한다.** 전에는 접두사로 시작하기만 하면 아무 키나
+ * 골랐고, 저장소가 사전순으로 돌려주는 첫 번째를 썼다. 그래서 같은 id 에 확장자만 다른
+ * 파일이 하나 더 올라오면(`.gif` 는 `.jpg` 보다 앞선다) 원래 시안 대신 그 파일이 내려갔다.
+ * 업로드 경로의 id 는 브라우저가 정하므로, 로그인한 사람이 남의 첨부 id 를 적어 넣을 수 있었다.
+ * 여러 개가 걸리면 무엇이 맞는지 알 수 없으므로 고르지 않고 없는 것으로 본다.
+ */
+const oneExtensionOnly = (key: string, prefix: string) => /^\.[A-Za-z0-9]{1,5}$/.test(key.slice(prefix.length));
+
 export async function findFileKeyByPrefix(prefix: string, scope: FileScope = "uploads"): Promise<string | null> {
   if (isBlobBackend()) {
     const { list } = await import("@vercel/blob");
-    const res = await list({ prefix: `${prefixOf(scope)}${prefix}`, limit: 1 });
-    const found = res.blobs[0];
-    return found ? found.pathname.slice(prefixOf(scope).length) : null;
+    // limit 을 넉넉히 둔다. 1 로 두면 사전순 첫 키만 보게 되어 아래 판정을 할 수 없다.
+    const res = await list({ prefix: `${prefixOf(scope)}${prefix}`, limit: 10 });
+    const keys = res.blobs
+      .map((b) => b.pathname.slice(prefixOf(scope).length))
+      .filter((k) => oneExtensionOnly(k, prefix));
+    return keys.length === 1 ? keys[0] : null;
   }
   const dir = dirOf(scope);
   if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) return null;
-  return fs.readdirSync(/*turbopackIgnore: true*/ dir).find((f) => f.startsWith(prefix)) ?? null;
+  const matches = fs
+    .readdirSync(/*turbopackIgnore: true*/ dir)
+    .filter((f) => f.startsWith(prefix) && oneExtensionOnly(f, prefix));
+  return matches.length === 1 ? matches[0] : null;
 }
 
 export interface StoredFile {

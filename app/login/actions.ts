@@ -161,7 +161,7 @@ export async function signupAction(input: {
       });
     } catch (err) {
       // 비밀번호가 짧거나 아이디가 겹쳐 실패했다. 링크는 돌려준다.
-      await releaseSignupInvite(token);
+      await releaseSignupInvite(token, username);
       throw err;
     }
   });

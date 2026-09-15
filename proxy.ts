@@ -18,7 +18,23 @@ import { buildCsp, createNonce } from "@/lib/security/csp";
  */
 
 /** 로그인 없이 열려야 하는 경로(정확히 일치). */
-const PUBLIC_PATHS = ["/login", "/signup"];
+// robots.txt 는 크롤러가 **로그인 없이** 읽어야 의미가 있다. 여기 없으면 로그인 화면으로
+// 튕기고, 크롤러는 그것을 "robots.txt 가 없다" 로 읽어 마음껏 긁는다.
+const PUBLIC_PATHS = [
+  "/login",
+  "/signup",
+  "/robots.txt",
+  // 광고주가 공유 화면에서 누르는 내려받기. **토큰이 있을 때만** 실제로 열린다.
+  // 라우트 안에서 토큰이 없으면 requireApiUser 로 막고, 토큰 모드에서는 개인정보를 씻어 내보낸다.
+  // 여기를 열지 않으면 광고주가 버튼을 눌러도 로그인 화면으로 튕긴다(실제로 그 상태였다).
+  //
+  // 접두사가 아니라 **정확히 일치**로 둔다. 접두사로 두면 startsWith 라서
+  // `/api/applicants/export-all` 같은 주소까지 미리 열어두는 셈이 된다. 지금은 그런
+  // 라우트가 없어 새는 것이 없지만, 언젠가 그 이름으로 만드는 사람이 프록시를 다시 볼
+  // 이유가 없다. 두 라우트 모두 하위 경로 없이 쿼리스트링만 쓰므로 잃는 것이 없다.
+  "/api/applicants/export",
+  "/api/seeding-sheet/export",
+];
 
 /**
  * 로그인 없이 열려야 하는 경로(접두사). 광고주와 인플루언서가 쓰는 링크들이다.
@@ -39,11 +55,6 @@ const PUBLIC_PREFIXES = [
   "/sns-intake/",
   "/api/media/",
   "/api/cron/",
-  // 광고주가 공유 화면에서 누르는 내려받기. **토큰이 있을 때만** 열린다.
-  // 라우트 안에서 토큰이 없으면 requireApiUser 로 막고, 토큰 모드에서는 개인정보를 씻어 내보낸다.
-  // 여기를 열지 않으면 광고주가 버튼을 눌러도 로그인 화면으로 튕긴다(실제로 그 상태였다).
-  "/api/applicants/export",
-  "/api/seeding-sheet/export",
 ];
 
 function isPublic(pathname: string): boolean {
@@ -117,7 +128,13 @@ export const config = {
     /*
      * 정적 파일과 이미지 최적화 경로는 건너뛴다.
      * 아이콘·매니페스트도 로그인 전에 보여야 한다.
+     *
+     * 확장자 제외는 `public/` 에 놓인 파일을 위한 것이라 **최상위 한 칸에만** 건다
+     * (`/logo.png` 는 건너뛰고 `/files/a.png` 는 건너뛰지 않는다). 전에는 경로 전체를
+     * 대상으로 해서, 끝이 이미지 확장자이기만 하면 어떤 라우트든 프록시를 통째로
+     * 건너뛰었다. 지금은 그런 라우트가 없어 새는 것이 없지만, 그런 주소를 만드는 날
+     * 로그인 검사도 CSP 도 붙지 않는다.
      */
-    "/((?!_next/static|_next/image|favicon.ico|icon|apple-icon|manifest.webmanifest|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon|apple-icon|manifest.webmanifest|[^/]+\\.(?:png|jpg|jpeg|gif|webp|svg|ico)$).*)",
   ],
 };

@@ -210,17 +210,64 @@ export function toPublicCampaign(c: Campaign): PublicCampaign {
 }
 
 /**
- * 광고주 공유 페이지(/applicants, /seeding-sheet)에 내려보내는 지원자.
- * 연락처·주소·방문 일정·에이전시 내부 메모를 비운다. 새 개인정보 필드를 추가하면 여기도 같이 고칠 것.
+ * 지원 당시의 답변 중 **지금 존재하는 질문의 것만** 남긴다.
+ *
+ * `custom_answers` 의 키는 지원 시점의 질문 id 다. 대행사가 지원폼에서 질문을 지워도
+ * 기존 지원자 행의 답변은 DB 에 그대로 남는다(정리하는 코드가 없다).
+ * 광고주 화면은 현재 질문만 그리지만, 서버가 내려보내는 객체에는 옛 답변이 전부 실려
+ * 페이지 소스만 열면 보인다. 화면에 안 그리는 것은 방어가 아니다.
+ *
+ * `allowedQuestionIds` 가 없으면 지금처럼 전부 통과시킨다.
+ * 대행사(로그인) 화면은 옛 답변도 볼 수 있어야 하므로 인자를 넘기지 않는다.
  */
-export function sanitizeApplicantForCompany(a: Applicant): Applicant {
+function pickAllowedCustomAnswers(
+  answers: Applicant["custom_answers"],
+  allowedQuestionIds?: string[]
+): Applicant["custom_answers"] {
+  if (!answers || !allowedQuestionIds) return answers;
+  const allowed = new Set(allowedQuestionIds);
+  const picked: Record<string, string | number | boolean> = {};
+  for (const [id, value] of Object.entries(answers)) {
+    if (allowed.has(id)) picked[id] = value;
+  }
+  return picked;
+}
+
+/**
+ * 광고주 공유 페이지(/applicants, /seeding-sheet)에 내려보내는 지원자.
+ *
+ * **골라 담기(allow-list) 다.** 예전에는 `{ ...a, contact: "", ... }` 처럼 지울 것만 적었는데,
+ * 그러면 `Applicant` 에 새 필드가 생기는 순간 아무도 손대지 않아도 광고주에게 나갔다.
+ * 실제로 그렇게 세 번 샜다(화면·서버 액션 반환값·CSV).
+ *
+ * 그래서 남길 필드를 **하나씩 적어 새 객체를 만든다.** 새 필드의 기본값이 '안 나감' 이 되고,
+ * 내보내야 하면 사람이 의식적으로 한 줄을 더 쓴다.
+ * 키 목록을 `as const satisfies readonly (keyof Applicant)[]` 로 두고 추려내는 방법도 있지만,
+ * 그건 오타만 잡을 뿐 새 필드 추가는 못 잡는다 — 정확히 지금 막으려는 사고를 못 막는다.
+ * 빠뜨림은 `tests/unit/security_fixes.test.ts` 의 키 전수 대조 테스트가 잡는다.
+ *
+ * 일부러 뺀 것: `agency_memo`(대행사 내부 메모), `shipping_address`·`visit_schedule`·
+ * `visit_party_size`(개인정보). `contact` 는 타입이 `string` 이라 빈 문자열로 둔다.
+ *
+ * @param allowedQuestionIds 현재 지원폼에 남아 있는 커스텀 질문 id. 넘기면 지워진 질문의 옛 답변이 빠진다.
+ */
+export function sanitizeApplicantForCompany(a: Applicant, allowedQuestionIds?: string[]): Applicant {
   return {
-    ...a,
+    id: a.id,
+    campaign_id: a.campaign_id,
+    name: a.name,
+    sns_link: a.sns_link,
+    nationality: a.nationality,
     contact: "",
-    shipping_address: undefined,
-    visit_schedule: undefined,
-    visit_party_size: undefined,
-    agency_memo: undefined,
+    follower_count: a.follower_count,
+    category: a.category,
+    custom_answers: pickAllowedCustomAnswers(a.custom_answers, allowedQuestionIds),
+    privacy_agreed: a.privacy_agreed,
+    secondary_use_agreed: a.secondary_use_agreed,
+    status: a.status,
+    status_changed_by: a.status_changed_by,
+    status_changed_at: a.status_changed_at,
+    applied_at: a.applied_at,
   };
 }
 
@@ -232,14 +279,25 @@ export function sanitizeApplicantForCompany(a: Applicant): Applicant {
  * 화면에 안 그리더라도 서버가 내려보내는 순간 페이지 안에 값이 실린다.
  *
  * 광고주에게 남기는 것은 진행 단계·업로드 기한·업로드 링크·성과 수치뿐이다.
- * 새 컬럼을 추가하면 광고주가 봐도 되는 값인지 여기서 한 번 더 판단할 것.
+ *
+ * 지원자 쪽과 같은 이유로 **골라 담기(allow-list)** 다. 지울 것만 적으면
+ * 새 컬럼이 생기는 날 아무도 손대지 않아도 그대로 나간다. 남길 것만 하나씩 적는다.
+ * 일부러 뺀 것: `shipping_address`·`visit_scheduled_at`(개인정보).
+ * `notes` 는 타입이 `string | null` 이라 `null` 로 둔다(내부 비고).
  */
 export function sanitizeSeedingForCompany(s: SeedingRecord): SeedingRecord {
   return {
-    ...s,
+    id: s.id,
+    campaign_id: s.campaign_id,
+    applicant_id: s.applicant_id,
+    progress_stage: s.progress_stage,
+    upload_deadline: s.upload_deadline,
+    upload_link: s.upload_link,
+    views: s.views,
+    engagement: s.engagement,
     notes: null,
-    shipping_address: undefined,
-    visit_scheduled_at: undefined,
+    updated_at: s.updated_at,
+    created_at: s.created_at,
   };
 }
 

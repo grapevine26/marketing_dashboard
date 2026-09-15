@@ -32,6 +32,12 @@ export const metadata: Metadata = {
   },
   // icons 를 여기에 적지 않는다. app/icon.tsx 와 app/apple-icon.tsx 가 있으면
   // Next 가 알아서 링크를 넣는다. 두 곳에 적으면 한쪽만 고치는 사고가 난다.
+
+  // 어떤 페이지도 검색에 걸리면 안 된다. 사내 도구이고, 로그인 없이 열리는 공개 링크에는
+  // 지원자 개인정보와 공개 전 시안이 들어 있다. app/robots.ts 와 한 쌍으로 동작한다 —
+  // robots.txt 는 크롤러가 읽으러 오기 전에 막고, 이 값은 그래도 읽은 크롤러에게 색인하지
+  // 말라고 알린다.
+  robots: { index: false, follow: false, nocache: true },
 };
 
 /**

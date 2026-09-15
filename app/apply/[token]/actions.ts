@@ -29,10 +29,20 @@ export async function submitApplicantAction(params: {
   honeypot?: string;
   allow_duplicate?: boolean;
 }): Promise<ActionResult<{ id: string }>> {
-  // 허니팟(Honeypot) 스팸 방어: 숨김 필드가 채워진 경우 봇으로 간주하여 무음 성공 반환
+  // 허니팟(Honeypot) 스팸 방어: 숨김 필드가 채워진 경우 봇으로 간주하여 무음 성공 반환.
+  // 돌려주는 id 는 진짜 저장했을 때와 구분되지 않아야 한다. 고정 문자열을 주면 봇이 한 번
+  // 찔러보고 "이 필드가 허니팟이구나" 를 알아내 그 다음부터 비워서 보낸다.
   if (params.honeypot && params.honeypot.trim().length > 0) {
-    return { ok: true, data: { id: "spam_filtered" } };
+    return { ok: true, data: { id: crypto.randomUUID() } };
   }
+
+  // **토큰을 먼저 확인한다.** 횟수 제한 키에 토큰이 들어가는데, 확인하지 않고 세면
+  // 아무 문자열이나 보낼 때마다 auth_throttle 에 새 행이 하나씩 쌓인다. 키가 매번 달라
+  // 어떤 제한에도 걸리지 않으므로, 그것만으로 DB 용량을 채워 로그인까지 멈출 수 있다.
+  const campaign = await getCampaignByToken("apply_form", params.token);
+  if (!campaign) return fail("유효하지 않은 지원 링크입니다.");
+  // 끝난 뒤에는 옛 링크로 고쳐 쓰지 못하게 막는다. 화면과 같은 기준이다.
+  if (campaign.status === "completed") return fail("종료된 캠페인입니다. 담당자에게 문의해주세요.");
 
   // 제출 횟수 제한. DB 로 센다 — 인메모리는 서버리스에서 요청마다 비워져 아무것도 막지 못한다.
   const submitKey = publicSubmitKey("apply", params.token, await getClientIp());
@@ -40,11 +50,6 @@ export async function submitApplicantAction(params: {
     return fail("단시간에 너무 많은 지원 요청이 발생했습니다. 10분 후 다시 시도해 주세요.");
   }
   await hitThrottle(submitKey, PUBLIC_SUBMIT);
-
-  const campaign = await getCampaignByToken("apply_form", params.token);
-  if (!campaign) return fail("유효하지 않은 지원 링크입니다.");
-  // 끝난 뒤에는 옛 링크로 고쳐 쓰지 못하게 막는다. 화면과 같은 기준이다.
-  if (campaign.status === "completed") return fail("종료된 캠페인입니다. 담당자에게 문의해주세요.");
 
   const res = await runAction(async () => {
     const applicant = await createApplicant({

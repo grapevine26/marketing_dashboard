@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getSnsMediaAttachmentById, getSnsAccountById } from "@/lib/db";
+import { getSnsMediaAttachmentById, getSnsAccountById, isSnsAccountClosed } from "@/lib/db";
 import { readFile, statFile } from "@/lib/db/storage";
 
 export const dynamic = "force-dynamic";
 
 /**
  * SNS 시안 미디어 스트리밍.
- * - `?token=` 은 필수다. 해당 콘텐츠가 속한 계정의 승인 토큰 또는 사전설문 토큰만 통과한다.
- *   (대시보드도 계정의 approval_token 을 붙여 요청한다.)
+ * - 광고주는 `?token=` 이 필수다. 해당 콘텐츠가 속한 계정의 **승인 토큰만** 통과한다.
+ *   사전설문(intake) 토큰은 받지 않는다. 그쪽은 시안을 볼 자리가 아니다.
+ *   (대시보드도 계정의 approval_token 을 붙여 요청하지만, 직원은 토큰 없이도 통과한다.)
  * - 광고주 시안이므로 캐시는 브라우저 개인 캐시로만 제한한다.
  * - 실제 바이트는 저장소 계층(로컬 파일 또는 Vercel Blob)에서 가져온다.
  */
@@ -46,7 +47,9 @@ export async function GET(
     account !== null &&
     token !== "" &&
     account.approval_token === token &&
-    account.status !== "ended" &&
+    // 계약이 끝났으면(상태가 "ended" 이거나 종료일이 지났으면) 파일도 닫는다.
+    // 화면만 닫고 파일을 열어 두면 그 파일이 곧 우회 경로가 된다.
+    !isSnsAccountClosed(account) &&
     contentStatus === "pending_approval";
 
   if (!account || (!isStaff && !advertiserAllowed)) {

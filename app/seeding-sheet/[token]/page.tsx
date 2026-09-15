@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import ClosedLinkNotice from "@/components/ClosedLinkNotice";
-import { getCampaignByToken, getSeedingRecordsByCampaignId, getApplicantsByCampaignId } from "@/lib/db";
+import { getCampaignByToken, getSeedingRecordsByCampaignId, getApplicantsByCampaignId, getFormConfig } from "@/lib/db";
 import { toPublicCampaign, sanitizeApplicantForCompany, sanitizeSeedingForCompany } from "@/lib/db/types";
 import { mergeSeedingRows } from "@/lib/seeding/rows";
 import { toKstDateString } from "@/lib/seeding/dday";
@@ -22,15 +22,20 @@ export default async function PublicSeedingSheetSharePage({
   // 다시 열어야 하면 대시보드에서 상태를 되돌리면 된다.
   if (campaign.status === "completed") return <ClosedLinkNotice what="캠페인" />;
 
-  const [records, applicants] = await Promise.all([
+  const [records, applicants, formConfig] = await Promise.all([
     getSeedingRecordsByCampaignId(campaign.id),
     getApplicantsByCampaignId(campaign.id),
+    getFormConfig(campaign.id),
   ]);
   // 조회 전용 공유 페이지: 연락처·주소·내부 비고는 클라이언트로 내려보내지 않는다.
   // 지원자와 시딩 기록 **양쪽** 을 씻는다. 배송지는 두 곳에 따로 들어 있다.
+  //
+  // 이 화면은 커스텀 답변을 아예 그리지 않지만, 그래도 현재 질문 목록을 넘긴다.
+  // 안 그리는 값이라도 서버가 내려보내면 페이지 소스에 실리기 때문이다.
+  const allowedQuestionIds = (formConfig?.custom_questions || []).map((q) => q.id);
   const rows = mergeSeedingRows(campaign.id, applicants, records).map((r) => ({
     ...r,
-    applicant: sanitizeApplicantForCompany(r.applicant),
+    applicant: sanitizeApplicantForCompany(r.applicant, allowedQuestionIds),
     seeding: sanitizeSeedingForCompany(r.seeding),
   }));
 

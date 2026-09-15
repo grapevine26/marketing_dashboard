@@ -9,6 +9,25 @@ export const COMMON_RULES = `[공통 작성 규칙]
 - 주어진 사실(날짜, 장소, 브랜드명, 계약 기간)을 임의로 바꾸거나 지어내지 마세요.
 - 한국어로 작성하세요.`;
 
+/**
+ * 프롬프트에 들어갈 **바깥에서 온 글**의 길이 상한.
+ *
+ * AI 는 입력 길이만큼 돈이 나간다. 그런데 공개 폼의 "이미 적어둔 내용"(userDraft)은
+ * 로그인 없이 링크만 있으면 누구나 보낼 수 있고, 서버 액션 본문 상한이 4MB 다.
+ * 상한이 없으면 한 번 호출에 100만 토큰짜리 입력을 밀어 넣을 수 있고, 링크 단위 제한
+ * (10분 20회)만 남으므로 하루 2,880회 × 100만 토큰까지 요금을 태울 수 있다.
+ *
+ * 2,000자는 사람이 초안으로 적을 만한 분량의 몇 배다. 이걸 넘겨 잘려도 추천 품질에
+ * 영향이 없다. 상한을 **프롬프트를 만드는 이 자리**에 둔다 — 호출하는 쪽마다 걸면
+ * 새 화면이 하나 생길 때 빠뜨린다.
+ */
+const MAX_FREE_TEXT = 2000;
+
+function clip(text: string | undefined, max = MAX_FREE_TEXT): string | undefined {
+  if (!text) return text;
+  return text.length > max ? text.slice(0, max) : text;
+}
+
 function answerBlock(answers: Record<string, string> | undefined, emptyLabel = "(없음)"): string {
   const lines = Object.entries(answers || {})
     .filter(([, v]) => v)
@@ -22,7 +41,7 @@ function jsonShape(keys: string[], valueHint: string): string {
 
 // ---------- 사전조사 (A) ----------
 
-export function preSurveyPrompt(params: {
+export function preSurveyPrompt(raw: {
   question: string;
   userDraft?: string;
   campaignName?: string;
@@ -31,6 +50,8 @@ export function preSurveyPrompt(params: {
   isRegeneration?: boolean;
   previousDraft?: string;
 }): string {
+  // 바깥에서 온 글은 먼저 자른다. 아래에서는 잘린 값만 쓴다.
+  const params = { ...raw, userDraft: clip(raw.userDraft), previousDraft: clip(raw.previousDraft) };
   const regenNotice = params.isRegeneration
     ? `\n[대안 추천 요청]
 광고주가 기존 제안 내용과 다른 새로운 각도의 추천을 원하고 있습니다.
@@ -159,7 +180,7 @@ ${COMMON_RULES}
 
 // ---------- SNS 사전설문 (C) ----------
 
-export function snsIntakePrompt(params: {
+export function snsIntakePrompt(raw: {
   question: string;
   userDraft?: string;
   companyName?: string;
@@ -168,6 +189,8 @@ export function snsIntakePrompt(params: {
   isRegeneration?: boolean;
   previousDraft?: string;
 }): string {
+  // 바깥에서 온 글은 먼저 자른다. 아래에서는 잘린 값만 쓴다.
+  const params = { ...raw, userDraft: clip(raw.userDraft), previousDraft: clip(raw.previousDraft) };
   const regenNotice = params.isRegeneration
     ? `\n[대안 추천 요청]
 광고주가 기존 추천 내용과 다른 새로운 각도의 답변을 원하고 있습니다.

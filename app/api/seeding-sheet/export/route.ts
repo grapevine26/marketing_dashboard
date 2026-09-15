@@ -5,6 +5,7 @@ import {
   getCampaignByToken,
   getApplicantsByCampaignId,
   getSeedingRecordsByCampaignId,
+  getFormConfig,
 } from "@/lib/db";
 import { seedingSheetToCSV } from "@/lib/seeding/sheetCsv";
 import { seedingSheetToXlsx } from "@/lib/seeding/sheetXlsx";
@@ -47,15 +48,25 @@ export async function GET(request: NextRequest) {
     return new NextResponse("종료된 캠페인입니다.", { status: 403 });
   }
 
-  const [rawApplicants, rawSeeding] = await Promise.all([
+  const [rawApplicants, rawSeeding, formConfig] = await Promise.all([
     getApplicantsByCampaignId(campaign.id),
     getSeedingRecordsByCampaignId(campaign.id),
+    getFormConfig(campaign.id),
   ]);
   // 광고주 공유 링크로 받는 파일에는 배송지·연락처·내부 비고를 넣지 않는다.
   // 화면(seeding-sheet/[token])과 정확히 같은 기준이다. 화면에서는 빼고 파일에서는 넣으면
   // 파일이 곧 유출 경로가 된다. 배송지는 지원자와 시딩 기록 양쪽에 있어 둘 다 씻는다.
-  const applicants = token ? rawApplicants.map(sanitizeApplicantForCompany) : rawApplicants;
-  const seedingRecords = token ? rawSeeding.map(sanitizeSeedingForCompany) : rawSeeding;
+  //
+  // 지워진 질문의 옛 답변도 같은 이유로 뺀다. 이 파일은 커스텀 답변 컬럼을 만들지 않지만,
+  // 기준이 화면과 달라지는 순간 파일이 다시 우회 경로가 된다.
+  // `.map(sanitizeApplicantForCompany)` 로 넘기면 안 된다 — map 이 두 번째 인자로 index 를 준다.
+  const allowedQuestionIds = (formConfig?.custom_questions || []).map((q) => q.id);
+  const applicants = token
+    ? rawApplicants.map((a) => sanitizeApplicantForCompany(a, allowedQuestionIds))
+    : rawApplicants;
+  // 시딩 기록도 화살표로 감싼다. 지금은 인자가 하나뿐이지만, 나중에 인자가 늘면
+  // 함수 참조를 그대로 넘긴 곳이 index 를 받아 조용히 깨진다.
+  const seedingRecords = token ? rawSeeding.map((s) => sanitizeSeedingForCompany(s)) : rawSeeding;
 
   const rows = mergeSeedingRows(campaign.id, applicants, seedingRecords);
 

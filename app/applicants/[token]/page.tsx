@@ -33,7 +33,12 @@ export default async function PublicApplicantsSharePage({
   const reservedCount = allApplicants.filter((a) => a.status === "reserved").length;
   // 중복 감지는 원본으로 계산하고, 클라이언트로 내려보내는 객체에서는 개인정보 필드를 제거한다
   const duplicates = Object.fromEntries(findDuplicates(allApplicants));
-  const applicants = allApplicants.map(sanitizeApplicantForCompany);
+  const customQuestions = formConfig?.custom_questions || [];
+  // 지금 남아 있는 질문의 답변만 내려보낸다. 지운 질문의 옛 답변은 DB 에 그대로 남아 있어서,
+  // 넘기지 않으면 화면에 안 그려도 페이지 소스에 실린다.
+  // `.map(sanitizeApplicantForCompany)` 로 넘기면 안 된다 — map 이 두 번째 인자로 index 를 준다.
+  const allowedQuestionIds = customQuestions.map((q) => q.id);
+  const applicants = allApplicants.map((a) => sanitizeApplicantForCompany(a, allowedQuestionIds));
 
   return (
     <div className="min-h-screen bg-bg text-text p-4 sm:p-8 max-w-6xl mx-auto space-y-5 sm:space-y-6 font-sans">
@@ -55,7 +60,7 @@ export default async function PublicApplicantsSharePage({
         campaign={toPublicCampaign(campaign)}
         initialApplicants={applicants}
         duplicates={duplicates}
-        customQuestions={formConfig?.custom_questions || []}
+        customQuestions={customQuestions}
         mode="company"
         shareToken={token}
         csvHref={`/api/applicants/export?token=${encodeURIComponent(token)}`}

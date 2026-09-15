@@ -51,10 +51,18 @@ export async function GET(request: NextRequest) {
   // 아래 생성기에도 `includeContact: !token` 조건이 있지만, 그건 컬럼을 고를 뿐이라
   // 새 개인정보 컬럼을 추가하는 날 조용히 실려 나간다. 값 자체를 비워 두면 그 실수가 무해해진다.
   // 화면(app/applicants/[token])과 같은 함수를 쓰는 것이기도 하다.
-  const applicants = token ? rawApplicants.map(sanitizeApplicantForCompany) : rawApplicants;
+  //
+  // 현재 질문 목록을 같이 넘겨 지워진 질문의 옛 답변이 파일에 실리지 않게 한다.
+  // 생성기는 현재 질문만 컬럼으로 만들지만, 값 자체를 지워 두면 컬럼 고르기가 바뀌어도 안전하다.
+  // `.map(sanitizeApplicantForCompany)` 로 넘기면 안 된다 — map 이 두 번째 인자로 index 를 준다.
+  const customQuestions = formConfig?.custom_questions || [];
+  const allowedQuestionIds = customQuestions.map((q) => q.id);
+  const applicants = token
+    ? rawApplicants.map((a) => sanitizeApplicantForCompany(a, allowedQuestionIds))
+    : rawApplicants;
 
   if (format === "xlsx") {
-    const buffer = await applicantsToXlsx(applicants, formConfig?.custom_questions || [], {
+    const buffer = await applicantsToXlsx(applicants, customQuestions, {
       includeContact: !token,
     });
     const filename = encodeURIComponent(`${campaign.name}_지원자리스트.xlsx`);
@@ -62,7 +70,7 @@ export async function GET(request: NextRequest) {
     return fileDownloadResponse(buffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename);
   }
 
-  const csv = applicantsToCSV(applicants, formConfig?.custom_questions || [], {
+  const csv = applicantsToCSV(applicants, customQuestions, {
     includeContact: !token,
   });
   const filename = encodeURIComponent(`${campaign.name}_지원자리스트.csv`);

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import ClosedLinkNotice from "@/components/ClosedLinkNotice";
-import { getSnsAccountByToken, getSnsContentsByAccountId } from "@/lib/db";
+import { getSnsAccountByToken, getSnsContentsByAccountId, isSnsAccountClosed } from "@/lib/db";
 import { toPublicSnsAccount, toReviewableSnsContent } from "@/lib/db/types";
 import SnsApprovalClient from "./SnsApprovalClient";
 import { ShieldCheck } from "lucide-react";
@@ -21,7 +21,7 @@ export default async function SnsApprovalPublicPage({
   const account = await getSnsAccountByToken("approval", token);
   if (!account) notFound();
   // 계약이 끝나면 공유 링크도 닫는다. 끝난 뒤에도 옛 링크가 고객사 데이터를 계속 내보내면 안 된다.
-  if (account.status === "ended") return <ClosedLinkNotice what="계약" />;
+  if (isSnsAccountClosed(account)) return <ClosedLinkNotice what="계약" />;
 
   const contents = await getSnsContentsByAccountId(account.id);
   const pending = contents

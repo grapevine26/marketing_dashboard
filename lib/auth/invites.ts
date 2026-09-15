@@ -153,13 +153,16 @@ export async function peekSignupInvite(token: string): Promise<SignupInvite | nu
  * 소모했던 링크를 되돌린다. 계정 만들기가 실패했을 때만 쓴다.
  * 비밀번호가 짧아서 실패한 사람이 링크를 잃으면 안 된다.
  */
-export async function releaseSignupInvite(token: string): Promise<void> {
+export async function releaseSignupInvite(token: string, username: string): Promise<void> {
   try {
     unwrap(
       await db()
         .from("signup_invites")
         .update({ used_at: null, used_by_username: null })
+        // **내가 소비한 건일 때만** 되돌린다. 조건 없이 되돌리면, 그 사이 다른 사람이
+        // 같은 링크를 정상적으로 소비한 경우까지 되살려 링크가 두 번 쓰이게 된다.
         .eq("token", token)
+        .eq("used_by_username", username)
         .select("token")
     );
   } catch (err) {

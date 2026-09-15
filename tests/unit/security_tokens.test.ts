@@ -105,7 +105,7 @@ describeDb("1-2 & 1-3 Security: Rate Limiting, Honeypot Spam Defense, and Token 
       }
     });
 
-    it("AI 호출 실패(폴백) 시 횟수가 차감되지 않고 롤백된다", async () => {
+    it("AI 가 폴백으로 돌아와도 횟수는 그대로 차감된다 (모델은 이미 불렀다)", async () => {
       const acc = await createSnsAccount({
         company_name: "롤백테스트브랜드",
         platform: "instagram",
@@ -131,8 +131,10 @@ describeDb("1-2 & 1-3 Security: Rate Limiting, Honeypot Spam Defense, and Token 
         expect(res.data.fallback).toBe(true);
       }
 
-      // 실패했으므로 카운트가 0이어야 함
-      expect(await getThrottleCount(aiQuestionKey("sns", acc.intake_token, qId))).toBe(0);
+      // 폴백은 "모델을 이미 불렀는데 응답이 쓸 만하지 않았다" 는 뜻이다. 돈은 이미 나갔다.
+      // 예전에는 이때도 횟수를 돌려줬는데, 그러면 응답 파싱이 깨지도록 유도하는 입력을
+      // 반복해 질문당 상한(3회)을 무한히 우회할 수 있다. 그래서 차감된 채로 둔다.
+      expect(await getThrottleCount(aiQuestionKey("sns", acc.intake_token, qId))).toBe(1);
     });
   });
 
@@ -163,7 +165,10 @@ describeDb("1-2 & 1-3 Security: Rate Limiting, Honeypot Spam Defense, and Token 
 
       expect(res.ok).toBe(true);
       if (!res.ok) return;
-      expect(res.data.id).toBe("spam_filtered");
+      // 진짜로 저장했을 때와 **구분되지 않아야** 한다. 전에는 "spam_filtered" 라는 고정
+      // 문자열을 돌려줘서, 봇이 한 번 찔러보면 어느 칸이 허니팟인지 알아내 그 다음부터
+      // 비워서 보낼 수 있었다. 지금은 진짜 저장과 같은 모양의 uuid 를 돌려준다.
+      expect(res.data.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
 
       // Verify DB was NOT modified
       const afterApps = await getApplicantsByCampaignId(camp.id);

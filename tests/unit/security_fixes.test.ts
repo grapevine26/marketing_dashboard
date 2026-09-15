@@ -221,6 +221,19 @@ describe("공개 경로 목록", () => {
     expect(proxy).toContain('"/api/applicants/export"');
     expect(proxy).toContain('"/api/seeding-sheet/export"');
 
+    // **정확히 일치(PUBLIC_PATHS)로 열어야 한다.** 접두사 목록에 두면 startsWith 라서
+    // `/api/applicants/export-all` 같은 주소까지 미리 열어두는 셈이 된다. 지금은 그런
+    // 라우트가 없지만, 언젠가 그 이름으로 만드는 사람이 프록시를 다시 볼 이유가 없다.
+    const exactBlock = proxy.slice(proxy.indexOf("const PUBLIC_PATHS"), proxy.indexOf("const PUBLIC_PREFIXES"));
+    expect(exactBlock).toContain('"/api/applicants/export"');
+    expect(exactBlock).toContain('"/api/seeding-sheet/export"');
+
+    // 접두사 목록의 모든 항목은 `/` 로 끝나야 한다. `/apply` 로 적으면 `/applicants-secret` 까지 열린다.
+    const prefixBlock = proxy.slice(proxy.indexOf("const PUBLIC_PREFIXES"), proxy.indexOf("function isPublic"));
+    for (const m of prefixBlock.matchAll(/"([^"]+)"/g)) {
+      expect(m[1].endsWith("/")).toBe(true);
+    }
+
     // 열어둔 대신 라우트가 직접 막아야 한다. 둘 중 하나만 있으면 구멍이 된다.
     for (const p of ["app/api/applicants/export/route.ts", "app/api/seeding-sheet/export/route.ts"]) {
       const src = readFileSync(p, "utf8");
@@ -277,5 +290,235 @@ describe("CSP (lib/security/csp.ts)", () => {
     expect(readFileSync("proxy.ts", "utf8")).toContain("x-nonce");
     // 정적으로 미리 만든 HTML 에는 그 요청의 난수가 들어갈 수 없다.
     expect(readFileSync("app/layout.tsx", "utf8")).toContain('export const dynamic = "force-dynamic"');
+  });
+});
+
+describe("검색엔진 색인 차단", () => {
+  it("robots.txt 는 로그인 없이 읽히고, 사이트 전체를 막는다", async () => {
+    const { readFileSync } = await import("node:fs");
+
+    // 크롤러는 로그인을 하지 않는다. 공개가 아니면 로그인 화면으로 튕기고,
+    // 크롤러는 그걸 "robots.txt 가 없다" 로 읽어 마음껏 긁는다. 없는 것보다 나쁘다.
+    expect(readFileSync("proxy.ts", "utf8")).toContain('"/robots.txt"');
+
+    const robots = readFileSync("app/robots.ts", "utf8");
+    expect(robots).toContain('disallow: "/"');
+    // 일부만 막으면 새 공개 경로가 생길 때마다 여기에 손으로 추가해야 한다. 전체를 막는다.
+    // `` 로 단어 경계를 잡는다. toContain("allow:") 로 하면 disallow: 안에서도 걸린다.
+    expect(robots).not.toMatch(/allow:/);
+  });
+
+  it("모든 페이지에 noindex 가 걸려 있다", async () => {
+    const { readFileSync } = await import("node:fs");
+    // robots.txt 로 막으면 크롤러가 페이지를 안 읽으므로 meta 도 못 본다.
+    // 그래도 읽고 들어온 크롤러를 위해 루트 레이아웃에서 한 번 더 막는다.
+    const layout = readFileSync("app/layout.tsx", "utf8");
+    expect(layout).toMatch(/robots:\s*\{[^}]*index:\s*false/);
+    expect(layout).toMatch(/robots:\s*\{[^}]*follow:\s*false/);
+  });
+});
+
+/**
+ * 광고주에게 나가는 필드를 **전수로** 못 박는다.
+ *
+ * 세 번의 유출은 전부 "지울 것만 적어 둔" 방어 때문이었다. 타입에 새 필드가 생기면
+ * 아무도 손대지 않아도 그대로 나갔다. 이제 무해화 함수는 남길 것만 적는 골라 담기이고,
+ * 이 테스트는 그 목록을 통째로 대조한다.
+ *
+ * 그래서 **새 필드를 추가하면 이 테스트가 깨지는 것이 정상이다.**
+ * 깨졌을 때 할 일은 기대 목록에 이름을 밀어 넣는 것이 아니라,
+ * "이 값을 광고주가 봐도 되는가" 를 사람이 판단하는 것이다.
+ * 봐도 되면 무해화 함수와 이 목록에 같이 넣고, 아니면 함수는 그대로 두고 아무것도 안 한다.
+ */
+describe("광고주에게 나가는 필드 전수 대조", () => {
+  /** 모든 필드를 채운 지원자. 빈 객체로 하면 통과해도 아무것도 증명하지 못한다. */
+  const fullApplicant: Applicant = {
+    id: "app_1",
+    campaign_id: "camp_1",
+    name: "김하늘",
+    sns_link: "https://instagram.com/haneul",
+    nationality: "대한민국",
+    contact: "010-9876-5432",
+    follower_count: 24500,
+    category: "뷰티",
+    agency_memo: "지난 캠페인 노쇼 이력. 이번엔 예비로만",
+    shipping_address: "서울시 마포구 월드컵북로 396, 1802호",
+    visit_schedule: "2026-10-12 14:00",
+    visit_party_size: 2,
+    custom_answers: { q_skin: "지성", q_age: 27, q_pet: true },
+    privacy_agreed: true,
+    secondary_use_agreed: false,
+    status: "selected",
+    status_changed_by: "agency",
+    status_changed_at: "2026-09-10T02:00:00.000Z",
+    applied_at: "2026-09-01T00:00:00.000Z",
+  };
+
+  /** 모든 필드를 채운 시딩 기록. */
+  const fullSeeding: SeedingRecord = {
+    id: "seed_1",
+    campaign_id: "camp_1",
+    applicant_id: "app_1",
+    progress_stage: "발송완료",
+    upload_deadline: "2026-10-20",
+    upload_link: "https://instagram.com/p/abc123",
+    views: 30210,
+    engagement: 1420,
+    notes: "주소 오기재로 재발송함. 수취인 전화 010-9876-5432",
+    shipping_address: "서울시 마포구 월드컵북로 396, 1802호",
+    visit_scheduled_at: "2026-10-12T05:00:00.000Z",
+    updated_at: "2026-09-12T00:00:00.000Z",
+    created_at: "2026-09-05T00:00:00.000Z",
+  };
+
+  it("sanitizeApplicantForCompany 가 내보내는 키는 이 목록과 정확히 같다", () => {
+    const expected = [
+      "applied_at",
+      "campaign_id",
+      "category",
+      "contact",
+      "custom_answers",
+      "follower_count",
+      "id",
+      "name",
+      "nationality",
+      "privacy_agreed",
+      "secondary_use_agreed",
+      "sns_link",
+      "status",
+      "status_changed_at",
+      "status_changed_by",
+    ];
+    expect(Object.keys(sanitizeApplicantForCompany(fullApplicant)).sort()).toEqual(expected);
+
+    // 일부러 뺀 것들. 위 목록으로도 걸리지만, 무엇을 왜 뺐는지 남겨 둔다.
+    const clean = sanitizeApplicantForCompany(fullApplicant) as unknown as Record<string, unknown>;
+    for (const k of ["agency_memo", "shipping_address", "visit_schedule", "visit_party_size"]) {
+      expect(clean).not.toHaveProperty(k);
+    }
+    expect(clean.contact).toBe("");
+
+    // 직렬화했을 때 원문이 남지 않아야 한다. 화면에 안 그려도 페이지 소스에는 실린다.
+    const serialized = JSON.stringify(clean);
+    expect(serialized).not.toContain("월드컵북로");
+    expect(serialized).not.toContain("010-9876-5432");
+    expect(serialized).not.toContain("노쇼");
+  });
+
+  it("광고주가 봐야 하는 값은 그대로 나간다 (줄지 않았는지)", () => {
+    const clean = sanitizeApplicantForCompany(fullApplicant);
+    expect(clean.name).toBe("김하늘");
+    expect(clean.sns_link).toBe("https://instagram.com/haneul");
+    expect(clean.nationality).toBe("대한민국");
+    expect(clean.follower_count).toBe(24500);
+    expect(clean.category).toBe("뷰티");
+    expect(clean.status).toBe("selected");
+    expect(clean.status_changed_by).toBe("agency");
+    expect(clean.status_changed_at).toBe("2026-09-10T02:00:00.000Z");
+    expect(clean.applied_at).toBe("2026-09-01T00:00:00.000Z");
+    expect(clean.secondary_use_agreed).toBe(false);
+    // 질문 목록을 안 넘기면 예전처럼 답변이 전부 통과한다 (대행사 화면이 이 경로다).
+    expect(clean.custom_answers).toEqual({ q_skin: "지성", q_age: 27, q_pet: true });
+  });
+
+  it("sanitizeSeedingForCompany 가 내보내는 키는 이 목록과 정확히 같다", () => {
+    const expected = [
+      "applicant_id",
+      "campaign_id",
+      "created_at",
+      "engagement",
+      "id",
+      "notes",
+      "progress_stage",
+      "updated_at",
+      "upload_deadline",
+      "upload_link",
+      "views",
+    ];
+    expect(Object.keys(sanitizeSeedingForCompany(fullSeeding)).sort()).toEqual(expected);
+
+    const clean = sanitizeSeedingForCompany(fullSeeding) as unknown as Record<string, unknown>;
+    for (const k of ["shipping_address", "visit_scheduled_at"]) {
+      expect(clean).not.toHaveProperty(k);
+    }
+    expect(clean.notes).toBeNull();
+
+    const serialized = JSON.stringify(clean);
+    expect(serialized).not.toContain("월드컵북로");
+    expect(serialized).not.toContain("010-9876-5432");
+  });
+});
+
+/**
+ * 지원폼에서 질문을 지워도 기존 지원자 행의 답변은 DB 에 남는다(정리하는 코드가 없다).
+ * 광고주 화면은 현재 질문만 그리지만, 서버가 내려보내는 객체에 옛 답변이 실려 있으면
+ * 페이지 소스만 열면 보인다. 지난 세 번의 사고와 정확히 같은 모양이다.
+ */
+describe("지워진 커스텀 질문의 옛 답변", () => {
+  const applicant: Applicant = {
+    id: "app_2",
+    campaign_id: "camp_1",
+    name: "박도윤",
+    sns_link: "https://instagram.com/doyun",
+    nationality: "대한민국",
+    contact: "010-1111-2222",
+    follower_count: 8100,
+    category: "푸드",
+    agency_memo: "메모",
+    shipping_address: "부산시 해운대구 1",
+    visit_schedule: "2026-10-01 11:00",
+    visit_party_size: 1,
+    custom_answers: {
+      q_current: "현재도 묻는 질문의 답",
+      // 대행사가 지원폼에서 지운 질문들. 값은 DB 에 그대로 남아 있다.
+      q_deleted_income: "월 소득 300만원대",
+      q_deleted_addr: "부산시 해운대구 우동 123-4",
+    },
+    privacy_agreed: true,
+    secondary_use_agreed: true,
+    status: "applied",
+    status_changed_by: "agency",
+    status_changed_at: undefined,
+    applied_at: "2026-09-02T00:00:00.000Z",
+  };
+
+  it("현재 질문 목록에 없는 키는 광고주용 결과에서 사라진다", () => {
+    const clean = sanitizeApplicantForCompany(applicant, ["q_current"]);
+
+    expect(clean.custom_answers).toEqual({ q_current: "현재도 묻는 질문의 답" });
+    expect(clean.custom_answers).not.toHaveProperty("q_deleted_income");
+    expect(clean.custom_answers).not.toHaveProperty("q_deleted_addr");
+
+    // 키만 사라지는 게 아니라 값도 어디에도 남지 않아야 한다.
+    const serialized = JSON.stringify(clean);
+    expect(serialized).not.toContain("월 소득");
+    expect(serialized).not.toContain("우동 123-4");
+  });
+
+  it("질문 목록을 안 넘기면 예전처럼 전부 통과한다 (대행사 화면은 옛 답변도 봐야 한다)", () => {
+    const clean = sanitizeApplicantForCompany(applicant);
+    expect(clean.custom_answers).toEqual(applicant.custom_answers);
+  });
+
+  it("남은 질문이 하나도 없으면 답변도 전부 사라진다", () => {
+    const clean = sanitizeApplicantForCompany(applicant, []);
+    expect(clean.custom_answers).toEqual({});
+  });
+
+  it("광고주에게 나가는 호출부는 모두 질문 목록을 넘긴다", async () => {
+    const { readFileSync } = await import("node:fs");
+    // 한 곳이라도 빠지면 그 경로로 옛 답변이 다시 새어 나간다.
+    // 두 번째 인자로 실제로 넘기는지까지 본다. 함수 참조를 그대로 `.map()` 에 주면
+    // map 이 두 번째 인자로 index 를 넣어버리므로, 호출 형태를 정규식으로 못 박는다.
+    for (const p of [
+      "app/applicants/[token]/page.tsx",
+      "app/applicants/[token]/actions.ts",
+      "app/api/applicants/export/route.ts",
+      "app/seeding-sheet/[token]/page.tsx",
+      "app/api/seeding-sheet/export/route.ts",
+    ]) {
+      const src = readFileSync(p, "utf8");
+      expect(src).toMatch(/sanitizeApplicantForCompany\([^)]*,\s*allowedQuestionIds\)/);
+    }
   });
 });

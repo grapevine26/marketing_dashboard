@@ -72,9 +72,18 @@ export async function sendWebhookNotification(
   }
 
   const timestamp = new Date().toISOString();
-  const text = `🔔 [${payload.title}] ${payload.message}${payload.campaign_name ? ` (캠페인: ${payload.campaign_name})` : ""}`;
+  // 본문에는 **지원자가 적어 넣은 글(이름 등)이 섞인다.** 슬랙·디스코드는 본문 안의
+  // `<!channel>`, `<!here>`, `@everyone` 을 멘션으로 해석해 채널 전원을 호출한다.
+  // 지원 폼은 로그인 없이 누구나 쓰므로, 이름 칸에 그걸 적어 넣으면 대행사 채널이 울린다.
+  // 꺾쇠와 @ 를 비슷하게 생긴 글자로 바꿔 멘션으로 읽히지 않게 한다(내용은 그대로 읽힌다).
+  const defuseMentions = (t: string) =>
+    t.replace(/</g, "‹").replace(/>/g, "›").replace(/@/g, "＠");
+
+  const text = defuseMentions(
+    `🔔 [${payload.title}] ${payload.message}${payload.campaign_name ? ` (캠페인: ${payload.campaign_name})` : ""}`
+  ).slice(0, 2000);
   const body = isDiscordWebhook(valid.url)
-    ? { content: text.slice(0, 2000), username: "마케팅 대시보드" }
+    ? { content: text, username: "마케팅 대시보드" }
     : {
         text,
         event: payload.event,
