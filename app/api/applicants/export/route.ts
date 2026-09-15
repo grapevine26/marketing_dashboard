@@ -4,6 +4,7 @@ import { getCampaignById, getCampaignByToken, getApplicantsByCampaignId, getForm
 import { applicantsToCSV } from "@/lib/applicants/csv";
 import { applicantsToXlsx } from "@/lib/applicants/xlsx";
 import { fileDownloadResponse } from "@/lib/http/fileResponse";
+import { sanitizeApplicantForCompany } from "@/lib/db/types";
 
 /**
  * 지원자 데이터 내보내기 (CSV 및 Excel .xlsx).
@@ -40,10 +41,17 @@ export async function GET(request: NextRequest) {
     return new NextResponse("종료된 캠페인입니다.", { status: 403 });
   }
 
-  const [applicants, formConfig] = await Promise.all([
+  const [rawApplicants, formConfig] = await Promise.all([
     getApplicantsByCampaignId(campaign.id),
     getFormConfig(campaign.id),
   ]);
+
+  // 광고주에게 나가는 파일은 개인정보를 먼저 지운 값으로 만든다.
+  //
+  // 아래 생성기에도 `includeContact: !token` 조건이 있지만, 그건 컬럼을 고를 뿐이라
+  // 새 개인정보 컬럼을 추가하는 날 조용히 실려 나간다. 값 자체를 비워 두면 그 실수가 무해해진다.
+  // 화면(app/applicants/[token])과 같은 함수를 쓰는 것이기도 하다.
+  const applicants = token ? rawApplicants.map(sanitizeApplicantForCompany) : rawApplicants;
 
   if (format === "xlsx") {
     const buffer = await applicantsToXlsx(applicants, formConfig?.custom_questions || [], {

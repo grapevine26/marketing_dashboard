@@ -4,7 +4,7 @@ import { getSnsAccountByToken, getSnsIntakeQuestionsForAccount, getSnsIntakeResp
 import { toPublicSnsAccount } from "@/lib/db/types";
 import SnsIntakeFormClient from "./SnsIntakeFormClient";
 import { Camera, ShieldCheck, Sparkles, Video, Play } from "lucide-react";
-import { getRateLimitUsed } from "@/lib/security/rateLimit";
+import { aiQuestionKey, getThrottleCount } from "@/lib/security/throttle";
 
 export const revalidate = 0;
 
@@ -28,7 +28,7 @@ export default async function SnsIntakePublicPage({
 
   const initialAiUsage: Record<string, number> = {};
   for (const q of questions) {
-    initialAiUsage[q.id] = getRateLimitUsed(`ai_assist:sns:${token}:${q.id}`);
+    initialAiUsage[q.id] = await getThrottleCount(aiQuestionKey("sns", token, q.id));
   }
 
   const icon =

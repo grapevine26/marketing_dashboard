@@ -211,3 +211,27 @@ describe.skipIf(!hasTestDb)("끝난 캠페인·계약의 공개 링크", () => {
     if (!res.ok) expect(res.error).toMatch(/종료된 계약/);
   }, 30_000);
 });
+
+describe("공개 경로 목록", () => {
+  it("내보내기는 열려 있지만 토큰이 없으면 라우트가 막는다", async () => {
+    const { readFileSync } = await import("node:fs");
+
+    // 광고주가 공유 화면에서 누르는 버튼이라 프록시는 열어야 한다.
+    const proxy = readFileSync("proxy.ts", "utf8");
+    expect(proxy).toContain('"/api/applicants/export"');
+    expect(proxy).toContain('"/api/seeding-sheet/export"');
+
+    // 열어둔 대신 라우트가 직접 막아야 한다. 둘 중 하나만 있으면 구멍이 된다.
+    for (const p of ["app/api/applicants/export/route.ts", "app/api/seeding-sheet/export/route.ts"]) {
+      const src = readFileSync(p, "utf8");
+      expect(src).toContain("if (!token)");
+      expect(src).toContain("requireApiUser()");
+      // 토큰 모드에서는 개인정보를 씻는다.
+      expect(src).toContain("sanitizeApplicantForCompany");
+    }
+
+    // 관리시트는 시딩 기록도 씻어야 한다. 배송지가 양쪽에 있다.
+    const seeding = readFileSync("app/api/seeding-sheet/export/route.ts", "utf8");
+    expect(seeding).toContain("sanitizeSeedingForCompany");
+  });
+});

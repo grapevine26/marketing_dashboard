@@ -18,6 +18,7 @@
  *   npm run db:backup -- --from <파일> --sns <이름|핸들|id> --yes     → 그 SNS 계정만 복구
  *
  * 대상은 기본이 운영(SUPABASE_DB_URL)이고, `--test` 를 붙이면 테스트 프로젝트다.
+ * 다만 데이터를 바꾸는 작업은 운영이면 `--prod` 를 따로 붙여야 실행된다.
  *
  * 잘못 복원했으면: --restore 직전 상태가 .data/backups/pre-restore-*.json 에 남으므로
  * 그 파일로 다시 --restore 하면 된다.
@@ -37,7 +38,7 @@ import pg from "pg";
 const HELP = `사용법:
   npm run db:backup                                   지금 DB 를 .data/backups/ 에 받는다
   npm run db:backup -- --list                         받아둔 백업 목록
-  npm run db:backup -- --restore <파일> --yes          그 백업으로 되돌린다 (현재 데이터를 전부 지운다)
+  npm run db:backup -- --restore <파일> --prod --yes   그 백업으로 되돌린다 (현재 데이터를 전부 지운다)
   npm run db:backup -- --list-remote                  Vercel Blob(backups/)의 크론 백업 목록
   npm run db:backup -- --pull [이름]                   Blob 백업을 .data/backups/ 로 내려받는다 (생략 시 최신)
   npm run db:backup -- --from <파일> --campaigns       백업에 담긴 캠페인 목록
@@ -45,6 +46,7 @@ const HELP = `사용법:
   npm run db:backup -- --from <파일> --sns-accounts    백업에 담긴 SNS 계정 목록
   npm run db:backup -- --from <파일> --sns <이름|핸들|id> --yes   그 SNS 계정만 복구
   --test 를 붙이면 운영 대신 테스트 프로젝트(SUPABASE_TEST_DB_URL)를 대상으로 한다.
+  데이터를 바꾸는 작업(--restore, --campaign, --sns)을 운영에 하려면 --prod 를 함께 붙여야 한다.
 
 --list-remote / --pull 은 BLOB_READ_WRITE_TOKEN 이 필요하다 (.env.local 에는 없다):
   PowerShell : $env:BLOB_READ_WRITE_TOKEN="vercel_blob_rw_..."; npm run db:backup -- --pull
@@ -84,6 +86,7 @@ const campaignTarget = argAfter("--campaign");
 const listSnsAccounts = args.includes("--sns-accounts");
 const snsTarget = argAfter("--sns");
 const confirmed = args.includes("--yes");
+const allowProd = args.includes("--prod");
 const wantHelp = args.includes("--help") || args.includes("-h");
 const wantListRemote = args.includes("--list-remote");
 const wantPull = args.includes("--pull");
@@ -92,6 +95,27 @@ const pullTarget = argAfter("--pull");
 if (wantHelp) {
   console.log(HELP);
   process.exit(0);
+}
+
+/**
+ * 운영 DB 에 쓰는 작업을 막는 빗장.
+ *
+ * 읽기(백업 받기, 목록 보기)는 운영이 기본이어야 편하다. 쓰기는 다르다.
+ * --restore 는 운영 데이터를 통째로 지우고, --campaign/--sns 복구는 행을 집어넣는다.
+ * 대상이 기본값이라 아무 플래그 없이 치면 곧장 운영을 맞춘다. 테스트에 돌리려던 명령에서
+ * --test 한 단어만 빠져도 사고가 난다.
+ *
+ * 그래서 운영에 쓰려면 --prod 를 손으로 적게 한다. --yes 는 "내용을 봤다"이고
+ * --prod 는 "운영인 줄 안다"라서 서로 다른 확인이다. 한 플래그가 둘을 겸하면
+ * 손에 익는 순간 확인이 아니게 된다.
+ */
+function requireProdFlag(what) {
+  if (isTest || allowProd) return;
+  console.error("");
+  console.error(`${what} 작업은 운영 데이터베이스를 바꿉니다.`);
+  console.error("테스트에 하려던 것이면 --test 를, 정말 운영에 할 것이면 --prod 를 붙이세요.");
+  console.error("  예) npm run db:backup -- --restore <파일> --prod --yes");
+  process.exit(1);
 }
 
 const backupDir = path.join(process.cwd(), ".data", "backups");
@@ -277,6 +301,12 @@ const url = process.env[envName];
 if (!url) {
   console.error(`${envName} 이 .env.local 에 없습니다.`);
   process.exit(1);
+}
+
+// 데이터를 바꾸는 작업이면 대상이 운영인지 여기서 먼저 확인한다.
+// 미리보기(--yes 없이)는 읽기만 하므로 막지 않는다. 실행 직전에만 빗장을 건다.
+if (confirmed && (restoreTarget || campaignTarget || snsTarget)) {
+  requireProdFlag(restoreTarget ? "전체 복원" : "부분 복구");
 }
 
 /** 백업 파일을 읽는다. 경로는 절대경로거나 .data/backups 안의 파일명. */

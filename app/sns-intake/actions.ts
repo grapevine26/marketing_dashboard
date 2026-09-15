@@ -4,7 +4,19 @@ import { revalidatePath } from "next/cache";
 import { saveSnsIntakeResponse, getSnsAccountByToken, getSnsIntakeQuestionsForAccount } from "@/lib/db";
 import { assistSnsIntake, SnsIntakeAssistResponse } from "@/lib/ai/snsIntakeAssist";
 import { ActionResult, runAction, fail } from "@/lib/actions/result";
-import { checkRateLimit, getClientIp, rollbackRateLimit } from "@/lib/security/rateLimit";
+import {
+  AI_BY_LINK,
+  AI_BY_QUESTION,
+  PUBLIC_SUBMIT,
+  aiLinkKey,
+  aiQuestionKey,
+  getClientIp,
+  hitThrottle,
+  isThrottled,
+  publicSubmitKey,
+  getThrottleCount,
+  refundThrottle,
+} from "@/lib/security/throttle";
 
 export async function submitSnsIntakeAction(data: {
   token: string;
@@ -15,11 +27,12 @@ export async function submitSnsIntakeAction(data: {
     return { ok: true, data: { submitted_at: new Date().toISOString() } };
   }
 
-  const clientIp = await getClientIp();
-  const rateLimit = checkRateLimit(`snsintake:${data.token}:${clientIp}`, 10, 10 * 60 * 1000);
-  if (!rateLimit.allowed) {
+  // 제출 횟수 제한. DB 로 센다 — 인메모리는 서버리스에서 요청마다 비워져 아무것도 막지 못한다.
+  const submitKey = publicSubmitKey("snsintake", data.token, await getClientIp());
+  if (await isThrottled([submitKey])) {
     return fail("단시간에 너무 많은 요청이 발생했습니다. 10분 후 다시 시도해 주세요.");
   }
+  await hitThrottle(submitKey, PUBLIC_SUBMIT);
 
   const account = await getSnsAccountByToken("intake", data.token);
   if (!account) return fail("유효하지 않은 설문 링크입니다.");
@@ -45,13 +58,12 @@ export async function assistSnsIntakeAction(data: {
   isRegeneration?: boolean;
   previousDraft?: string;
 }): Promise<ActionResult<SnsIntakeAssistResponse & { remainingAttempts?: number }>> {
-  const clientIp = await getClientIp();
-
-  // 악용 방지 1: 전체 토큰 기준 과도한 요청 방어 (10분당 최대 20회)
-  const totalLimit = checkRateLimit(`ai_assist_total:sns:${data.token}:${clientIp}`, 20, 10 * 60 * 1000);
-  if (!totalLimit.allowed) {
+  // AI 는 부를 때마다 돈이 나간다. 링크 전체 기준으로 먼저 막는다.
+  const linkKey = aiLinkKey("sns", data.token);
+  if (await isThrottled([linkKey])) {
     return fail("AI 추천 요청이 너무 빈번합니다. 잠시 후 다시 시도해 주세요.");
   }
+  await hitThrottle(linkKey, AI_BY_LINK);
 
   const account = await getSnsAccountByToken("intake", data.token);
   if (!account) return fail("유효하지 않은 설문 링크입니다.");
@@ -61,12 +73,13 @@ export async function assistSnsIntakeAction(data: {
   const question = questions.find((q) => q.id === data.questionId);
   if (!question) return fail("질문을 찾을 수 없습니다.");
 
-  // 악용 방지 2: 질문당 최대 3회 제한 (24시간)
-  const rateLimitKey = `ai_assist:sns:${data.token}:${data.questionId}`;
-  const questionLimit = checkRateLimit(rateLimitKey, 3, 24 * 60 * 60 * 1000);
-  if (!questionLimit.allowed) {
+  // 질문당 제한. **부르기 전에** 센다. 동시에 여러 번 눌러도 상한을 넘지 않게 하려는 것이고,
+  // 실패하면 아래에서 돌려준다.
+  const questionKey = aiQuestionKey("sns", data.token, data.questionId);
+  if (await isThrottled([questionKey])) {
     return fail("AI 추천은 질문당 최대 3회까지만 이용하실 수 있습니다.");
   }
+  await hitThrottle(questionKey, AI_BY_QUESTION);
 
   const res = await runAction(() =>
     assistSnsIntake({
@@ -84,7 +97,7 @@ export async function assistSnsIntakeAction(data: {
   );
 
   if (!res.ok || res.data.fallback) {
-    rollbackRateLimit(rateLimitKey);
+    await refundThrottle(questionKey);
     return res;
   }
 
@@ -92,7 +105,8 @@ export async function assistSnsIntakeAction(data: {
     ok: true,
     data: {
       ...res.data,
-      remainingAttempts: questionLimit.remaining,
+      // 방금 한 번 썼으니 남은 횟수는 상한에서 사용 횟수를 뺀 값이다.
+      remainingAttempts: Math.max(0, AI_BY_QUESTION.maxHits - (await getThrottleCount(questionKey))),
     },
   };
 }

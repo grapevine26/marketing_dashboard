@@ -3,7 +3,13 @@
 import { getCampaignByToken, createApplicant } from "@/lib/db";
 import { ActionResult, runAction, fail } from "@/lib/actions/result";
 import { sendWebhookNotification } from "@/lib/notifications/webhook";
-import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
+import {
+  PUBLIC_SUBMIT,
+  getClientIp,
+  hitThrottle,
+  isThrottled,
+  publicSubmitKey,
+} from "@/lib/security/throttle";
 import { revalidatePath } from "next/cache";
 
 export async function submitApplicantAction(params: {
@@ -28,12 +34,12 @@ export async function submitApplicantAction(params: {
     return { ok: true, data: { id: "spam_filtered" } };
   }
 
-  // Rate Limiting (10분 내 5회 제한)
-  const clientIp = await getClientIp();
-  const rateLimit = checkRateLimit(`apply:${params.token}:${clientIp}`, 5, 10 * 60 * 1000);
-  if (!rateLimit.allowed) {
+  // 제출 횟수 제한. DB 로 센다 — 인메모리는 서버리스에서 요청마다 비워져 아무것도 막지 못한다.
+  const submitKey = publicSubmitKey("apply", params.token, await getClientIp());
+  if (await isThrottled([submitKey])) {
     return fail("단시간에 너무 많은 지원 요청이 발생했습니다. 10분 후 다시 시도해 주세요.");
   }
+  await hitThrottle(submitKey, PUBLIC_SUBMIT);
 
   const campaign = await getCampaignByToken("apply_form", params.token);
   if (!campaign) return fail("유효하지 않은 지원 링크입니다.");

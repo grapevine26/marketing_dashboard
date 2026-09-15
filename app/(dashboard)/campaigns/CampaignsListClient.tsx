@@ -34,6 +34,23 @@ export default function CampaignsListClient({ initialCampaigns }: CampaignsListC
   const [targetCampaign, setTargetCampaign] = useState<Campaign | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  // 삭제 확인 입력칸. 캠페인 이름을 그대로 옮겨 적어야 삭제 버튼이 열린다.
+  const [confirmName, setConfirmName] = useState("");
+
+  // 대화상자를 닫거나 다른 캠페인을 고르면 입력칸을 비운다.
+  //
+  // effect 가 아니라 렌더 중에 맞춘다. React 문서가 "props(여기서는 상위 state) 가 바뀔 때
+  // state 를 되돌리는" 경우에 권하는 방식이다. effect 로 하면 이전 캠페인 이름이 남은 채로
+  // 한 번 그린 뒤 다시 그리게 되는데, 그 찰나에 다른 캠페인의 삭제 버튼이 열려 있게 된다.
+  const [confirmSyncedFrom, setConfirmSyncedFrom] = useState<Campaign | null>(targetCampaign);
+  if (confirmSyncedFrom !== targetCampaign) {
+    setConfirmSyncedFrom(targetCampaign);
+    setConfirmName("");
+  }
+
+  // 대소문자 무시는 하지 않는다. 한글 이름에는 의미가 없고, 정확히 옮겨 적게 하는 것이 목적이다.
+  const isNameConfirmed =
+    targetCampaign !== null && confirmName.trim() === targetCampaign.name.trim();
 
   const activeCount = campaigns.filter((c) => c.status !== "completed").length;
   const completedCount = campaigns.filter((c) => c.status === "completed").length;
@@ -68,7 +85,8 @@ export default function CampaignsListClient({ initialCampaigns }: CampaignsListC
   });
 
   const handleDeleteConfirm = async () => {
-    if (!targetCampaign) return;
+    // 버튼 disabled 와 별개로 한 번 더 막는다. 키보드·확장프로그램으로 disabled 를 우회할 수 있다.
+    if (!targetCampaign || !isNameConfirmed) return;
     setIsDeleting(true);
     setDeleteError(null);
     const res = await safeCall(deleteCampaignAction(targetCampaign.id));
@@ -351,9 +369,34 @@ export default function CampaignsListClient({ initialCampaigns }: CampaignsListC
               <p>
                 <strong className="text-text font-semibold">[{targetCampaign.name}]</strong> 캠페인을 삭제하시겠습니까?
               </p>
+              {/* lib/db/campaigns.ts 의 deleteCampaign 은 campaigns 행만 지우고, 아래 목록은
+                  0001_init.sql 의 fk on delete cascade 로 함께 지워지는 것들이다. */}
               <p className="text-text-muted">
-                연동된 사전설문, 신청 폼, 지원자 명단, 배송/방문 관리시트, 결과보고서 및 행사(초대 명단·체크리스트·운영안 포함)가 모두 영구 삭제됩니다.
+                사전조사 응답, 신청 폼 설정, 지원자 명단, 배송/방문 관리시트, 결과보고서, 행사(초대 명단·체크리스트·운영안)가 모두 함께 영구 삭제됩니다.
               </p>
+              <p className="text-text-muted">
+                되돌리는 방법은 DB 백업 복원뿐입니다. (감사 로그 기록만 남습니다.)
+              </p>
+            </div>
+
+            {/* 버튼 한 번으로 지워지지 않도록, 캠페인 이름을 그대로 옮겨 적게 한다. */}
+            <div className="space-y-1.5">
+              <label htmlFor="delete-confirm-name" className="block text-xs text-text-sub">
+                삭제하려면 아래에 캠페인 이름{" "}
+                <strong className="text-text font-semibold break-all">{targetCampaign.name}</strong> 을(를)
+                그대로 입력하세요.
+              </label>
+              <input
+                id="delete-confirm-name"
+                type="text"
+                value={confirmName}
+                onChange={(e) => setConfirmName(e.target.value)}
+                disabled={isDeleting}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={targetCampaign.name}
+                className="w-full px-3 py-2 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-rose-500 disabled:opacity-60"
+              />
             </div>
 
             {deleteError && (
@@ -373,9 +416,9 @@ export default function CampaignsListClient({ initialCampaigns }: CampaignsListC
               </button>
               <button
                 type="button"
-                disabled={isDeleting}
+                disabled={isDeleting || !isNameConfirmed}
                 onClick={handleDeleteConfirm}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold transition inline-flex items-center gap-1.5 shadow-md shadow-rose-900/30"
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold transition inline-flex items-center gap-1.5 shadow-md shadow-rose-900/30 disabled:bg-rose-600/40 disabled:shadow-none disabled:cursor-not-allowed"
               >
                 {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                 <span>{isDeleting ? "삭제 진행 중..." : "영구 삭제"}</span>

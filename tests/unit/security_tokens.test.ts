@@ -14,64 +14,19 @@ import {
   regenerateSnsToken,
   getAuditLogs,
 } from "@/lib/db";
-import { checkRateLimit, resetRateLimitStore, getRateLimitUsed, rollbackRateLimit } from "@/lib/security/rateLimit";
 import { submitApplicantAction } from "@/app/apply/[token]/actions";
 import { submitPublicPreSurveyAction, getPublicAiAssistAction } from "@/app/pre-survey/[token]/actions";
 import { submitSnsIntakeAction, assistSnsIntakeAction } from "@/app/sns-intake/actions";
 import * as snsAssistModule from "@/lib/ai/snsIntakeAssist";
 import * as preAssistModule from "@/lib/ai/preSurveyAssist";
 import { vi } from "vitest";
+import { getThrottleCount, aiQuestionKey } from "@/lib/security/throttle";
 
 describeDb("1-2 & 1-3 Security: Rate Limiting, Honeypot Spam Defense, and Token Reissuance", () => {
   beforeEach(() => {
-    resetRateLimitStore();
+
   });
 
-  describe("Rate Limiting (lib/security/rateLimit.ts)", () => {
-    it("allows requests up to maxRequests and blocks subsequent requests", () => {
-      const key = "test:ip:1";
-      for (let i = 0; i < 5; i++) {
-        const res = checkRateLimit(key, 5, 60000);
-        expect(res.allowed).toBe(true);
-        expect(res.remaining).toBe(4 - i);
-      }
-
-      // 6th request should be blocked
-      const blocked = checkRateLimit(key, 5, 60000);
-      expect(blocked.allowed).toBe(false);
-      expect(blocked.remaining).toBe(0);
-
-      // Reset works
-      resetRateLimitStore();
-      const afterReset = checkRateLimit(key, 5, 60000);
-      expect(afterReset.allowed).toBe(true);
-      expect(afterReset.remaining).toBe(4);
-    });
-
-    it("getRateLimitUsed는 요청을 소비하지 않고 현재 사용 횟수만 반환한다", () => {
-      const key = "test:query:1";
-      expect(getRateLimitUsed(key)).toBe(0);
-
-      checkRateLimit(key, 3, 60000);
-      expect(getRateLimitUsed(key)).toBe(1);
-
-      checkRateLimit(key, 3, 60000);
-      expect(getRateLimitUsed(key)).toBe(2);
-
-      // getRateLimitUsed 호출 후에도 여전히 2회
-      expect(getRateLimitUsed(key)).toBe(2);
-    });
-
-    it("rollbackRateLimit는 직전 요청 1회를 롤백한다", () => {
-      const key = "test:rollback:1";
-      checkRateLimit(key, 3, 60000);
-      checkRateLimit(key, 3, 60000);
-      expect(getRateLimitUsed(key)).toBe(2);
-
-      rollbackRateLimit(key);
-      expect(getRateLimitUsed(key)).toBe(1);
-    });
-  });
 
   describe("AI 추천 악용 방지 (질문당 최대 3회 제한)", () => {
     it("SNS 사전설문 AI 추천은 질문당 3회까지 허용되고 4회째에 차단된다", async () => {
@@ -177,7 +132,7 @@ describeDb("1-2 & 1-3 Security: Rate Limiting, Honeypot Spam Defense, and Token 
       }
 
       // 실패했으므로 카운트가 0이어야 함
-      expect(getRateLimitUsed(`ai_assist:sns:${acc.intake_token}:${qId}`)).toBe(0);
+      expect(await getThrottleCount(aiQuestionKey("sns", acc.intake_token, qId))).toBe(0);
     });
   });
 

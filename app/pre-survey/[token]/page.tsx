@@ -4,7 +4,7 @@ import { getCampaignByToken, getPreSurveyQuestionsForCampaign, getPreSurveyRespo
 import { toPublicCampaign } from "@/lib/db/types";
 import PreSurveyPublicForm from "./PreSurveyPublicForm";
 import { Building2 } from "lucide-react";
-import { getRateLimitUsed } from "@/lib/security/rateLimit";
+import { aiQuestionKey, getThrottleCount } from "@/lib/security/throttle";
 
 export const revalidate = 0;
 
@@ -29,7 +29,7 @@ export default async function PreSurveyPublicPage({
 
   const initialAiUsage: Record<string, number> = {};
   for (const q of questions) {
-    initialAiUsage[q.id] = getRateLimitUsed(`ai_assist:pre:${token}:${q.id}`);
+    initialAiUsage[q.id] = await getThrottleCount(aiQuestionKey("pre", token, q.id));
   }
 
   return (

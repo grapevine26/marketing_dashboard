@@ -72,6 +72,17 @@ if (hasTestDb) {
     );
   }
 
+  // 2-1. 애초에 ref 를 읽어내지 못하면 위 두 검사가 통째로 무력해진다.
+  //      `projectRef` 가 null 을 돌려주면 비교문이 전부 false 가 되어 조용히 통과한다.
+  //      주소 형식이 바뀌거나 자체 호스팅 Postgres 를 붙이는 날이 그 날이다.
+  //      확인하지 못했으면 통과가 아니라 중단이다.
+  if (!testDbRef) {
+    throw new Error(
+      "SUPABASE_TEST_DB_URL 에서 Supabase 프로젝트 ref 를 읽지 못했습니다. " +
+        "운영인지 확인할 수 없으므로 중단합니다. 주소 형식을 확인하세요."
+    );
+  }
+
   // 3. 테스트 API URL 과 테스트 DB URL 이 같은 프로젝트인가.
   //    둘이 다르면 어느 한쪽이 잘못 들어간 것이므로, 무엇을 지우게 될지 알 수 없다.
   if (testRef && testDbRef && testRef !== testDbRef) {
@@ -107,8 +118,42 @@ async function conn(): Promise<pg.Client> {
   return client;
 }
 
+/**
+ * 이 DB 가 정말 테스트용인지 DB 안에서 직접 확인한다.
+ *
+ * 위쪽 검사는 전부 **환경변수를 서로 비교하는** 방식이다. `.env.local` 을 통째로
+ * 운영 값으로 덮어쓰면 셋 다 사이좋게 통과한다(운영 URL 을 SUPABASE_TEST_* 에도
+ * 넣으면 "테스트와 운영이 다른가"가 아니라 "테스트와 테스트가 다른가"를 묻게 된다).
+ *
+ * 그래서 마지막 관문은 DB 안에 둔다. 테스트 프로젝트에만 손으로 만들어 둔 표식
+ * 테이블이 있어야 truncate 를 한다. 운영에는 이 테이블이 없으므로, 주소를 아무리
+ * 잘못 넣어도 한 줄도 지워지지 않는다. 없으면 통과가 아니라 중단이다.
+ */
+const MARKER_TABLE = "test_db_marker";
+let markerChecked = false;
+
+async function assertTestDatabase(c: pg.Client): Promise<void> {
+  if (markerChecked) return;
+  const { rows } = await c.query(
+    "select to_regclass($1) is not null as found",
+    [`public.${MARKER_TABLE}`]
+  );
+  if (!rows[0]?.found) {
+    const lines = [
+      `이 데이터베이스에 표식 테이블 public.${MARKER_TABLE} 이 없습니다.`,
+      "테스트는 모든 테이블을 비우므로, 테스트 DB 임이 확인되지 않으면 실행하지 않습니다.",
+      "테스트 Supabase 프로젝트의 SQL 편집기에서 아래를 한 번 실행하세요:",
+      `  create table public.${MARKER_TABLE} (note text);`,
+      `  alter table public.${MARKER_TABLE} enable row level security;`,
+    ];
+    throw new Error(lines.join("\n"));
+  }
+  markerChecked = true;
+}
+
 export async function resetTestDb(): Promise<void> {
   const c = await conn();
+  await assertTestDatabase(c);
   await c.query(`truncate table ${TABLES.map((t) => `public.${t}`).join(", ")} cascade`);
   // 로그인 계정도 비운다. auth 스키마는 truncate 대상이 아니고, 남아 있으면 아이디가 중복된다.
   // profiles 는 auth.users 를 참조하므로 여기서 지우면 함께 사라진다.

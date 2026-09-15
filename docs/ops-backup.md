@@ -71,8 +71,8 @@ npm run db:backup -- --from supabase-20260915-180000.json --sns "@handle" --yes
 전체 복구는 **현재 데이터를 전부 지우고** 백업으로 덮어쓴다. 캠페인 하나만 필요하면 위 방법을 쓴다.
 
 ```powershell
-npm run db:backup -- --restore supabase-20260915-180000.json          # 미리보기 (행 수만 보여주고 멈춘다)
-npm run db:backup -- --restore supabase-20260915-180000.json --yes    # 실행
+npm run db:backup -- --restore supabase-20260915-180000.json                 # 미리보기 (행 수만 보여주고 멈춘다)
+npm run db:backup -- --restore supabase-20260915-180000.json --prod --yes    # 실행
 ```
 
 동작:
@@ -81,11 +81,18 @@ npm run db:backup -- --restore supabase-20260915-180000.json --yes    # 실행
 2. 복원 대상 테이블을 truncate 하고 백업 행을 넣는다. 한 트랜잭션이라 중간에 실패하면 아무것도 안 바뀐다.
 3. `profiles` 등 대상 목록에 없는 테이블은 덤프에 있어도 무시한다 ("건너뜀" 으로 표시). 계정 테이블을 비우면 로그인이 깨지기 때문이다.
 
+### `--prod` 는 왜 필요한가
+
+이 스크립트는 **대상이 기본으로 운영**이다. 그래서 테스트에 돌리려던 명령에서 `--test` 한 단어만
+빠져도 운영 데이터가 지워진다. 데이터를 바꾸는 작업(`--restore`, `--campaign`, `--sns`)은
+운영이면 `--prod` 를 손으로 적어야 실행된다. `--yes` 는 "내용을 봤다"이고 `--prod` 는
+"운영인 줄 안다"라서, 둘은 서로 다른 확인이다. 미리보기(`--yes` 없이)는 읽기만 하므로 그대로 된다.
+
 **잘못 복원했으면** 1번에서 남은 파일로 다시 복원한다:
 
 ```powershell
 npm run db:backup -- --list                                           # pre-restore-*.json 찾기
-npm run db:backup -- --restore pre-restore-20260915-181230.json --yes
+npm run db:backup -- --restore pre-restore-20260915-181230.json --prod --yes
 ```
 
 ## 주 1회 수동 내려받기 (권장)

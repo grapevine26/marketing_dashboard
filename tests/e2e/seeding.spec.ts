@@ -165,11 +165,13 @@ test.describe("A-2. 공개 링크 (로그인 없이)", () => {
     await expect(page.getByRole("heading", { name: "열 수 없는 주소입니다" })).toBeVisible();
   });
 
-  test("로그인이 필요한 라우트 핸들러는 로그인 화면으로 보낸다", async ({ page }) => {
-    // 프록시가 /api/applicants/ 를 공개로 두지 않으므로 토큰 없는 호출은 /login 으로 튕긴다.
-    const res = await page.goto(`/api/applicants/export?campaignId=${SAMPLE.campaignId}`);
-    expect(res?.status()).toBe(200); // 리다이렉트를 따라간 뒤의 로그인 화면
-    await expect(page).toHaveURL(/\/login(\?|$)/);
-    await expect(page.getByRole("heading", { name: "RB Global 로그인" })).toBeVisible();
+  test("토큰 없는 내보내기 호출은 401 로 막힌다", async ({ playwright }) => {
+    // 이 주소는 광고주 공유 링크(?token=)가 쓰기 때문에 프록시에서는 공개다.
+    // 그래서 막는 일은 라우트 핸들러가 직접 한다: 토큰이 없으면 requireApiUser 가 401 을 낸다.
+    // 로그인 화면으로 튕기지 않는 것이 맞다. 다운로드 요청에 HTML 을 돌려줄 이유가 없다.
+    const anon = await newPublicRequest(playwright);
+    const res = await anon.get(`/api/applicants/export?campaignId=${SAMPLE.campaignId}`);
+    expect(res.status()).toBe(401);
+    await anon.dispose();
   });
 });

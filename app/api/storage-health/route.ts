@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/session";
+import { isManager } from "@/lib/auth/roles";
 import { describeStorage, putFile, readFile, deleteFilesByPrefixes } from "@/lib/db/storage";
 import { db } from "@/lib/db/client";
 
@@ -20,8 +21,15 @@ function describeError(err: unknown) {
 }
 
 export async function GET() {
+  // 관리자(대표 관리자 포함)만 본다.
+  // 담기는 값 자체는 키가 아니라 "설정이 있느냐"와 행 개수뿐이지만, 그것만으로도
+  // 저장소 종류·환경변수 구성·테이블 규모가 드러난다. 일반 직원이 알 필요가 없고,
+  // 가입 직후 대기 상태였다가 승인된 계정까지 다 보는 것도 과하다.
   const auth = await requireApiUser();
   if (auth instanceof NextResponse) return auth;
+  if (!isManager(auth.role)) {
+    return NextResponse.json({ error: "관리자만 볼 수 있습니다." }, { status: 403 });
+  }
   const env = {
     file: describeStorage(),
     supabase: {

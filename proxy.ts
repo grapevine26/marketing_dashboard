@@ -35,6 +35,11 @@ const PUBLIC_PREFIXES = [
   "/sns-intake/",
   "/api/media/",
   "/api/cron/",
+  // 광고주가 공유 화면에서 누르는 내려받기. **토큰이 있을 때만** 열린다.
+  // 라우트 안에서 토큰이 없으면 requireApiUser 로 막고, 토큰 모드에서는 개인정보를 씻어 내보낸다.
+  // 여기를 열지 않으면 광고주가 버튼을 눌러도 로그인 화면으로 튕긴다(실제로 그 상태였다).
+  "/api/applicants/export",
+  "/api/seeding-sheet/export",
 ];
 
 function isPublic(pathname: string): boolean {

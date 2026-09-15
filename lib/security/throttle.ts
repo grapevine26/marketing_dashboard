@@ -138,3 +138,68 @@ export async function getClientIp(): Promise<string | null> {
   }
   return null;
 }
+
+// ---------- 공개 폼 (로그인 없이 열리는 경로) ----------
+//
+// 여기도 DB 로 센다. 인메모리(rateLimit.ts)는 서버리스에서 요청마다 비워져 아무것도 막지 못한다.
+// 특히 AI 는 부를 때마다 돈이 나가므로 실제로 막히는 장치가 있어야 한다.
+
+/** 공개 폼 제출. 같은 링크·같은 곳에서 10분에 10회. */
+export const PUBLIC_SUBMIT: ThrottlePolicy = { maxHits: 10, windowMs: 10 * MINUTE, lockMs: 10 * MINUTE };
+/** AI 초안, 링크 전체 기준. 10분에 20회. 여러 질문을 빠르게 훑는 것을 막는다. */
+export const AI_BY_LINK: ThrottlePolicy = { maxHits: 20, windowMs: 10 * MINUTE, lockMs: 10 * MINUTE };
+/** AI 초안, 질문 하나 기준. 하루 3회. 화면에 남은 횟수로 보여준다. */
+export const AI_BY_QUESTION: ThrottlePolicy = { maxHits: 3, windowMs: 24 * 60 * MINUTE, lockMs: 24 * 60 * MINUTE };
+
+export const publicSubmitKey = (kind: string, token: string, ip: string | null) =>
+  `form:${kind}:${token}:${ip ?? "-"}`;
+export const aiLinkKey = (kind: string, token: string) => `ai:${kind}:${token}`;
+export const aiQuestionKey = (kind: string, token: string, questionId: string) =>
+  `ai:${kind}:${token}:${questionId}`;
+
+/** 지금까지 몇 번 썼나. 화면에 "남은 횟수"를 보여줄 때만 쓴다. */
+export async function getThrottleCount(key: string): Promise<number> {
+  return softly(
+    "사용 횟수 조회",
+    async () => {
+      const row = unwrap(
+        await db().from("auth_throttle").select("failures, window_start").eq("key", key).maybeSingle<{
+          failures: number;
+          window_start: string;
+        }>()
+      );
+      if (!row) return 0;
+      // 창이 지났으면 0 부터 다시 센다. 화면 숫자도 그래야 맞다.
+      const started = Date.parse(row.window_start);
+      if (!Number.isFinite(started) || Date.now() - started >= AI_BY_QUESTION.windowMs) return 0;
+      return row.failures;
+    },
+    0
+  );
+}
+
+/**
+ * 한 번 센 것을 돌려준다. AI 호출이 실패했을 때만 쓴다.
+ *
+ * 호출 **전에** 세는 이유는 동시에 여러 번 눌러도 상한을 넘지 않게 하기 위해서다.
+ * 그 대신 실패하면 돌려줘야 사용자가 손해를 보지 않는다. 정확할 필요는 없다.
+ */
+export async function refundThrottle(key: string): Promise<void> {
+  await softly(
+    "사용 횟수 반환",
+    async () => {
+      const row = unwrap(
+        await db().from("auth_throttle").select("failures").eq("key", key).maybeSingle<{ failures: number }>()
+      );
+      if (!row || row.failures <= 0) return;
+      unwrap(
+        await db()
+          .from("auth_throttle")
+          .update({ failures: row.failures - 1, locked_until: null })
+          .eq("key", key)
+          .select("key")
+      );
+    },
+    undefined
+  );
+}

@@ -7,6 +7,7 @@ import { countPendingUsers } from "@/lib/auth/users";
 import CalendarOverviewClient, { UrgentItemsWidget } from "./CalendarOverviewClient";
 import PendingApprovalSnsCard from "./PendingApprovalSnsCard";
 import ScheduledSnsThisWeekCard from "./ScheduledSnsThisWeekCard";
+import BackupStatusBanner, { getBackupStatus } from "./BackupStatusBanner";
 import {
   ArrowUpRight,
   FolderKanban,
@@ -34,6 +35,8 @@ export default async function DashboardOverviewPage({
 }) {
   const role = (await getCurrentUser())?.role ?? "staff";
   const canSeeLogs = isOwner(role);
+  // 백업이 끊긴 걸 보고 실제로 손쓸 수 있는 사람은 대표 관리자뿐이라, 경고도 거기까지만 보인다.
+  const canSeeBackupStatus = isOwner(role);
   // 승인 대기자는 승인할 수 있는 사람(관리자 이상)에게만 알린다.
   // layout 이 같은 값을 이미 세지만 레이아웃→페이지로 props 를 넘길 수 없어 여기서 한 번 더 센다(count 쿼리 하나).
   const canApproveUsers = isManager(role);
@@ -41,7 +44,15 @@ export default async function DashboardOverviewPage({
   const todayKst = toKstDateString();
   const currentMonth = parseMonthParam(month, todayKst);
 
-  const [{ items, failedSources }, summary, recentLogs, campaigns, snsAccounts, pendingUserCount] = await Promise.all([
+  const [
+    { items, failedSources },
+    summary,
+    recentLogs,
+    campaigns,
+    snsAccounts,
+    pendingUserCount,
+    backupStatus,
+  ] = await Promise.all([
     collectOverviewItems(todayKst),
     collectHomeSummary(todayKst),
     // 활동 기록은 대표 관리자만 본다. 나머지에게는 아예 내려보내지 않는다(화면에서 숨기는 것으로는 부족하다).
@@ -49,6 +60,8 @@ export default async function DashboardOverviewPage({
     getCampaigns(),
     getSnsAccounts(),
     canApproveUsers ? countPendingUsers() : Promise.resolve(0),
+    // 대표 관리자가 아니면 저장소 조회 자체를 하지 않는다. 볼 수 없는 값을 굳이 읽어 올 이유가 없다.
+    canSeeBackupStatus ? getBackupStatus() : Promise.resolve(null),
   ]);
 
   const urgentItems = items.filter((item) => item.daysDiff <= 3);
@@ -60,6 +73,10 @@ export default async function DashboardOverviewPage({
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto font-sans">
+      {/* 0-0. 백업 경고. 데이터가 통째로 날아가는 일과 직결되므로 다른 알림보다 위에 둔다.
+          상태가 정상이면(또는 대표 관리자가 아니면) 배너 자체가 그려지지 않는다. */}
+      <BackupStatusBanner status={backupStatus} />
+
       {/* 0. 가입 승인 대기 알림. 관리자 이상에게만, 대기자가 있을 때만 보인다.
           사이드바 배지는 메뉴를 펼쳐야 보이므로 첫 화면에서 한 번 더 짚어 준다. */}
       {canApproveUsers && pendingUserCount > 0 && (
