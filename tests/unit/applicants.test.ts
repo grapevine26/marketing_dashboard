@@ -32,6 +32,35 @@ describe("중복 감지", () => {
     expect(d.get("2")).toEqual([expect.stringContaining("동일 SNS 계정 (A)")]);
     expect(d.get("3")).toEqual([expect.stringContaining("동일 연락처 (A)")]);
   });
+
+  it("광고주에게는 연락처 사유를 빼고 SNS 중복만 준다", () => {
+    // 연락처 값 자체는 무해화가 비우지만, "이 둘이 같은 번호를 썼다" 는 사실이 사유 문자열로
+    // 나가면 가족·지인이 각자 계정으로 지원한 정상적인 경우까지 관계가 드러난다.
+    // SNS 중복은 같은 채널로 두 번 응모한 것이라 부정이 명백해 광고주도 알아야 한다.
+    const list = [
+      app({ id: "1", name: "A", sns_link: "https://instagram.com/same", contact: "010-1111-1111" }),
+      app({ id: "2", name: "B", sns_link: "https://instagram.com/same", contact: "010-2222-2222" }),
+      app({ id: "3", name: "C", sns_link: "https://instagram.com/other", contact: "01011111111" }),
+    ];
+
+    const forCompany = findDuplicates(list, { includeContact: false });
+    expect(forCompany.get("1")).toEqual([expect.stringContaining("동일 SNS 계정 (B)")]);
+    expect(forCompany.get("2")).toEqual([expect.stringContaining("동일 SNS 계정 (A)")]);
+    // 연락처만 겹치던 3번은 광고주 쪽에서 배지 자체가 사라진다.
+    expect(forCompany.get("3")).toBeUndefined();
+    expect(JSON.stringify([...forCompany.values()])).not.toContain("연락처");
+
+    // 대행사 화면은 기본값 그대로 둘 다 본다.
+    const forAgency = findDuplicates(list);
+    expect(forAgency.get("3")).toEqual([expect.stringContaining("동일 연락처 (A)")]);
+  });
+
+  it("광고주 화면이 연락처 사유를 끄고 부른다", async () => {
+    const { readFileSync } = await import("node:fs");
+    // 여기서 인자를 빠뜨리면 기본값이 true 라 조용히 예전처럼 나간다.
+    const src = readFileSync("app/applicants/[token]/page.tsx", "utf8");
+    expect(src).toMatch(/findDuplicates\([^)]*includeContact:\s*false/);
+  });
 });
 
 describe("지원자 CSV", () => {

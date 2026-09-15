@@ -16,6 +16,7 @@ export * from "./reports";
 export * from "./ppt-templates";
 export * from "./events";
 export * from "./sns";
+export * from "./export-audit";
 export { getUploadsDirPath } from "./storage";
 export { ALLOWED_SNS_MEDIA_MIME_TYPES, MAX_SNS_MEDIA_BYTES } from "./types";
 export {

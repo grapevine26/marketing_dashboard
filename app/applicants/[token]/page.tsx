@@ -31,8 +31,10 @@ export default async function PublicApplicantsSharePage({
   ]);
   const selectedCount = allApplicants.filter((a) => a.status === "selected").length;
   const reservedCount = allApplicants.filter((a) => a.status === "reserved").length;
-  // 중복 감지는 원본으로 계산하고, 클라이언트로 내려보내는 객체에서는 개인정보 필드를 제거한다
-  const duplicates = Object.fromEntries(findDuplicates(allApplicants));
+  // 중복 감지는 원본으로 계산하고, 클라이언트로 내려보내는 객체에서는 개인정보 필드를 제거한다.
+  // **연락처 사유는 빼고 보낸다.** 번호 자체는 무해화가 비우지만, "이 둘이 같은 번호를 썼다" 는
+  // 사실이 사유 문자열로 그대로 나가면 가족·지인 관계가 광고주에게 드러난다.
+  const duplicates = Object.fromEntries(findDuplicates(allApplicants, { includeContact: false }));
   const customQuestions = formConfig?.custom_questions || [];
   // 지금 남아 있는 질문의 답변만 내려보낸다. 지운 질문의 옛 답변은 DB 에 그대로 남아 있어서,
   // 넘기지 않으면 화면에 안 그려도 페이지 소스에 실린다.

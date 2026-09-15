@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/session";
-import { getCampaignById, getCampaignByToken, getApplicantsByCampaignId, getFormConfig } from "@/lib/db";
+import { getCampaignById, getCampaignByToken, getApplicantsByCampaignId, getFormConfig, logCompanyExport } from "@/lib/db";
 import { applicantsToCSV } from "@/lib/applicants/csv";
 import { applicantsToXlsx } from "@/lib/applicants/xlsx";
 import { fileDownloadResponse } from "@/lib/http/fileResponse";
@@ -60,6 +60,16 @@ export async function GET(request: NextRequest) {
   const applicants = token
     ? rawApplicants.map((a) => sanitizeApplicantForCompany(a, allowedQuestionIds))
     : rawApplicants;
+
+  // 광고주가 받아간 것만 남긴다. 직원이 자기 화면에서 받는 것은 기록할 이유가 없다.
+  if (token) {
+    await logCompanyExport({
+      campaignId: campaign.id,
+      what: "지원자 명단",
+      format: format === "xlsx" ? "xlsx" : "csv",
+      rows: applicants.length,
+    });
+  }
 
   if (format === "xlsx") {
     const buffer = await applicantsToXlsx(applicants, customQuestions, {

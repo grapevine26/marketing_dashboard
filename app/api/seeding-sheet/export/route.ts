@@ -6,6 +6,7 @@ import {
   getApplicantsByCampaignId,
   getSeedingRecordsByCampaignId,
   getFormConfig,
+  logCompanyExport,
 } from "@/lib/db";
 import { seedingSheetToCSV } from "@/lib/seeding/sheetCsv";
 import { seedingSheetToXlsx } from "@/lib/seeding/sheetXlsx";
@@ -69,6 +70,16 @@ export async function GET(request: NextRequest) {
   const seedingRecords = token ? rawSeeding.map((s) => sanitizeSeedingForCompany(s)) : rawSeeding;
 
   const rows = mergeSeedingRows(campaign.id, applicants, seedingRecords);
+
+  // 광고주가 받아간 것만 남긴다. 직원이 자기 화면에서 받는 것은 기록할 이유가 없다.
+  if (token) {
+    await logCompanyExport({
+      campaignId: campaign.id,
+      what: "배송/방문 관리시트",
+      format: format === "xlsx" ? "xlsx" : "csv",
+      rows: rows.length,
+    });
+  }
 
   if (format === "xlsx") {
     const buffer = await seedingSheetToXlsx(rows, toKstDateString());

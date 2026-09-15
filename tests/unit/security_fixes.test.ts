@@ -553,3 +553,47 @@ describe("안내 메시지 템플릿 종류", () => {
     expect(src).not.toContain("as CampaignMessageType[]");
   });
 });
+
+/**
+ * 광고주가 공유 링크로 파일을 받아간 기록.
+ *
+ * 링크가 유출됐을 때 "언제부터 몇 건이 나갔나" 를 말할 근거가 전혀 없었다.
+ * 다만 **누구인지는 기록하지 않는다.** 광고주는 계정이 없고, IP 를 적어도 같은 사람이
+ * PC·노트북·폰에서 받으면 서로 다른 값이 되고 같은 사무실의 다른 사람은 같은 값이 된다.
+ * 알 수 없는 것을 적으려고 개인정보를 하나 더 모으지 않는다.
+ */
+describe.skipIf(!hasTestDb)("광고주 내려받기 기록", () => {
+  it("언제·무엇·몇 건만 남고, 신원을 특정할 값은 남지 않는다", async () => {
+    const { logCompanyExport, getAuditLogs } = await import("@/lib/db");
+    const camp = await createCampaign({
+      name: "내려받기기록캠페인",
+      company_name: "글로벌브랜드",
+      campaign_type: "shipping",
+    });
+
+    await logCompanyExport({ campaignId: camp.id, what: "지원자 명단", format: "csv", rows: 32 });
+
+    const logs = await getAuditLogs({ campaign_id: camp.id });
+    const entry = logs.find((l) => l.action === "company.exported");
+    expect(entry).toBeDefined();
+    expect(entry!.actor_type).toBe("company");
+    expect(entry!.summary).toContain("32건");
+    expect(entry!.summary).toContain("지원자 명단");
+
+    // 신원·열쇠에 해당하는 값이 들어가면 안 된다.
+    const serialized = JSON.stringify(entry);
+    expect(serialized).not.toMatch(/\b\d{1,3}(\.\d{1,3}){3}\b/); // IP 주소
+    expect(serialized).not.toContain(camp.applicants_share_token);
+    expect(serialized).not.toContain(camp.apply_form_token);
+    expect(entry!.actor_name).toBeNull(); // 광고주는 로그인이 없다
+  }, 30_000);
+
+  it("두 내보내기 라우트 모두 토큰으로 받을 때만 기록한다", async () => {
+    const { readFileSync } = await import("node:fs");
+    // 직원이 자기 화면에서 받는 것까지 남기면 기록이 불어나 정작 이상한 것이 묻힌다.
+    for (const p of ["app/api/applicants/export/route.ts", "app/api/seeding-sheet/export/route.ts"]) {
+      const src = readFileSync(p, "utf8");
+      expect(src).toMatch(/if \(token\) \{\s*await logCompanyExport\(/);
+    }
+  });
+});
