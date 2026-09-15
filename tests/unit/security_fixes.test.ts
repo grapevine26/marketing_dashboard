@@ -683,3 +683,102 @@ const fullApplicantForShareTest: Applicant = {
   status_changed_at: undefined,
   applied_at: "2026-09-01T00:00:00.000Z",
 };
+
+/**
+ * 화면의 `<option value="...">` 가 실제 타입에 있는 값인가.
+ *
+ * 오늘 이런 버그를 잡았다: 화면에 종류 목록을 손으로 적고 `as SomeUnion[]` 으로 캐스팅해
+ * 뒀는데, `shipping` 을 `shipping_or_visit` 로 잘못 적어도 컴파일러가 통과시켰다. 그 탭
+ * 두 개는 글자가 빈칸이고 내용도 안 채워져 **쓸 수 없는 상태로 한참 있었다.**
+ *
+ * `<select>` 도 같은 모양이다. `e.target.value` 는 `string` 이라 `as CampaignStatus` 로
+ * 우겨야 하고, 그러면 `<option value="recruting">` 같은 오타를 아무도 못 잡는다.
+ * 증상도 조용하다 — 목록 필터가 그냥 0건이 된다.
+ *
+ * 화면을 다 뜯어고치는 대신(76군데가 걸리고, 고치다 새 버그를 만들 위험이 더 크다)
+ * 여기서 값만 대조한다. **화면에 적힌 선택지 값이 어느 타입에도 없으면 오타다.**
+ */
+describe("화면 select 의 값이 타입과 맞는가", () => {
+  it("하드코딩된 option value 가 전부 실제 타입의 멤버다", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { CAMPAIGN_STATUSES, APPLICANT_STATUSES, PROGRESS_STAGES, EVENT_STATUSES, RSVP_STATUSES, SNS_PLATFORMS } =
+      await import("@/lib/db/validation");
+    const { SNS_CONTENT_STATUSES, CAMPAIGN_MESSAGE_TYPES } = await import("@/lib/db/types");
+    // 역할은 배열 상수가 없고 Record 로만 있다. 키를 끌어오면 타입이 곧 목록이 된다.
+    const { ROLE_LABELS } = await import("@/lib/auth/roles");
+
+    // 어느 타입의 값이든 하나에는 속해야 한다. 어디에도 없으면 오타다.
+    const known = new Set<string>([
+      ...CAMPAIGN_STATUSES, ...APPLICANT_STATUSES, ...PROGRESS_STAGES, ...EVENT_STATUSES,
+      ...RSVP_STATUSES, ...SNS_PLATFORMS, ...SNS_CONTENT_STATUSES, ...CAMPAIGN_MESSAGE_TYPES,
+      ...Object.keys(ROLE_LABELS),
+      // 타입이 아니라 화면 전용인 값들(정렬 기준, 전체 보기 등). 늘어나면 여기에 적는다.
+      "all", "", "latest", "followers", "shipping", "visit", "text", "number", "select", "checkbox",
+      "report", "plan", "proposal", "etc",
+    ]);
+
+    const files = [
+      "app/(dashboard)/campaigns/CampaignsListClient.tsx",
+      "app/(dashboard)/campaigns/[id]/events/[eventId]/EventDetailClient.tsx",
+      "app/(dashboard)/settings/users/UsersClient.tsx",
+      "app/(dashboard)/sns/NewSnsAccountModal.tsx",
+      "app/(dashboard)/sns/SnsAccountsListClient.tsx",
+      "app/(dashboard)/sns/[id]/SnsAccountDetailClient.tsx",
+    ];
+
+    const unknown: string[] = [];
+    for (const f of files) {
+      const src = readFileSync(f, "utf8");
+      // 문자열 리터럴로 적힌 option 값만 본다. {변수} 로 그리는 것은 이미 타입이 지켜준다.
+      for (const m of src.matchAll(/<option\s+value="([^"]*)"/g)) {
+        if (!known.has(m[1])) unknown.push(`${f}: value="${m[1]}"`);
+      }
+    }
+    expect(unknown).toEqual([]);
+  });
+});
+
+/**
+ * 안내문을 "이 캠페인의 기본 템플릿으로 저장" 할 때 개인정보가 박히지 않는가.
+ *
+ * 모달의 textarea 에는 `{{이름}}` 이 실제 이름으로 바뀐 **완성된 메시지**가 들어 있다.
+ * 그걸 그대로 템플릿으로 저장하던 시절에는, 한 번 저장하면 그 지원자의 이름·SNS·
+ * **연락처·배송주소**가 캠페인 템플릿에 박제되고 **그 다음부터 모든 지원자가 남의 주소와
+ * 전화번호가 적힌 안내문을 받았다.** 화면에서 되돌릴 방법도 없었다.
+ *
+ * 이 테스트는 화면 코드가 저장 직전에 치환을 되돌리는지를 소스로 확인한다.
+ * 되돌리는 함수 자체의 정확성은 아래 두 번째 테스트가 본다.
+ */
+describe("안내 메시지 템플릿에 개인정보가 박히지 않는가", () => {
+  it("저장 경로가 치환을 되돌린 값을 쓴다", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("app/(dashboard)/campaigns/[id]/applicants/ApplicantTable.tsx", "utf8");
+    // 저장할 값은 화면의 msgContent 가 아니라 되돌린 값이어야 한다.
+    expect(src).toMatch(/\[msgType\]:\s*depopulateTemplate\(/);
+    expect(src).not.toMatch(/\[msgType\]:\s*msgContent\s*\}/);
+  });
+
+  it("되돌리기가 8개 치환 항목을 전부 복원한다", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("app/(dashboard)/campaigns/[id]/applicants/ApplicantTable.tsx", "utf8");
+    // populateTemplate 이 바꾸는 자리와 depopulateTemplate 이 되돌리는 자리가 같아야 한다.
+    // 한쪽에만 항목이 늘면 그 값이 다시 템플릿에 박히기 시작한다.
+    // 정규식 대신 함수 본문을 잘라 문자열로 대조한다 — 이 파일에는 이스케이프가 많아 정규식이 읽기 어렵다.
+    const cut = (name: string) => {
+      const head = "function " + name + "(";
+      const at = src.indexOf(head);
+      if (at < 0) return "";
+      const end = src.indexOf(String.fromCharCode(10) + "function ", at + 1);
+      return end < 0 ? src.slice(at) : src.slice(at, end);
+    };
+    const populate = cut("populateTemplate");
+    const depopulate = cut("depopulateTemplate");
+    expect(populate).not.toBe("");
+    expect(depopulate).not.toBe("");
+
+    // 마감일은 고정 문구라 되돌릴 원본 값이 없다. 의도적으로 뺀다.
+    const tokens = ["이름", "SNS", "연락처", "국적", "브랜드명", "캠페인명", "배송주소", "방문일정"];
+    const missing = tokens.filter((t) => populate.includes(t) && !depopulate.includes(t));
+    expect(missing).toEqual([]);
+  });
+});

@@ -14,6 +14,7 @@ import {
   type SnsContentStatus,
 } from "@/lib/db/types";
 import { daysUntilDeadline, isoToKstDateString } from "@/lib/seeding/dday";
+import { isUploadDone } from "@/lib/seeding/uploadDone";
 
 export type OverviewSource = "seeding" | "event" | "event_checklist" | "sns";
 
@@ -80,7 +81,7 @@ export async function collectOverviewItems(todayKst: string): Promise<OverviewDa
       }
     }
     for (const s of seedingRes.rows) {
-      if (!s.upload_deadline || s.progress_stage === "업로드완료") continue;
+      if (!s.upload_deadline || isUploadDone(s)) continue;
       const camp = campaignMap.get(s.campaign_id);
       const name = applicantNames.get(s.applicant_id);
       if (!camp || !name) continue; // 삭제된 캠페인/선정 취소된 지원자는 조용히 제외

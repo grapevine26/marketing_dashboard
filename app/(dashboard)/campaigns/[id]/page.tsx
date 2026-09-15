@@ -13,6 +13,7 @@ import { getCurrentUser, isOwner } from "@/lib/auth/session";
 import TokenShareBox from "./TokenShareBox";
 import CampaignStatusSelect from "./CampaignStatusSelect";
 import CampaignIntegrationsCard from "./CampaignIntegrationsCard";
+import { isUploadDone } from "@/lib/seeding/uploadDone";
 import {
   FileQuestion,
   FileText,
@@ -52,7 +53,7 @@ export default async function CampaignDetailPage({
   const selectedIds = new Set(applicants.filter((a) => a.status === "selected").map((a) => a.id));
   const selectedCount = selectedIds.size;
   const completedUploads = seedingRecords.filter(
-    (s) => selectedIds.has(s.applicant_id) && (s.progress_stage === "업로드완료" || Boolean(s.upload_link))
+    (s) => selectedIds.has(s.applicant_id) && isUploadDone(s)
   ).length;
 
   const steps = [

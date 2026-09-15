@@ -12,7 +12,7 @@ import path from "path";
  *   SUPABASE_TEST_URL               테스트 프로젝트 API URL
  *   SUPABASE_TEST_SERVICE_ROLE_KEY  테스트 프로젝트 service_role 키 (데이터 시드·계정 생성)
  *   SUPABASE_TEST_DB_URL            테스트 프로젝트 Session pooler 주소 (truncate·마이그레이션)
- *   SUPABASE_TEST_ANON_KEY          테스트 프로젝트 anon 키 (로그인). **아직 .env.local 에 없다.**
+ *   SUPABASE_TEST_ANON_KEY          테스트 프로젝트 anon 키 (로그인). .env.local 과 CI Secrets 에 있다.
  *                                   없으면 service_role 키를 anon 자리에 대신 넣어 로그인시킨다.
  *                                   테스트 프로젝트 한정이고 키가 브라우저로 나가지는 않지만,
  *                                   운영과 같은 경로로 검증하려면 Supabase 대시보드

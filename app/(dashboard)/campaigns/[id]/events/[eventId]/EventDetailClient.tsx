@@ -56,6 +56,21 @@ export interface TemplateOption {
 
 const LONG_FIELDS = new Set(["행사개요", "프로그램", "운영목표", "타겟오디언스", "콘텐츠방향성", "월별계획"]);
 
+/**
+ * [정보 수정] 폼의 초기값을 지금 행사 값으로 만든다.
+ *
+ * 폼을 열 때마다 이 함수로 다시 깔아야 한다. 마운트 때 한 번만 채우면
+ * 고치다 취소한 값이 state 에 그대로 남아, 다음에 열 때 되살아나고 저장까지 된다.
+ */
+function infoFormOf(e: MarketingEvent) {
+  return {
+    name: e.name,
+    event_at: isoToKstLocalInput(e.event_at),
+    venue: e.venue || "",
+    memo: e.memo || "",
+  };
+}
+
 export default function EventDetailClient({
   campaign,
   event: initialEvent,
@@ -123,12 +138,19 @@ export default function EventDetailClient({
 
   // Header edit
   const [editingInfo, setEditingInfo] = useState(false);
-  const [infoForm, setInfoForm] = useState({
-    name: initialEvent.name,
-    event_at: isoToKstLocalInput(initialEvent.event_at),
-    venue: initialEvent.venue || "",
-    memo: initialEvent.memo || "",
-  });
+  const [infoForm, setInfoForm] = useState(() => infoFormOf(initialEvent));
+
+  // 폼이 열리는 순간(닫힘 → 열림) 지금 event 값으로 다시 깐다.
+  // 취소로 닫으면 state 에는 고치던 값이 남지만, 다음에 열 때 여기서 덮어쓰므로 되살아나지 않는다.
+  //
+  // effect 가 아니라 렌더 중에 맞춘다. 위 tabFrom·inviteesFrom 과 같은 방식이고,
+  // effect 로 하면 옛 값으로 한 번 그린 뒤 다시 그려 입력칸이 깜빡인다.
+  const [infoFormFrom, setInfoFormFrom] = useState(editingInfo);
+  if (infoFormFrom !== editingInfo) {
+    setInfoFormFrom(editingInfo);
+    if (editingInfo) setInfoForm(infoFormOf(event));
+  }
+
   const [savingInfo, setSavingInfo] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
 
@@ -152,7 +174,12 @@ export default function EventDetailClient({
 
   // Plan
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(initialPlan?.template_id || templates[0]?.id || "");
-  const selectedTemplate = templates.find((t) => t.id === selectedTemplateId) || templates[0];
+  // templates[0] 로 흘려보내지 않는다. 저장된 템플릿이 지워졌을 때 흘려보내면
+  // 드롭다운은 빈칸인데 아래 치환 항목은 다른 템플릿 것이 그려지고, 저장하면 고르지도 않은 템플릿으로 바뀐다.
+  // 못 찾으면 undefined 로 두어 저장·AI 버튼이 잠기게 하고, 아래에서 안내 문구를 띄운다.
+  const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
+  // 지워진 템플릿이 걸려 있는 상태. 템플릿이 아예 하나도 없는 경우와는 안내 문구가 다르다.
+  const templateMissing = templates.length > 0 && !selectedTemplate;
   const [fieldValues, setFieldValues] = useState<Record<string, string>>(
     initialPlan?.field_values || {
       브랜드명: campaign.company_name,
@@ -854,11 +881,19 @@ export default function EventDetailClient({
               onChange={(e) => { setSelectedTemplateId(e.target.value); setPlanDirty(true); }}
               className="w-full sm:w-96 px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-teal-500 font-semibold"
             >
+              {/* 지워진 템플릿이 걸려 있으면 드롭다운이 빈칸으로 보인다. 빈칸 대신 사정을 적어 둔다. */}
+              {templateMissing && <option value={selectedTemplateId}>(삭제된 템플릿 — 다시 골라주세요)</option>}
               {templates.map((t) => (
                 <option key={t.id} value={t.id}>{t.builtin ? "[기본] " : ""}{t.name} (치환 항목 {t.placeholders.length}개)</option>
               ))}
             </select>
             {templates.length === 0 && <p className="text-[11px] text-warn">행사용 PPT 템플릿이 없습니다. 설정 → 공유 PPT 템플릿 보관함에서 업로드하세요.</p>}
+            {templateMissing && (
+              <p className="text-[11px] text-warn">
+                이 운영안에 저장돼 있던 PPT 템플릿이 삭제되었습니다. 위에서 쓸 템플릿을 다시 고르면 저장할 수 있습니다.
+                입력해 둔 내용은 그대로 남아 있습니다.
+              </p>
+            )}
           </div>
 
           <div className="space-y-4 pt-3 border-t border-border">

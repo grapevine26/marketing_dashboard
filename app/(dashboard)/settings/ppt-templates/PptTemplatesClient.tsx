@@ -186,7 +186,13 @@ export default function PptTemplatesClient({
     setError(null);
     setNotice(null);
     if (replacement.size > MAX_PPT_TEMPLATE_BYTES) {
-      setError("템플릿 파일은 15MB 이하만 업로드할 수 있습니다.");
+      const msg = "템플릿 파일은 15MB 이하만 업로드할 수 있습니다.";
+      setError(msg);
+      // 이 return 은 setReplacingId 보다 앞이라 스피너조차 돌지 않는다. 게다가 메시지 상자는
+      // 페이지 맨 위에 있고 목록은 2열 그리드라 대부분 화면 밖이다. 토스트가 유일한 신호다.
+      toast.error(msg, {
+        description: `"${replacement.name}" 파일이 ${(replacement.size / (1024 * 1024)).toFixed(1)}MB 입니다.`,
+      });
       return;
     }
     setReplacingId(t.id);
@@ -194,6 +200,7 @@ export default function PptTemplatesClient({
       const prep = await safeCall(preparePptTemplateReplaceAction(t.id));
       if (!prep.ok) {
         setError(prep.error);
+        toast.error(prep.error || "파일 교체 준비에 실패했습니다.");
         return;
       }
 
@@ -206,7 +213,9 @@ export default function PptTemplatesClient({
             contentType: PPTX_MIME,
           });
         } catch (err) {
-          setError(`업로드에 실패했습니다. (${err instanceof Error ? err.message : String(err)})`);
+          const msg = `업로드에 실패했습니다. (${err instanceof Error ? err.message : String(err)})`;
+          setError(msg);
+          toast.error(msg);
           return;
         }
       } else {
@@ -216,6 +225,7 @@ export default function PptTemplatesClient({
         const up = await safeCall(uploadPptTemplateReplacementAction(fd));
         if (!up.ok) {
           setError(up.error);
+          toast.error(up.error || "파일 업로드에 실패했습니다.");
           return;
         }
       }
@@ -225,6 +235,7 @@ export default function PptTemplatesClient({
       );
       if (!res.ok) {
         setError(res.error);
+        toast.error(res.error || "파일 교체에 실패했습니다.");
         return;
       }
       setTemplates((prev) => prev.map((x) => (x.id === t.id ? res.data.template : x)));
@@ -232,6 +243,15 @@ export default function PptTemplatesClient({
         res.data.warning ||
           `파일을 교체했습니다. 감지된 치환 항목 ${res.data.template.placeholders.length}개. 이 템플릿을 쓰던 운영안은 그대로 유지됩니다.`
       );
+      // 성공해도 화면 밖 메시지 상자만 바뀌어 아무 일도 안 일어난 것처럼 보였다.
+      // 경고가 딸려 오면(치환 항목 미검출 등) 초록 대신 주황으로 띄워 그냥 지나치지 않게 한다.
+      if (res.data.warning) {
+        toast.warning(`"${t.name}" 파일을 교체했습니다.`, { description: res.data.warning });
+      } else {
+        toast.success(`"${t.name}" 파일을 교체했습니다.`, {
+          description: `감지된 치환 항목 ${res.data.template.placeholders.length}개. 이 템플릿을 쓰던 운영안은 그대로 유지됩니다.`,
+        });
+      }
     } finally {
       setReplacingId(null);
     }

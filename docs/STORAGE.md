@@ -101,7 +101,7 @@ Supabase 플랜에 따라 자동 백업이 없거나 보관 기간이 짧을 수
 ```bash
 npm run db:backup                            # 운영 전체를 .data/backups/supabase-<시각>.json 으로
 npm run db:backup -- --list                  # 받아둔 목록
-npm run db:backup -- --restore <파일> --yes   # 그 백업으로 되돌린다
+npm run db:backup -- --restore <파일> --prod --yes   # 그 백업으로 되돌린다
 npm run db:backup -- --test                  # 대상을 테스트 프로젝트로
 ```
 
@@ -121,7 +121,7 @@ Vercel 이 크론 요청에 `Authorization: Bearer <CRON_SECRET>` 을 붙여 보
 경로를 그대로 넘기면 된다.
 
 ```bash
-npm run db:backup -- --restore /path/to/supabase-20260914-073616.json --yes
+npm run db:backup -- --restore /path/to/supabase-20260914-073616.json --prod --yes
 ```
 
 크론이 만든 파일과 로컬 스크립트가 만든 파일은 형식이 같아서 서로 호환된다.
@@ -136,10 +136,10 @@ npm run db:backup -- --restore /path/to/supabase-20260914-073616.json --yes
 
 ```bash
 npm run db:backup -- --from <백업파일> --campaigns                   # 담긴 캠페인 목록
-npm run db:backup -- --from <백업파일> --campaign "캠페인명" --yes     # 그 캠페인만 복구
+npm run db:backup -- --from <백업파일> --campaign "캠페인명" --prod --yes     # 그 캠페인만 복구
 
 npm run db:backup -- --from <백업파일> --sns-accounts                # 담긴 SNS 계정 목록
-npm run db:backup -- --from <백업파일> --sns "브랜드명" --yes          # 그 계정만 복구
+npm run db:backup -- --from <백업파일> --sns "브랜드명" --prod --yes          # 그 계정만 복구
 ```
 
 딸린 것을 전부 되살린다.

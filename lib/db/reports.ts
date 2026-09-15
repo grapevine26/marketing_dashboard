@@ -22,6 +22,7 @@ import {
 } from "./mappers";
 import type { Applicant, Campaign, CampaignReport, ReportSnapshot, SeedingRecord } from "./types";
 import { nowIso, optionalText, requireText, ValidationError } from "./validation";
+import { isUploadDone } from "@/lib/seeding/uploadDone";
 
 // ---------- 조회 ----------
 
@@ -112,7 +113,7 @@ export function buildReportSnapshot(
       selectedCount: selected.length,
       reservedCount: applicants.filter((a) => a.status === "reserved").length,
       completedUploads: selectedSeeding.filter(
-        (s) => s.progress_stage === "업로드완료" || Boolean(s.upload_link)
+        (s) => isUploadDone(s)
       ).length,
       totalViews,
       totalEngagement,

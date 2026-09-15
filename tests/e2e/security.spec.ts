@@ -88,7 +88,10 @@ test.describe("정보 노출 및 접근 제어", () => {
 
     // 확장자만 png 인 가짜 파일은 거부
     await page.locator("input[type='file']").first().setInputFiles({ name: "fake.png", mimeType: "image/png", buffer: Buffer.from("MZ this is not a png") });
-    await expect(page.getByText(/파일 내용이 확장자와 다릅니다/)).toBeVisible();
+    // 같은 문구가 화면 배너와 토스트 두 곳에 뜬다(토스트는 모달에 가리지 않으려고 같이 띄운다).
+    // 둘 다 보이는 것이 맞으므로 각각을 따로 확인한다.
+    await expect(page.getByLabel("알림 메시지").getByText(/파일 내용이 확장자와 다릅니다/)).toBeVisible();
+    await expect(page.getByRole("main").getByText(/파일 내용이 확장자와 다릅니다/)).toBeVisible();
 
     // 승인 페이지에서도 토큰 붙은 URL로 보인다
     await page.getByRole("button", { name: "수정 저장" }).click();

@@ -351,6 +351,9 @@ export default function UsersClient({ initialUsers, currentUserId, myRole, invit
   const handleConfirm = async () => {
     if (!confirmState) return;
     const { kind, user } = confirmState;
+    // 확인 모달·서버 호출·낙관적 갱신이 모두 같은 값을 쓰게 한다.
+    // 낙관적 갱신에만 "staff" 를 박아두면 대표 관리자를 관리자로 내릴 때 화면이 잠깐 "직원"이 된다.
+    const demoteTo = confirmState.nextRole ?? "staff";
     setConfirmWorking(true);
     setConfirmError(null);
 
@@ -363,7 +366,7 @@ export default function UsersClient({ initialUsers, currentUserId, myRole, invit
         case "delete":
           return deleteUserAction(user.id);
         case "demote":
-          return setUserRoleAction(user.id, confirmState.nextRole ?? "staff");
+          return setUserRoleAction(user.id, demoteTo);
       }
     };
 
@@ -382,8 +385,8 @@ export default function UsersClient({ initialUsers, currentUserId, myRole, invit
       patchUser(user.id, { status: "blocked" });
       toast.info(`${user.display_name} 계정을 차단했습니다.`);
     } else {
-      patchUser(user.id, { role: "staff" });
-      toast.info(`${user.display_name}의 관리자 권한을 회수했습니다.`);
+      patchUser(user.id, { role: demoteTo });
+      toast.info(`${user.display_name}의 등급을 [${ROLE_LABELS[demoteTo]}](으)로 내렸습니다.`);
     }
     setConfirmState(null);
     router.refresh();

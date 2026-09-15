@@ -8,6 +8,7 @@ import { calculateDDay, ddayToneClass } from "@/lib/seeding/dday";
 import { updateSeedingRecordAction } from "./actions";
 import { Search, ExternalLink, Download, Loader2, FileSpreadsheet } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import { toast } from "@/components/Toast";
 
 type Patch = {
   progress_stage?: ProgressStage;
@@ -41,7 +42,14 @@ export default function SeedingSheetTable({
   const isShipping = campaign.campaign_type === "shipping";
   const stages = getStagesForType(campaign.campaign_type);
 
-  const handleUpdate = async (seedingId: string, patch: Patch) => {
+  /**
+   * 한 칸을 저장한다.
+   *
+   * revert: 실패했을 때 입력칸을 원래 값으로 되돌리는 함수.
+   * 이 표의 입력칸은 defaultValue 를 쓰는 비제어 입력이라, 저장이 거부돼도 DOM 에 값이 그대로 남아
+   * 저장된 것처럼 보인다(새로고침하면 사라진다). 실패하면 반드시 되돌려야 한다.
+   */
+  const handleUpdate = async (seedingId: string, patch: Patch, revert?: () => void) => {
     if (isReadOnly) return;
     setError(null);
     setSavingId(seedingId);
@@ -49,6 +57,9 @@ export default function SeedingSheetTable({
     setSavingId(null);
     if (!res.ok) {
       setError(res.error);
+      // 배너는 카드 맨 위에 있어 표 아래쪽을 편집 중이면 화면 밖이다. 토스트로도 알린다.
+      toast.error(res.error || "저장하지 못했습니다.");
+      revert?.();
       return;
     }
     const updated: SeedingRecord = res.data;
@@ -103,8 +114,18 @@ export default function SeedingSheetTable({
       placeholder={placeholder}
       disabled={r.id.startsWith("temp_")}
       onBlur={(e) => {
-        const n = Number(e.target.value);
-        if (n !== r[key]) handleUpdate(r.id, { [key]: n } as Patch);
+        const el = e.currentTarget;
+        const original = String(r[key] || 0);
+        const raw = el.value.trim();
+        // 빈 칸은 "안 바꿈"으로 본다. Number("") 은 0 이라, 그냥 넘기면 500 이던 조회수가
+        // 실수로 지우고 지나가는 것만으로 경고 없이 0 이 된다. 숫자칸에 글자를 넣어도 값은 "" 이 되므로
+        // 잘못 입력한 경우도 여기서 같이 걸린다.
+        if (raw === "") {
+          el.value = original;
+          return;
+        }
+        const n = Number(raw);
+        if (n !== r[key]) handleUpdate(r.id, { [key]: n } as Patch, () => { el.value = original; });
       }}
       className="w-20 px-2 py-1 rounded-lg bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500 font-mono tabular-nums"
     />
@@ -191,8 +212,10 @@ export default function SeedingSheetTable({
                         defaultValue={r.upload_deadline || ""}
                         disabled={r.id.startsWith("temp_")}
                         onBlur={(e) => {
-                          const v = e.target.value || null;
-                          if (v !== r.upload_deadline) handleUpdate(r.id, { upload_deadline: v });
+                          const el = e.currentTarget;
+                          const original = r.upload_deadline || "";
+                          const v = el.value || null;
+                          if (v !== r.upload_deadline) handleUpdate(r.id, { upload_deadline: v }, () => { el.value = original; });
                         }}
                         className="px-2 py-1 rounded-lg bg-surface border border-border text-text text-xs"
                       />
@@ -218,8 +241,10 @@ export default function SeedingSheetTable({
                       placeholder="https://..."
                       disabled={r.id.startsWith("temp_")}
                       onBlur={(e) => {
-                        const v = e.target.value.trim() || null;
-                        if (v !== r.upload_link) handleUpdate(r.id, { upload_link: v });
+                        const el = e.currentTarget;
+                        const original = r.upload_link || "";
+                        const v = el.value.trim() || null;
+                        if (v !== r.upload_link) handleUpdate(r.id, { upload_link: v }, () => { el.value = original; });
                       }}
                       className="w-full px-2.5 py-1.5 rounded-lg bg-surface border border-border text-text text-xs focus:outline-none focus:border-blue-500"
                     />
@@ -246,8 +271,10 @@ export default function SeedingSheetTable({
                     placeholder="메모 (송장번호, 특이사항 등)"
                     disabled={r.id.startsWith("temp_")}
                     onBlur={(e) => {
-                      const v = e.target.value.trim() || null;
-                      if (v !== r.notes) handleUpdate(r.id, { notes: v });
+                      const el = e.currentTarget;
+                      const original = r.notes || "";
+                      const v = el.value.trim() || null;
+                      if (v !== r.notes) handleUpdate(r.id, { notes: v }, () => { el.value = original; });
                     }}
                     className="w-full px-2.5 py-1.5 rounded-lg bg-surface border border-border text-text text-xs focus:outline-none focus:border-blue-500"
                   />
@@ -310,8 +337,10 @@ export default function SeedingSheetTable({
                         defaultValue={r.upload_deadline || ""}
                         disabled={r.id.startsWith("temp_")}
                         onBlur={(e) => {
-                          const v = e.target.value || null;
-                          if (v !== r.upload_deadline) handleUpdate(r.id, { upload_deadline: v });
+                          const el = e.currentTarget;
+                          const original = r.upload_deadline || "";
+                          const v = el.value || null;
+                          if (v !== r.upload_deadline) handleUpdate(r.id, { upload_deadline: v }, () => { el.value = original; });
                         }}
                         className="px-2 py-1 rounded-lg bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500"
                       />
@@ -335,8 +364,10 @@ export default function SeedingSheetTable({
                         placeholder="https://..."
                         disabled={r.id.startsWith("temp_")}
                         onBlur={(e) => {
-                          const v = e.target.value.trim() || null;
-                          if (v !== r.upload_link) handleUpdate(r.id, { upload_link: v });
+                          const el = e.currentTarget;
+                          const original = r.upload_link || "";
+                          const v = el.value.trim() || null;
+                          if (v !== r.upload_link) handleUpdate(r.id, { upload_link: v }, () => { el.value = original; });
                         }}
                         className="w-36 px-2 py-1 rounded-lg bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500"
                       />
@@ -362,8 +393,10 @@ export default function SeedingSheetTable({
                         placeholder="송장번호, 특이사항"
                         disabled={r.id.startsWith("temp_")}
                         onBlur={(e) => {
-                          const v = e.target.value.trim() || null;
-                          if (v !== r.notes) handleUpdate(r.id, { notes: v });
+                          const el = e.currentTarget;
+                          const original = r.notes || "";
+                          const v = el.value.trim() || null;
+                          if (v !== r.notes) handleUpdate(r.id, { notes: v }, () => { el.value = original; });
                         }}
                         className="w-36 px-2 py-1 rounded-lg bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500"
                       />

@@ -18,9 +18,9 @@ import { BASE_URL, OWNER_STATE_FILE, PORT, loadTestEnv } from "./tests/e2e/env";
  * 화면이 /login 으로 튕기면서 관계없는 테스트가 무더기로 깨진다. 원인을 찾기 아주 어려운 모양이라
  * CI 에서도 needs 와 같은 concurrency group 으로 막아 뒀다(.github/workflows/ci.yml).
  *
- * 필요한 환경변수는 tests/e2e/env.ts 상단 주석 참고. 특히 **SUPABASE_TEST_ANON_KEY** 는
- * .env.local 에 아직 없다. 없으면 service_role 키를 anon 자리에 넣어 로그인시키므로 돌아가긴
- * 하지만, 운영과 같은 경로로 검증하려면 테스트 프로젝트 anon 키를 넣어 두는 것이 맞다.
+ * 필요한 환경변수는 tests/e2e/env.ts 상단 주석 참고. 특히 **SUPABASE_TEST_ANON_KEY** 가
+ * 없으면 service_role 키가 anon 자리에 들어간다. 그래도 테스트는 전부 통과하므로 **어긋난 줄
+ * 모른 채 운영과 다른 권한으로 검증하게 된다.** .env.local 과 CI Secrets 양쪽에 넣어 둘 것.
  */
 const testEnv = loadTestEnv();
 

@@ -4,7 +4,7 @@
  *
  *   npm run db:backup                          → 전체 테이블을 JSON 한 파일로 내려받는다
  *   npm run db:backup -- --list                → 받아둔 백업 목록 (.data/backups/)
- *   npm run db:backup -- --restore <파일> --yes → 그 백업으로 되돌린다 (현재 데이터를 전부 지운다)
+ *   npm run db:backup -- --restore <파일> --prod --yes → 그 백업으로 되돌린다 (현재 데이터를 전부 지운다)
  *
  * 크론이 매일 Vercel Blob(backups/)에 쌓는 백업을 로컬로 가져오기 (BLOB_READ_WRITE_TOKEN 필요):
  *   npm run db:backup -- --list-remote         → Blob 에 있는 백업 목록 (이름·크기·시각)

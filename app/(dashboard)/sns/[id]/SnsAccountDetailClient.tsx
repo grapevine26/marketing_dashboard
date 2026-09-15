@@ -259,10 +259,16 @@ export default function SnsAccountDetailClient({
     setReissuingToken(false);
     if (!res.ok) {
       setError(res.error);
+      // 재발급 확인창은 fixed inset-0 z-50 로 화면을 덮는다. error 배너는 그 아래 일반 흐름에
+      // 있어서 모달에 가려 보이지 않는다. z-[9999] 인 토스트로 같이 알린다.
+      toast.error(res.error || "링크 재발급에 실패했습니다.");
       return;
     }
     setAccount(res.data);
     setNotice(`'${confirmTokenTarget.title}' 링크가 새로 발급되었습니다. 이전 링크는 즉시 차단되었습니다.`);
+    toast.success(`'${confirmTokenTarget.title}' 링크를 새로 발급했습니다.`, {
+      description: "이전 링크는 즉시 차단됩니다. 광고주에게 새 링크를 다시 전달해주세요.",
+    });
     setConfirmTokenTarget(null);
     router.refresh();
     setTimeout(() => setNotice(null), 4000);
@@ -413,6 +419,9 @@ export default function SnsAccountDetailClient({
       const res = await safeUpload(editingId, file);
       if (!res.ok) {
         setError(res.error);
+        // 파일 선택은 콘텐츠 모달(fixed inset-0 z-50) 안에서 일어나는데 error 배너는 모달 밖이라
+        // 아예 안 보인다. 50MB 초과·형식 불가가 조용히 묻히던 자리다.
+        toast.error(`"${file.name}" 업로드에 실패했습니다.`, { description: res.error });
       } else {
         setContents((prev) =>
           prev.map((c) =>
@@ -431,6 +440,7 @@ export default function SnsAccountDetailClient({
   };
 
   // 삭제 중인 대상의 id. 같은 항목을 두 번 지우면 두 번째가 "이미 삭제됨" 오류로 돌아온다.
+  // 이 값으로 삭제 버튼을 잠그고 스피너로 바꾼다 (콘텐츠 목록·모달의 첨부 목록 양쪽).
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDeleteMedia = async (contentId: string, attachmentId: string) => {
@@ -439,7 +449,12 @@ export default function SnsAccountDetailClient({
     setDeletingId(attachmentId);
     const res = await safeCall(deleteSnsMediaAction(contentId, attachmentId, account.id));
     setDeletingId(null);
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) {
+      setError(res.error);
+      // 삭제 버튼도 모달 안에 있다. 배너만 세우면 지워지지 않은 채로 아무 말이 없다.
+      toast.error(res.error || "첨부 삭제에 실패했습니다.");
+      return;
+    }
     setContents((prev) =>
       prev.map((c) =>
         c.id === contentId
@@ -447,11 +462,16 @@ export default function SnsAccountDetailClient({
           : c
       )
     );
+    toast.success("첨부를 삭제했습니다.");
   };
 
   const handleAiCaption = async () => {
     if (!form.title.trim()) {
-      setError("콘텐츠 제목/주제를 먼저 입력해주세요.");
+      const msg = "콘텐츠 제목/주제를 먼저 입력해주세요.";
+      setError(msg);
+      // AI 버튼은 콘텐츠 모달 안에 있고 error 배너는 모달 뒤에 깔린다.
+      // 토스트가 없으면 버튼을 눌러도 정말 아무 반응이 없는 것처럼 보인다.
+      toast.error(msg);
       return;
     }
     setLoadingAi(true);
@@ -464,9 +484,15 @@ export default function SnsAccountDetailClient({
       mediaNote: form.media_note || null,
     }));
     setLoadingAi(false);
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) {
+      setError(res.error);
+      toast.error(res.error || "AI 캡션 생성에 실패했습니다.");
+      return;
+    }
     if (res.data.fallback) {
       setNotice("AI 제안 실패 — 직접 입력해주세요.");
+      // 폴백은 값이 하나도 안 채워지는 실패다. notice 배너만으로는 모달 안에서 확인할 길이 없다.
+      toast.warning("AI 제안 실패 — 캡션을 직접 입력해주세요.");
       return;
     }
     setForm((prev) => ({ ...prev, caption: res.data.caption, hashtags: res.data.hashtags }));
@@ -508,11 +534,16 @@ export default function SnsAccountDetailClient({
         return setError(res.error);
       }
       let createdContent = res.data;
+      // 어떤 첨부가 실패했는지 모아 둔다. 콘텐츠 자체는 이미 만들어졌으므로 등록을 되돌리지는
+      // 않지만, 실패가 하나라도 있으면 아래에서 초록 성공 토스트 대신 경고를 띄운다.
+      const failedFiles: string[] = [];
       if (selectedFiles.length > 0) {
         for (const file of selectedFiles) {
           const upRes = await safeUpload(createdContent.id, file);
           if (!upRes.ok) {
+            failedFiles.push(file.name);
             setError(`"${file.name}" 첨부 실패: ${upRes.error}`);
+            toast.error(`"${file.name}" 첨부에 실패했습니다.`, { description: upRes.error });
           } else {
             createdContent = {
               ...createdContent,
@@ -523,7 +554,14 @@ export default function SnsAccountDetailClient({
       }
       setSaving(false);
       setContents((prev) => [createdContent, ...prev]);
-      toast.success("새 콘텐츠가 등록되었습니다.");
+      // 첨부가 실패했는데도 "등록되었습니다" 초록 토스트가 같이 뜨면 다 잘된 줄 알고 넘어간다.
+      if (failedFiles.length > 0) {
+        toast.warning(`콘텐츠는 등록됐지만 첨부 ${failedFiles.length}개가 실패했습니다.`, {
+          description: `${failedFiles.join(", ")} — 수정 화면에서 다시 올려주세요.`,
+        });
+      } else {
+        toast.success("새 콘텐츠가 등록되었습니다.");
+      }
     }
     setModalOpen(false);
     router.refresh();
@@ -613,7 +651,11 @@ export default function SnsAccountDetailClient({
         post_url: input.postUrl.trim() || null,
       };
     } catch (err) {
-      setError((err as Error).message);
+      const msg = (err as Error).message;
+      setError(msg);
+      // 성과 입력칸은 목록 아래쪽이라 화면 맨 위 배너는 스크롤 밖이다.
+      // 저장 버튼을 눌러도 반응이 없는 것처럼 보이던 자리다.
+      toast.error(msg);
       return;
     }
     setSavingPerfId(c.id);
@@ -1162,7 +1204,17 @@ export default function SnsAccountDetailClient({
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button type="button" onClick={() => openEdit(c)} className="px-3 py-1.5 rounded-lg bg-surface2 hover:bg-surface3 border border-border text-text text-xs font-semibold inline-flex items-center gap-1"><Pencil className="w-3 h-3" /> 수정</button>
-                      <button type="button" onClick={() => handleDeleteContent(c)} className="p-1.5 rounded-lg text-text-muted hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
+                      {/* 삭제 중에는 스피너로 바꾸고 잠근다. 핸들러의 중복 삭제 가드(deletingId)가
+                          화면에 드러나지 않아, 눌러도 아무 변화가 없는 것처럼 보이던 자리다. */}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteContent(c)}
+                        disabled={deletingId !== null}
+                        title={deletingId === c.id ? "삭제 중..." : "삭제"}
+                        className="p-1.5 rounded-lg text-text-muted hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {deletingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                      </button>
                     </div>
                   </div>
 
@@ -1422,10 +1474,11 @@ export default function SnsAccountDetailClient({
                           <button
                             type="button"
                             onClick={() => handleDeleteMedia(editingId, m.id)}
-                            className="text-red-400 hover:text-red-300 p-0.5 rounded hover:bg-red-500/10"
-                            title="삭제"
+                            disabled={deletingId !== null}
+                            className="text-red-400 hover:text-red-300 p-0.5 rounded hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                            title={deletingId === m.id ? "삭제 중..." : "삭제"}
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            {deletingId === m.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                           </button>
                         </div>
                       </div>

@@ -79,6 +79,38 @@ function formatFollowers(count?: number) {
   return count.toLocaleString();
 }
 
+/**
+ * 치환된 글을 **다시 템플릿으로 되돌린다.**
+ *
+ * 안내문 모달의 textarea 에는 `{{이름}}` 이 홍길동으로 바뀐 **완성된 메시지**가 들어 있다
+ * (그대로 복사해 보내라고 그렇게 만든다). 그런데 [이 캠페인의 기본 템플릿으로 저장] 이
+ * 그 글을 **그대로** 템플릿으로 저장했다. 그래서 한 번 저장하면 홍길동의 이름·SNS·
+ * **연락처·배송주소**가 캠페인 템플릿에 박제되고, 그 다음부터 **모든 지원자가 홍길동의
+ * 주소와 전화번호가 적힌 안내문을 받았다.** `{{이름}}` 은 영영 돌아오지 않았고, 이 모달이
+ * 템플릿을 고칠 수 있는 유일한 화면이라 DB 를 직접 만지지 않으면 되돌릴 수도 없었다.
+ *
+ * 그래서 저장 직전에 치환을 거꾸로 돌린다. 무엇을 무엇으로 바꿨는지 우리가 알고 있으므로
+ * 정확히 되돌릴 수 있다. 긴 값부터 바꾼다 — 짧은 값이 긴 값의 일부일 때 먼저 먹어버리면
+ * 엉뚱하게 잘린다. 한 글자짜리 값은 건너뛴다(성이 한 글자면 본문의 모든 같은 글자가
+ * `{{이름}}` 으로 바뀐다).
+ */
+function depopulateTemplate(text: string, app: Applicant, camp: PublicCampaign): string {
+  const pairs: [string, string][] = [
+    [app.name, "{{이름}}"],
+    [app.sns_link, "{{SNS}}"],
+    [app.contact, "{{연락처}}"],
+    [app.nationality, "{{국적}}"],
+    [camp.company_name, "{{브랜드명}}"],
+    [camp.name, "{{캠페인명}}"],
+    [app.shipping_address || "", "{{배송주소}}"],
+    [app.visit_schedule || "", "{{방문일정}}"],
+  ];
+  return pairs
+    .filter(([v]) => v && v.length > 1)
+    .sort((a, b) => b[0].length - a[0].length)
+    .reduce((acc, [value, token]) => acc.split(value).join(token), text);
+}
+
 function populateTemplate(tmpl: string, app: Applicant, camp: PublicCampaign) {
   return tmpl
     .replace(/\{\{이름\}\}/g, app.name)
@@ -159,8 +191,11 @@ export default function ApplicantTable({
   };
 
   const handleSaveTemplate = async () => {
+    if (!msgModalApp) return;
     setSavingTemplate(true);
-    const updated = { ...templates, [msgType]: msgContent };
+    // **치환을 되돌려 저장한다.** 화면의 글은 이 지원자용으로 완성된 메시지라,
+    // 그대로 저장하면 그 사람의 연락처·배송주소가 캠페인 템플릿에 박혀 다음 사람에게 간다.
+    const updated = { ...templates, [msgType]: depopulateTemplate(msgContent, msgModalApp, campaign) };
     const res = await safeCall(saveCampaignMessageTemplatesAction({
       campaignId: campaign.id,
       templates: updated,
@@ -168,8 +203,11 @@ export default function ApplicantTable({
     setSavingTemplate(false);
     if (res.ok) {
       setTemplates(updated);
+      // 저장한 것은 치환을 되돌린 **템플릿**이다. 화면은 다시 이 지원자용으로 채워 보여준다.
+      // 이렇게 해야 사용자가 "내가 고친 문구가 템플릿으로 들어갔다" 를 눈으로 확인할 수 있다.
+      setMsgContent(populateTemplate(updated[msgType] ?? msgContent, msgModalApp, campaign));
       setSavedTemplate(true);
-      toast.success("안내 메시지 템플릿이 저장되었습니다.");
+      toast.success("안내 메시지 템플릿이 저장되었습니다. (이름·연락처 자리는 다시 채워집니다)");
       setTimeout(() => setSavedTemplate(false), 2000);
     } else {
       toast.error(res.error || "템플릿 저장에 실패했습니다.");

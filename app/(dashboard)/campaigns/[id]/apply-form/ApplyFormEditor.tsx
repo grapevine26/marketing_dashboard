@@ -53,6 +53,21 @@ export default function ApplyFormEditor({
     setIntroText(res.data.text);
   };
 
+  /**
+   * 선택지 입력칸에 **친 그대로** 담아두는 글자.
+   *
+   * 전에는 입력칸 값을 `options.join(", ")` 으로 만들고, 칠 때마다 쉼표로 쪼개
+   * `filter(Boolean)` 으로 빈 조각을 버렸다. 그래서 `건성` 까지 치고 쉼표를 누르면
+   * `["건성", ""]` → 빈 조각이 버려짐 → `["건성"]` → 다시 `"건성"` 이 되어
+   * **화면에서 쉼표가 사라졌다.** 제어 입력이라 React 가 DOM 값을 되돌리기 때문이다.
+   * 결과적으로 **선택지를 두 개 이상 만들 수가 없었다**(다른 데서 통째로 붙여넣으면
+   * 되기 때문에 만든 사람은 동작한다고 착각한다).
+   *
+   * 그래서 보여주는 글자와 저장할 배열을 분리한다. 화면은 사람이 친 것을 그대로 보여주고,
+   * 배열은 거기서 따로 뽑는다. 아직 아무것도 안 친 질문은 저장된 값을 보여준다.
+   */
+  const [optionText, setOptionText] = useState<Record<string, string>>({});
+
   const updateQuestion = (id: string, patch: Partial<CustomQuestion>) => {
     setCustomQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)));
   };
@@ -252,10 +267,14 @@ export default function ApplyFormEditor({
                   {q.type === "select" && (
                     <input
                       type="text"
-                      value={(q.options || []).join(", ")}
-                      onChange={(e) =>
-                        updateQuestion(q.id, { options: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })
-                      }
+                      value={optionText[q.id] ?? (q.options || []).join(", ")}
+                      onChange={(e) => {
+                        // 친 글자를 **그대로** 들고 있는다. 저장용 배열은 따로 만든다.
+                        setOptionText((prev) => ({ ...prev, [q.id]: e.target.value }));
+                        updateQuestion(q.id, {
+                          options: e.target.value.split(",").map((o) => o.trim()).filter(Boolean),
+                        });
+                      }}
                       placeholder="선택지를 쉼표로 구분해 입력 (예: 건성, 지성, 복합성, 민감성)"
                       className="w-full ml-6 px-3 py-1.5 rounded-lg bg-surface border border-border text-text text-xs focus:outline-none focus:border-blue-500"
                       style={{ width: "calc(100% - 1.5rem)" }}

@@ -111,7 +111,9 @@ test.describe("C. SNS 운영", () => {
     await withServerAction(page, () => finalCard.getByRole("combobox").first().selectOption("posted"));
     await finalCard.getByPlaceholder("조회수").fill("-5");
     await finalCard.getByRole("button", { name: "성과 저장" }).click();
-    await expect(page.getByText(/조회수은\(는\) 0 이상의 정수여야 합니다/)).toBeVisible();
+    // 배너와 토스트 두 곳에 뜬다. 성과 입력칸이 목록 아래라 배너가 스크롤 밖이어서 토스트를 같이 띄운다.
+    await expect(page.getByLabel("알림 메시지").getByText(/조회수은\(는\) 0 이상의 정수여야 합니다/)).toBeVisible();
+    await expect(page.getByRole("main").getByText(/조회수은\(는\) 0 이상의 정수여야 합니다/)).toBeVisible();
     await finalCard.getByPlaceholder("조회수").fill("1500");
     await finalCard.getByPlaceholder("좋아요").fill("20");
     await finalCard.getByRole("button", { name: "성과 저장" }).click();
