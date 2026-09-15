@@ -24,6 +24,8 @@ export async function submitPublicPreSurveyAction(params: {
 
   const campaign = await getCampaignByToken("pre_survey", params.token);
   if (!campaign) return fail("유효하지 않은 사전조사 링크입니다.");
+  // 끝난 뒤에는 옛 링크로 고쳐 쓰지 못하게 막는다. 화면과 같은 기준이다.
+  if (campaign.status === "completed") return fail("종료된 캠페인입니다. 담당자에게 문의해주세요.");
 
   const res = await runAction(async () => {
     const r = await upsertPreSurveyResponse({
@@ -59,6 +61,8 @@ export async function getPublicAiAssistAction(params: {
 
   const campaign = await getCampaignByToken("pre_survey", params.token);
   if (!campaign) return fail("유효하지 않은 사전조사 링크입니다.");
+  // 끝난 뒤에는 옛 링크로 고쳐 쓰지 못하게 막는다. 화면과 같은 기준이다.
+  if (campaign.status === "completed") return fail("종료된 캠페인입니다. 담당자에게 문의해주세요.");
   const questions = await getPreSurveyQuestionsForCampaign(campaign.id);
   const question = questions.find((q) => q.id === params.questionId);
   if (!question) return fail("질문을 찾을 수 없습니다.");

@@ -23,6 +23,8 @@ export async function changeApplicantStatusByTokenAction(params: {
   return runAction(async () => {
     const campaign = await getCampaignByToken("applicants_share", params.token);
     if (!campaign) throw new ValidationError("유효하지 않은 공유 링크입니다. 담당자에게 새 링크를 요청해주세요.");
+  // 끝난 뒤에는 옛 링크로 고쳐 쓰지 못하게 막는다. 화면과 같은 기준이다.
+    if (campaign.status === "completed") throw new ValidationError("종료된 캠페인입니다. 담당자에게 문의해주세요.");
 
     const applicant = await getApplicantById(params.applicantId);
     if (!applicant || applicant.campaign_id !== campaign.id) throw new ValidationError(APPLICANT_NOT_FOUND);

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import ClosedLinkNotice from "@/components/ClosedLinkNotice";
 import { getSnsAccountByToken, getSnsIntakeQuestionsForAccount, getSnsIntakeResponse } from "@/lib/db";
 import { toPublicSnsAccount } from "@/lib/db/types";
 import SnsIntakeFormClient from "./SnsIntakeFormClient";
@@ -15,6 +16,8 @@ export default async function SnsIntakePublicPage({
   const { token } = await params;
   const account = await getSnsAccountByToken("intake", token);
   if (!account) notFound();
+  // 계약이 끝나면 공유 링크도 닫는다. 끝난 뒤에도 옛 링크가 고객사 데이터를 계속 내보내면 안 된다.
+  if (account.status === "ended") return <ClosedLinkNotice what="계약" />;
 
   const [questions, existingResponse] = await Promise.all([
     getSnsIntakeQuestionsForAccount(account.id),

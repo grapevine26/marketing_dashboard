@@ -124,11 +124,16 @@ export default function SnsAccountDetailClient({
   const [activeTab, setActiveTab] = useState<"calendar" | "list" | "intake">(initialTab || "calendar");
   const [intakeSubTab, setIntakeSubTab] = useState<"response" | "questions">("response");
 
-  useEffect(() => {
-    if (initialTab) {
-      setActiveTab(initialTab);
-    }
-  }, [initialTab]);
+  // 서버가 새 값을 내려주면 화면 상태를 다시 맞춘다.
+  //
+  // effect 가 아니라 렌더 중에 맞춘다. React 문서가 "props 가 바뀔 때 state 를 되돌리는"
+  // 경우에 권하는 방식이다. effect 로 하면 옛 값으로 한 번 그린 뒤 다시 그려 깜빡인다.
+  // 비교 대상을 따로 두는 이유는, 사용자가 직접 바꾼 값을 서버 값으로 되돌리지 않기 위해서다.
+  const [tabFrom, setTabFrom] = useState(initialTab);
+  if (tabFrom !== initialTab) {
+    setTabFrom(initialTab);
+    if (initialTab) setActiveTab(initialTab);
+  }
 
   useEffect(() => {
     if (highlightContentId && activeTab === "list") {

@@ -37,6 +37,8 @@ export async function submitApplicantAction(params: {
 
   const campaign = await getCampaignByToken("apply_form", params.token);
   if (!campaign) return fail("유효하지 않은 지원 링크입니다.");
+  // 끝난 뒤에는 옛 링크로 고쳐 쓰지 못하게 막는다. 화면과 같은 기준이다.
+  if (campaign.status === "completed") return fail("종료된 캠페인입니다. 담당자에게 문의해주세요.");
 
   const res = await runAction(async () => {
     const applicant = await createApplicant({

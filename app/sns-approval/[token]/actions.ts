@@ -16,6 +16,8 @@ export async function reviewSnsContentByTokenAction(data: {
 }): Promise<ActionResult<{ changed: boolean; status: string }>> {
   const account = await getSnsAccountByToken("approval", data.token);
   if (!account) return fail("유효하지 않은 승인 링크입니다.");
+  // 끝난 뒤에는 옛 링크로 고쳐 쓰지 못하게 막는다. 화면과 같은 기준이다.
+  if (account.status === "ended") return fail("종료된 계약입니다. 담당자에게 문의해주세요.");
   if (data.decision === "request_changes" && !data.comment?.trim()) {
     return fail("수정 요청 사항을 입력해주세요.");
   }

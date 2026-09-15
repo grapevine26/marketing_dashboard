@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import ClosedLinkNotice from "@/components/ClosedLinkNotice";
 import { getCampaignByToken, getCampaignFormConfig } from "@/lib/db";
 import { toPublicCampaign } from "@/lib/db/types";
 import ApplyPublicForm from "./ApplyPublicForm";
@@ -14,6 +15,9 @@ export default async function PublicApplyPage({
   const { token } = await params;
   const campaign = await getCampaignByToken("apply_form", token);
   if (!campaign) notFound();
+  // 캠페인이 끝나면 공유 링크도 닫는다. 끝난 뒤에도 옛 링크가 고객사 데이터를 계속 내보내면 안 된다.
+  // 다시 열어야 하면 대시보드에서 상태를 되돌리면 된다.
+  if (campaign.status === "completed") return <ClosedLinkNotice what="캠페인" />;
 
   const formConfig = await getCampaignFormConfig(campaign.id);
 

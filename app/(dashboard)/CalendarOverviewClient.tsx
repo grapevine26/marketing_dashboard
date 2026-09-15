@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useMounted } from "@/components/useMounted";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import type { UnifiedCalendarItem } from "@/lib/overview/collect";
@@ -187,13 +188,9 @@ export default function CalendarOverviewClient({
 }) {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"calendar" | "agenda">("calendar");
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const [year, month] = currentMonth.split("-").map(Number);
   const selectedDayItems = selectedDay ? monthItems.filter((i) => i.dateStr === selectedDay) : [];
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // 아젠다 목록 뷰를 위해 날짜별 정렬 및 그룹핑
   const sortedMonthItems = [...monthItems].sort((a, b) => a.dateStr.localeCompare(b.dateStr));

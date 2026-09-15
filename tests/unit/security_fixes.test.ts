@@ -1,4 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+// 서버 액션은 저장 뒤 화면 캐시를 비우는데, 그건 요청 안에서만 되는 일이라 테스트에서는 터진다.
+// 우리가 확인하려는 것은 캐시가 아니라 "끝난 캠페인이면 막히는가" 이므로 이 부분만 비워 둔다.
+vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {} }));
 import { validateWebhookUrl, isDiscordWebhook, sendWebhookNotification } from "@/lib/notifications/webhook";
 import { matchesMediaSignature, createCampaign, updateCampaignWebhookUrl, ValidationError } from "@/lib/db";
 import { hasTestDb } from "./test-db";
@@ -139,4 +143,72 @@ describe("광고주 공유 관리시트에서 지우는 값", () => {
     expect(both).not.toContain("테헤란로");
     expect(both).not.toContain("010-1234-5678");
   });
+});
+
+describe.skipIf(!hasTestDb)("끝난 캠페인·계약의 공개 링크", () => {
+  it("캠페인을 종료하면 공유 링크로 더 이상 고칠 수 없다", async () => {
+    const { createCampaign, updateCampaign } = await import("@/lib/db/campaigns");
+    const { submitApplicantAction } = await import("@/app/apply/[token]/actions");
+
+    const campaign = await createCampaign({
+      name: "종료 확인용",
+      company_name: "브랜드",
+      campaign_type: "shipping",
+    });
+
+    const apply = {
+      token: campaign.apply_form_token,
+      name: "홍길동",
+      nationality: "대한민국",
+      contact: "010-1111-2222",
+      sns_link: "https://instagram.com/probe",
+      shipping_address: "서울시 1",
+      privacy_agreed: true,
+      secondary_use_agreed: false,
+      custom_answers: {},
+    };
+
+    // 진행 중에는 지원이 된다.
+    const before = await submitApplicantAction(apply);
+    expect(before.ok).toBe(true);
+
+    await updateCampaign(campaign.id, { status: "completed" });
+
+    // 끝나면 같은 링크로 더 이상 받지 않는다. 링크는 살아 있지만 대상이 닫혔다.
+    const after = await submitApplicantAction({ ...apply, sns_link: "https://instagram.com/probe2" });
+    expect(after.ok).toBe(false);
+    if (!after.ok) expect(after.error).toMatch(/종료된 캠페인/);
+  }, 30_000);
+
+  it("계약이 끝난 SNS 계정은 광고주가 시안을 승인할 수 없다", async () => {
+    const { createSnsAccount, updateSnsAccount, createSnsContent } = await import("@/lib/db/sns");
+    const { reviewSnsContentByTokenAction } = await import("@/app/sns-approval/[token]/actions");
+
+    const account = await createSnsAccount({
+      company_name: "브랜드",
+      platform: "instagram",
+      handle: "brand",
+      starts_on: null,
+      ends_on: null,
+    });
+    const content = await createSnsContent({
+      account_id: account.id,
+      title: "9월 1주차",
+      scheduled_on: null,
+      assignee: null,
+      caption: null,
+      hashtags: null,
+      media_note: null,
+    });
+    await updateSnsAccount(account.id, { status: "ended" });
+
+    const res = await reviewSnsContentByTokenAction({
+      token: account.approval_token,
+      accountId: account.id,
+      contentId: content.id,
+      decision: "approve",
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/종료된 계약/);
+  }, 30_000);
 });

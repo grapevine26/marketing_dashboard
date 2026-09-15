@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { useMounted } from "./useMounted";
 import { createPortal } from "react-dom";
 import { Download, Monitor, Smartphone, X, Check } from "lucide-react";
 
@@ -9,25 +10,41 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+/**
+ * 지금 앱 창(독립 실행형)으로 보고 있는가.
+ *
+ * 브라우저가 알려주는 값이라 우리 상태가 아니다. 그래서 effect 로 읽어 상태에 옮기지 않고
+ * useSyncExternalStore 로 그때그때 묻는다. 설치 직후 앱 창으로 전환되는 순간에도
+ * 바로 반영된다(전에는 새로고침해야 사라졌다).
+ */
+function standaloneQuery(): MediaQueryList {
+  return window.matchMedia("(display-mode: standalone)");
+}
+
+function subscribeStandalone(onChange: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const mq = standaloneQuery();
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+
+function getStandalone(): boolean {
+  if (typeof window === "undefined") return false;
+  // iOS 사파리는 display-mode 대신 navigator.standalone 으로 알려준다.
+  const iosStandalone = (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+  return standaloneQuery().matches || iosStandalone;
+}
+
+const getStandaloneOnServer = () => false;
+
 export default function InstallAppButton() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isStandalone, setIsStandalone] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [installed, setInstalled] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
+  const isStandalone = useSyncExternalStore(subscribeStandalone, getStandalone, getStandaloneOnServer);
 
   useEffect(() => {
-    setMounted(true);
-    // 이미 독립 실행형 PWA로 실행 중인지 확인
-    if (
-      typeof window !== "undefined" &&
-      (window.matchMedia("(display-mode: standalone)").matches ||
-        (window.navigator as unknown as { standalone?: boolean }).standalone === true)
-    ) {
-      setIsStandalone(true);
-      return;
-    }
-
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);

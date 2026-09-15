@@ -23,6 +23,8 @@ export async function submitSnsIntakeAction(data: {
 
   const account = await getSnsAccountByToken("intake", data.token);
   if (!account) return fail("유효하지 않은 설문 링크입니다.");
+  // 끝난 뒤에는 옛 링크로 고쳐 쓰지 못하게 막는다. 화면과 같은 기준이다.
+  if (account.status === "ended") return fail("종료된 계약입니다. 담당자에게 문의해주세요.");
 
   const res = await runAction(async () => {
     const r = await saveSnsIntakeResponse({ account_id: account.id, answers: data.answers });
@@ -53,6 +55,8 @@ export async function assistSnsIntakeAction(data: {
 
   const account = await getSnsAccountByToken("intake", data.token);
   if (!account) return fail("유효하지 않은 설문 링크입니다.");
+  // 끝난 뒤에는 옛 링크로 고쳐 쓰지 못하게 막는다. 화면과 같은 기준이다.
+  if (account.status === "ended") return fail("종료된 계약입니다. 담당자에게 문의해주세요.");
   const questions = await getSnsIntakeQuestionsForAccount(account.id);
   const question = questions.find((q) => q.id === data.questionId);
   if (!question) return fail("질문을 찾을 수 없습니다.");

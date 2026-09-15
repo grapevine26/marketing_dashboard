@@ -34,6 +34,12 @@ export async function GET(request: NextRequest) {
     return new NextResponse("Campaign not found", { status: 404 });
   }
 
+  // 토큰(광고주 공유 링크)으로 받는 경우, 캠페인이 끝났으면 파일도 주지 않는다.
+  // 화면은 닫고 파일은 열어 두면 파일이 곧 우회 경로가 된다.
+  if (token && campaign.status === "completed") {
+    return new NextResponse("종료된 캠페인입니다.", { status: 403 });
+  }
+
   const [applicants, formConfig] = await Promise.all([
     getApplicantsByCampaignId(campaign.id),
     getFormConfig(campaign.id),
