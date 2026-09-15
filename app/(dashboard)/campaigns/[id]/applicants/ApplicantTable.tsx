@@ -10,6 +10,7 @@ import {
   APPLICANT_STATUS_LABELS,
   CampaignMessageType,
   CAMPAIGN_MESSAGE_TYPE_LABELS,
+  CAMPAIGN_MESSAGE_TYPES,
   DEFAULT_CAMPAIGN_MESSAGE_TEMPLATES,
 } from "@/lib/db/types";
 import {
@@ -746,15 +747,7 @@ export default function ApplicantTable({
             <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
               {/* Template Type Selector Tabs */}
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                {(
-                  [
-                    "selected",
-                    "reserved",
-                    "shipping_or_visit",
-                    "guideline",
-                    "reminder",
-                  ] as CampaignMessageType[]
-                ).map((t) => (
+                {CAMPAIGN_MESSAGE_TYPES.map((t) => (
                   <button
                     key={t}
                     type="button"

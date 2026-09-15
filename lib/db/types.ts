@@ -128,6 +128,23 @@ export type CampaignMessageType =
   | "guide"
   | "reminder";
 
+/**
+ * 화면에 버튼으로 그릴 순서. **라벨 맵에서 끌어오지 말고 여기를 고칠 것.**
+ *
+ * 전에는 화면 쪽에 문자열 배열을 손으로 적고 `as CampaignMessageType[]` 로 캐스팅해 뒀다.
+ * 캐스팅이 "내가 맞다고 보증하니 확인하지 마라" 라는 뜻이라, `shipping` 을 `shipping_or_visit`,
+ * `guide` 를 `guideline` 로 잘못 적은 것을 컴파일러가 잡아주지 못했다. 그 두 탭은 라벨이
+ * 빈칸으로 나오고 내용도 안 채워져 **쓸 수 없는 상태로 한참 있었다.**
+ * 여기에 두면 오타는 컴파일 오류가 되고, 종류를 늘릴 때 빠뜨리는 것도 아래 Record 가 잡는다.
+ */
+export const CAMPAIGN_MESSAGE_TYPES = [
+  "selected",
+  "reserved",
+  "shipping",
+  "guide",
+  "reminder",
+] as const satisfies readonly CampaignMessageType[];
+
 export const CAMPAIGN_MESSAGE_TYPE_LABELS: Record<CampaignMessageType, string> = {
   selected: "최종선정 안내",
   reserved: "예비선정 안내",

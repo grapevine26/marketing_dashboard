@@ -522,3 +522,34 @@ describe("지워진 커스텀 질문의 옛 답변", () => {
     }
   });
 });
+
+/**
+ * 안내 메시지 템플릿 탭.
+ *
+ * 화면 쪽에 종류 목록을 손으로 적고 `as CampaignMessageType[]` 로 캐스팅해 둔 탓에,
+ * `shipping` 을 `shipping_or_visit`, `guide` 를 `guideline` 로 잘못 적은 것이 컴파일에서
+ * 걸리지 않았다. 그 두 탭은 버튼 글자가 빈칸이고 내용도 안 채워져 **쓸 수 없었다.**
+ * 이제 목록을 타입에서 끌어오므로 컴파일러가 잡지만, 캐스팅이 다시 들어오는 것까지는 못 막는다.
+ */
+describe("안내 메시지 템플릿 종류", () => {
+  it("모든 종류에 라벨과 기본 문구가 있다", async () => {
+    const { CAMPAIGN_MESSAGE_TYPES, CAMPAIGN_MESSAGE_TYPE_LABELS, DEFAULT_CAMPAIGN_MESSAGE_TEMPLATES } =
+      await import("@/lib/db/types");
+
+    expect(CAMPAIGN_MESSAGE_TYPES.length).toBeGreaterThan(0);
+    for (const t of CAMPAIGN_MESSAGE_TYPES) {
+      // 라벨이 비면 버튼이 빈칸으로 그려진다. 눈에 띄지 않는 고장이라 여기서 못 박는다.
+      expect(CAMPAIGN_MESSAGE_TYPE_LABELS[t]?.trim()).toBeTruthy();
+      // 기본 문구가 없으면 탭을 눌러도 내용이 안 채워진다.
+      expect(DEFAULT_CAMPAIGN_MESSAGE_TEMPLATES[t]?.trim()).toBeTruthy();
+    }
+  });
+
+  it("화면이 종류 목록을 직접 적지 않고 타입에서 끌어온다", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("app/(dashboard)/campaigns/[id]/applicants/ApplicantTable.tsx", "utf8");
+    expect(src).toContain("CAMPAIGN_MESSAGE_TYPES.map");
+    // 캐스팅은 컴파일러에게 "확인하지 마라" 는 뜻이다. 이 자리에서 오타를 숨겼던 장본인이다.
+    expect(src).not.toContain("as CampaignMessageType[]");
+  });
+});
