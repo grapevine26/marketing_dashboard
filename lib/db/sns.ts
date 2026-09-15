@@ -995,7 +995,7 @@ export async function deleteSnsMediaAttachment(
  */
 export async function getSnsMediaAttachmentById(
   attachmentId: string
-): Promise<{ attachment: SnsMediaAttachment; storageKey: string; accountId: string } | null> {
+): Promise<{ attachment: SnsMediaAttachment; storageKey: string; accountId: string; contentStatus: SnsContentStatus } | null> {
   if (!isUuid(attachmentId)) return null;
   const content = unwrapMaybe(
     await db()
@@ -1009,7 +1009,7 @@ export async function getSnsMediaAttachmentById(
   if (!att) return null;
   const storageKey = await findFileKeyByPrefix(attachmentId);
   if (!storageKey) return null;
-  return { attachment: att, storageKey, accountId: content.account_id };
+  return { attachment: att, storageKey, accountId: content.account_id, contentStatus: content.status };
 }
 
 // ---------- 광고주 승인 ----------

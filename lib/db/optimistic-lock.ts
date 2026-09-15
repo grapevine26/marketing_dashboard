@@ -6,7 +6,9 @@
  * DB 의 값이 그대로일 때만 update 한다. 0행이면 다른 사람이 먼저 저장한 것이다.
  *
  * - 행이 아직 없으면(첫 저장) insert 한다.
- * - `expectedUpdatedAt` 을 안 보내면(옛 화면) 잠금 없이 덮어쓴다. 하위 호환용이다.
+ * - **행이 이미 있는데 `expectedUpdatedAt` 이 없으면 거부한다.** 전에는 하위 호환이라며 그냥
+ *   덮어쓰게 두었는데, 운영안이 아직 없는 행사를 둘이 같이 열면 양쪽 다 기준 시각이 비어 있어
+ *   뒤에 저장한 사람이 앞사람 것을 조용히 지웠다. 옛 화면은 존재하지 않으므로 지킬 것이 없다.
  * - 조건은 화면이 보낸 문자열이 아니라 방금 읽은 행의 원본 `updated_at` 으로 건다.
  *   PostgREST 가 돌려준 문자열을 그대로 되돌려 보내야 정밀도(마이크로초)가 어긋나지 않는다.
  *   화면 값과의 비교는 JS 에서 밀리초 단위로 정규화해서 한다.
@@ -54,6 +56,9 @@ export async function writeWithOptimisticLock<Row extends { updated_at: string }
   }
 
   const expected = opts.expectedUpdatedAt ? normalizeTs(opts.expectedUpdatedAt) : null;
+  // 행이 이미 있는데 기준 시각이 없다 = 이 화면은 문서가 없던 시절에 열렸다는 뜻이다.
+  // 그 사이 누군가 처음 저장했으므로 덮어쓰면 안 된다.
+  if (!expected) throw new ValidationError(OPTIMISTIC_LOCK_CONFLICT_MESSAGE);
   if (opts.expectedUpdatedAt && !expected) {
     throw new ValidationError("저장 기준 시각이 올바르지 않습니다. 화면을 새로고침한 뒤 다시 저장해주세요.");
   }

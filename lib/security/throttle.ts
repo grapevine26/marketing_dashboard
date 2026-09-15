@@ -1,6 +1,6 @@
 import "server-only";
 import { headers } from "next/headers";
-import { db, unwrap, unwrapMaybe } from "../db/client";
+import { db, unwrap } from "../db/client";
 
 /**
  * 시도 제한은 **보조 방어선**이다. 진짜 관문은 비밀번호 검사다.
@@ -28,9 +28,10 @@ async function softly<T>(what: string, fn: () => Promise<T>, fallback: T): Promi
  *   1. `isThrottled(keys)`  잠긴 키가 하나라도 있으면 시도 자체를 거부한다.
  *   2. `hitThrottle(key, policy)`  실패(또는 시도)를 1회 더한다. 창 안의 횟수가 상한에 닿으면 잠근다.
  *
- * 동시에 들어온 두 실패가 같은 값을 읽고 쓰면 한 번이 덜 세어질 수 있다. 원자적 RPC 함수로
- * 막을 수도 있지만, 그러면 public 스키마 함수가 REST 로 노출돼 anon 이 아무 키나 잠글 수 있는
- * 새 구멍을 막아야 한다. 한 번 덜 세는 쪽이 싸다.
+ * 세는 일은 DB 함수 하나로 한다(`bump_auth_throttle`, 0007 마이그레이션).
+ * 전에는 여기서 읽고 더하고 덮어썼는데, 요청을 **동시에** 보내면 전부 같은 값을 읽어
+ * N-1회가 사라졌다. 상한이 10회여도 병렬로 보내면 수백 번 시도할 수 있었다.
+ * 그 함수는 anon 이 부르지 못하게 실행 권한을 회수해 두었다.
  */
 
 export interface ThrottlePolicy {
@@ -54,13 +55,6 @@ export const SIGNUP_BY_IP: ThrottlePolicy = { maxHits: 5, windowMs: 60 * MINUTE,
 export const loginUserKey = (username: string) => `login:${username}`;
 export const loginIpKey = (ip: string) => `login-ip:${ip}`;
 export const signupIpKey = (ip: string) => `signup-ip:${ip}`;
-
-interface ThrottleRow {
-  key: string;
-  failures: number;
-  window_start: string;
-  locked_until: string | null;
-}
 
 /** 주어진 키 가운데 지금 잠긴 것이 있는가. */
 export async function isThrottled(keys: string[]): Promise<boolean> {
@@ -89,36 +83,16 @@ export async function hitThrottle(key: string, policy: ThrottlePolicy): Promise<
 }
 
 async function bumpThrottle(key: string, policy: ThrottlePolicy): Promise<boolean> {
-  const now = Date.now();
-  const existing = unwrapMaybe(
-    await db().from("auth_throttle").select("key, failures, window_start, locked_until").eq("key", key).maybeSingle<ThrottleRow>()
-  );
-
-  let failures = 1;
-  let windowStart = now;
-  if (existing) {
-    const started = Date.parse(existing.window_start);
-    if (Number.isFinite(started) && now - started < policy.windowMs) {
-      failures = existing.failures + 1;
-      windowStart = started;
-    }
-  }
-
-  // 아직 남아 있는 잠금은 유지한다. 새로 상한에 닿았으면 지금부터 다시 잠근다.
-  const carriedLock =
-    existing?.locked_until && Date.parse(existing.locked_until) > now ? existing.locked_until : null;
-  const lockedUntil = failures >= policy.maxHits ? new Date(now + policy.lockMs).toISOString() : carriedLock;
-
-  unwrap(
-    await db()
-      .from("auth_throttle")
-      .upsert(
-        { key, failures, window_start: new Date(windowStart).toISOString(), locked_until: lockedUntil },
-        { onConflict: "key" }
-      )
-      .select("key")
-  );
-  return lockedUntil !== null;
+  // 세고 잠그는 것을 DB 함수 하나로 한다. 여기서 읽고 쓰면 동시 요청이 서로를 덮어쓴다.
+  const lockedUntil = unwrap(
+    await db().rpc("bump_auth_throttle", {
+      p_key: key,
+      p_max: policy.maxHits,
+      p_window_seconds: policy.windowMs / 1000,
+      p_lock_seconds: policy.lockMs / 1000,
+    })
+  ) as string | null;
+  return Boolean(lockedUntil && Date.parse(lockedUntil) > Date.now());
 }
 
 /** 키의 기록을 지운다. 로그인에 성공한 아이디에 쓴다. */
@@ -139,18 +113,28 @@ export async function sweepThrottleOccasionally(): Promise<void> {
   if (error) console.error("[throttle] 정리 실패:", error.message);
 }
 
+/** IPv4 와 IPv6 에 쓰이는 글자만. 남이 보낸 값을 키로 쓰기 전에 거른다. */
+const IP_SHAPE = /^[0-9a-fA-F.:]{3,45}$/;
+
 /**
- * 요청한 쪽의 IP. Vercel 이 `x-forwarded-for` 에 채워 준다. 첫 값이 실제 클라이언트다.
- * 없으면 "unknown" 으로 묶어 센다. 로컬 개발이나 헤더가 없는 환경이 여기 들어온다.
+ * 요청한 쪽의 IP. 알 수 없으면 null.
+ *
+ * **`x-forwarded-for` 를 먼저 믿지 않는다.** 그 헤더는 요청하는 쪽이 마음대로 적어 보낼 수 있고,
+ * 첫 값을 쓰면 요청마다 다른 값을 적는 것만으로 IP 기준 제한이 통째로 무의미해진다.
+ * Vercel 이 직접 붙이는 `x-vercel-forwarded-for` 를 먼저 보고, 없을 때만 표준 헤더로 내려간다.
+ *
+ * 모양이 IP 같지 않으면 null 을 준다. 옛 코드는 이런 경우를 "unknown" 한 칸에 몰아넣었는데,
+ * 그러면 한 사람이 30회 실패시켜 그 칸을 잠그는 순간 **같은 처지의 모든 사람이 로그인하지 못한다.**
+ * 알 수 없으면 IP 기준 제한만 건너뛰고 아이디 기준 제한은 그대로 둔다.
  */
-export async function getClientIp(): Promise<string> {
+export async function getClientIp(): Promise<string | null> {
   try {
-    const forwarded = (await headers()).get("x-forwarded-for");
-    const first = forwarded?.split(",")[0]?.trim();
-    // 헤더는 남이 보낼 수도 있는 값이다. 키가 끝없이 길어지지 않게 자른다.
-    if (first) return first.slice(0, 64);
+    const h = await headers();
+    const candidate = h.get("x-vercel-forwarded-for") || h.get("x-forwarded-for")?.split(",")[0];
+    const value = candidate?.trim();
+    if (value && IP_SHAPE.test(value)) return value;
   } catch {
     // headers() 컨텍스트가 없는 경우(테스트 등)
   }
-  return "unknown";
+  return null;
 }

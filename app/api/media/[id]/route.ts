@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth/session";
 import { getSnsMediaAttachmentById, getSnsAccountById } from "@/lib/db";
 import { readFile, statFile } from "@/lib/db/storage";
 
@@ -24,11 +25,31 @@ export async function GET(
   if (!mediaInfo) {
     return new NextResponse("Media not found", { status: 404 });
   }
-  const { attachment, storageKey, accountId } = mediaInfo;
+  const { attachment, storageKey, accountId, contentStatus } = mediaInfo;
+
+  // 이 파일을 볼 수 있는 사람은 둘이고, 조건이 서로 다르다.
+  //
+  // **직원**: 로그인해 있으면 상태와 무관하게 본다. 자기가 만드는 시안이라 기획 단계도 봐야 한다.
+  //   (대시보드 화면도 이 경로로 이미지를 그린다.)
+  //
+  // **광고주**: 승인 링크의 토큰으로만 본다. 그리고 **승인 화면이 보여주는 범위와 같아야 한다.**
+  //   화면은 막았는데 파일만 열려 있으면 파일이 곧 우회 경로가 된다.
+  //   - 사전설문 토큰은 안 받는다. 그 화면은 시안을 다루지 않는다.
+  //   - 계약이 끝났으면 닫는다.
+  //   - 승인 대기 중인 콘텐츠만 연다. 한 번 본 사람이 지난 시안까지 영구히 받아가면 안 된다.
+  const viewer = await getCurrentUser();
+  const isStaff = viewer?.status === "active";
 
   const token = request.nextUrl.searchParams.get("token") || "";
-  const account = token ? await getSnsAccountById(accountId) : null;
-  if (!account || (account.approval_token !== token && account.intake_token !== token)) {
+  const account = await getSnsAccountById(accountId);
+  const advertiserAllowed =
+    account !== null &&
+    token !== "" &&
+    account.approval_token === token &&
+    account.status !== "ended" &&
+    contentStatus === "pending_approval";
+
+  if (!account || (!isStaff && !advertiserAllowed)) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 

@@ -204,7 +204,6 @@ describe.skipIf(!hasTestDb)("끝난 캠페인·계약의 공개 링크", () => {
 
     const res = await reviewSnsContentByTokenAction({
       token: account.approval_token,
-      accountId: account.id,
       contentId: content.id,
       decision: "approve",
     });

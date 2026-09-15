@@ -4,7 +4,7 @@ import { ValidationError } from "@/lib/db";
 import { ActionResult, runAction } from "@/lib/actions/result";
 import { normalizeUsername, usernameToEmail } from "@/lib/auth/username";
 import { signUpUser } from "@/lib/auth/users";
-import { consumeSignupInvite, peekSignupInvite, INVITE_INVALID_TEXT } from "@/lib/auth/invites";
+import { consumeSignupInvite, releaseSignupInvite, INVITE_INVALID_TEXT } from "@/lib/auth/invites";
 import { clearPersistence, createAuthClient, rememberPersistence } from "@/lib/supabase/auth";
 import {
   LOGIN_BY_IP,
@@ -72,9 +72,12 @@ export async function loginAction(input: {
 
     // 실패 횟수는 아이디와 IP 양쪽으로 센다.
     // 아이디만 세면 아이디를 바꿔 가며 훑을 수 있고, IP 만 세면 한 계정을 여러 곳에서 두드릴 수 있다.
-    const ipKey = loginIpKey(await getClientIp());
+    // IP 를 알 수 없으면(헤더가 없거나 모양이 이상하면) 아이디 쪽만 센다.
+    // 모르는 것들을 한 칸에 몰아넣으면, 한 사람이 그 칸을 잠가 나머지 전부를 막을 수 있다.
+    const ip = await getClientIp();
+    const ipKey = ip ? loginIpKey(ip) : null;
     const userKey = username ? loginUserKey(username) : null;
-    const keys = userKey ? [ipKey, userKey] : [ipKey];
+    const keys = [ipKey, userKey].filter((k): k is string => k !== null);
 
     // 잠긴 동안은 비밀번호가 맞아도 거부한다. 문구는 평소 실패와 똑같이 둔다.
     // "잠겼다"고 알려주면 그 아이디가 존재한다는 것과 얼마나 두드렸는지를 함께 알려주게 된다.
@@ -131,26 +134,36 @@ export async function signupAction(input: {
 }): Promise<ActionResult<{ username: string }>> {
   return runAction(async () => {
     // IP 당 시도 횟수를 센다. 링크가 죽었어도, 아이디가 겹쳐도 한 번으로 친다.
-    const ipKey = signupIpKey(await getClientIp());
-    if (await isThrottled([ipKey])) throw new ValidationError(SIGNUP_THROTTLED_TEXT);
-    await hitThrottle(ipKey, SIGNUP_BY_IP);
+    const ip = await getClientIp();
+    if (ip) {
+      const ipKey = signupIpKey(ip);
+      if (await isThrottled([ipKey])) throw new ValidationError(SIGNUP_THROTTLED_TEXT);
+      await hitThrottle(ipKey, SIGNUP_BY_IP);
+    }
 
     const token = typeof input.invite_token === "string" ? input.invite_token : "";
-    // 먼저 링크가 살아 있는지 본다. 죽은 링크로 온 사람에게 아이디 중복 여부까지 알려줄 이유가 없다.
-    if (!(await peekSignupInvite(token))) throw new ValidationError(INVITE_INVALID_TEXT);
 
-    const created = await signUpUser({
-      username: input.username,
-      display_name: input.display_name,
-      password: input.password,
-    });
+    // 아이디 형식을 먼저 본다. 오타 때문에 링크를 잃으면 안 된다.
+    const username = normalizeUsername(input.username);
 
-    // **계정을 만든 뒤에** 링크를 소모한다. 비밀번호가 짧아서 실패한 사람이 링크를 잃으면 안 된다.
-    // 여기서 실패하는 경우는 그 짧은 사이에 남이 같은 링크를 쓴 때뿐이고, 계정은 어차피 승인을 받아야 한다.
-    if (!(await consumeSignupInvite(token, created.username))) {
-      console.warn(`[signup] 링크 소모 실패(이미 사용됨). 가입은 완료: ${created.username}`);
+    // **링크를 먼저 소모한다.** 조건을 건 update 한 번이라 동시에 여러 번 눌러도 하나만 통과한다.
+    // 계정을 만든 뒤에 소모하면, 요청을 동시에 보냈을 때 전부 "아직 안 쓰임"을 보고 통과해
+    // 초대 하나로 계정을 여러 개 만들 수 있다.
+    if (!(await consumeSignupInvite(token, username))) {
+      throw new ValidationError(INVITE_INVALID_TEXT);
     }
-    return created;
+
+    try {
+      return await signUpUser({
+        username,
+        display_name: input.display_name,
+        password: input.password,
+      });
+    } catch (err) {
+      // 비밀번호가 짧거나 아이디가 겹쳐 실패했다. 링크는 돌려준다.
+      await releaseSignupInvite(token);
+      throw err;
+    }
   });
 }
 

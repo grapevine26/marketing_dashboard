@@ -3,6 +3,7 @@
 // 규칙: 액션 본문 첫 문장은 `return runAction(...)`. 토큰 확인·DB 조회도 래퍼 안에서 해서 오류가 밖으로 새지 않게 한다.
 
 import { getCampaignByToken, getApplicantById, updateApplicantStatus, ValidationError } from "@/lib/db";
+import { sanitizeApplicantForCompany } from "@/lib/db/types";
 import { Applicant, ApplicantStatus } from "@/lib/db/types";
 import { revalidatePath } from "next/cache";
 import { ActionResult, runAction } from "@/lib/actions/result";
@@ -52,6 +53,9 @@ export async function changeApplicantStatusByTokenAction(params: {
     revalidatePath(`/campaigns/${campaign.id}`);
     revalidatePath(`/campaigns/${campaign.id}/applicants`);
     revalidatePath(`/campaigns/${campaign.id}/seeding-sheet`);
-    return result.applicant;
+    // **돌려줄 때도 씻는다.** 화면을 그릴 때만 씻고 액션 응답을 그대로 주면,
+    // 광고주가 버튼을 누르는 순간 그 지원자의 연락처·배송지·내부 메모가 브라우저로 돌아온다.
+    // 화면에 그 칸을 안 그리는 것은 방어가 아니다. 응답 본문에 값이 실려 있다.
+    return sanitizeApplicantForCompany(result.applicant);
   });
 }

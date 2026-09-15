@@ -27,6 +27,7 @@ import { generateEventPlanDraft } from "@/lib/ai/eventPlanAssist";
 import { labelAnswers } from "@/lib/ai/config";
 import { kstLocalInputToIso, formatKstDateTime } from "@/lib/seeding/dday";
 import { ActionResult, runAuthedAction } from "@/lib/actions/result";
+import { isManager } from "@/lib/auth/roles";
 
 const EVENT_NOT_FOUND = "행사가 이미 삭제되었거나 찾을 수 없습니다. 화면을 새로고침해주세요.";
 const INVITEE_NOT_FOUND = "초대 명단 항목이 이미 삭제되었거나 찾을 수 없습니다. 화면을 새로고침해주세요.";
@@ -81,7 +82,9 @@ export async function updateEventAction(data: {
 }
 
 export async function deleteEventAction(eventId: string, campaignId: string): Promise<ActionResult<null>> {
-  return runAuthedAction(async () => {
+  return runAuthedAction(async (user) => {
+    // 행사를 지우면 초대 명단·체크리스트·운영안이 함께 사라진다. 범위가 넓어 관리자 이상으로 좁힌다.
+    if (!isManager(user.role)) throw new ValidationError("행사 삭제는 관리자만 할 수 있습니다.");
     const okDel = await deleteEvent(eventId);
     if (!okDel) throw new ValidationError(EVENT_NOT_FOUND);
     revalidateEvent(campaignId);

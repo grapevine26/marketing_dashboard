@@ -20,6 +20,7 @@ import {
 import { PptTemplate } from "@/lib/db/types";
 import { extractPlaceholders } from "@/lib/ppt/engine";
 import { ActionResult, runAuthedAction } from "@/lib/actions/result";
+import { isManager } from "@/lib/auth/roles";
 
 const TEMPLATE_NOT_FOUND = "템플릿이 이미 삭제되었거나 찾을 수 없습니다. 화면을 새로고침해주세요.";
 const NO_PLACEHOLDER_WARNING =
@@ -184,7 +185,10 @@ export async function restoreBuiltinPptTemplatesAction(): Promise<ActionResult<{
 }
 
 export async function deletePptTemplateAction(id: string): Promise<ActionResult<null>> {
-  return runAuthedAction(async () => {
+  return runAuthedAction(async (user) => {
+    // 지우면 저장소의 파일까지 함께 사라지고 백업으로도 되살릴 수 없다.
+    // 파일이 같이 없어지는 삭제는 관리자 이상으로 좁힌다.
+    if (!isManager(user.role)) throw new ValidationError("템플릿 삭제는 관리자만 할 수 있습니다.");
     const deleted = await deletePptTemplate(id);
     if (!deleted) throw new ValidationError(TEMPLATE_NOT_FOUND);
     revalidatePath("/settings/ppt-templates");

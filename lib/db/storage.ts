@@ -262,13 +262,27 @@ export async function listFiles(scope: FileScope): Promise<StoredFile[]> {
     .sort((a, b) => b.key.localeCompare(a.key));
 }
 
+/**
+ * 접두사로 파일을 지운다.
+ *
+ * **빈 문자열이 하나라도 섞이면 그 폴더 전체가 지워진다.** 지금 부르는 쪽은 전부 UUID 를 넘기지만,
+ * 결과가 전멸이라 여기서 막는다. 실수 한 번으로 시안 파일이 전부 사라지는 것보다,
+ * 짧은 접두사를 거부해 파일이 남는 쪽이 낫다.
+ */
 export async function deleteFilesByPrefixes(prefixes: string[], scope: FileScope = "uploads"): Promise<void> {
-  if (prefixes.length === 0) return;
+  // 빈 접두사를 걸러낸다. 하나라도 섞이면 그 폴더의 파일이 전부 지워진다.
+  // 길이 하한을 두지는 않는다. 여기는 범용 저장소 도우미고, "얼마나 짧으면 위험한가" 는
+  // 부르는 쪽이 정할 일이다. 확실히 파괴적인 경우만 막는다.
+  const safe = prefixes.filter((p) => typeof p === "string" && p.trim().length > 0);
+  if (safe.length !== prefixes.length) {
+    console.error("[storage] 빈 접두사가 들어와 무시했습니다. 부르는 쪽을 확인하세요.");
+  }
+  if (safe.length === 0) return;
 
   if (isBlobBackend()) {
     const { list, del } = await import("@vercel/blob");
     const targets: string[] = [];
-    for (const prefix of prefixes) {
+    for (const prefix of safe) {
       const res = await list({ prefix: `${prefixOf(scope)}${prefix}` });
       targets.push(...res.blobs.map((b) => b.url));
     }
@@ -279,7 +293,7 @@ export async function deleteFilesByPrefixes(prefixes: string[], scope: FileScope
   const dir = dirOf(scope);
   if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) return;
   const files = fs.readdirSync(/*turbopackIgnore: true*/ dir);
-  for (const prefix of prefixes) {
+  for (const prefix of safe) {
     for (const f of files.filter((name) => name.startsWith(prefix))) {
       try {
         fs.unlinkSync(/*turbopackIgnore: true*/ path.join(dir, f));

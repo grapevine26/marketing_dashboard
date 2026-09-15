@@ -150,12 +150,32 @@ export async function peekSignupInvite(token: string): Promise<SignupInvite | nu
 }
 
 /**
- * 링크를 소모한다. **계정을 실제로 만든 뒤에** 부른다.
+ * 소모했던 링크를 되돌린다. 계정 만들기가 실패했을 때만 쓴다.
+ * 비밀번호가 짧아서 실패한 사람이 링크를 잃으면 안 된다.
+ */
+export async function releaseSignupInvite(token: string): Promise<void> {
+  try {
+    unwrap(
+      await db()
+        .from("signup_invites")
+        .update({ used_at: null, used_by_username: null })
+        .eq("token", token)
+        .select("token")
+    );
+  } catch (err) {
+    // 되돌리기에 실패해도 가입 실패는 이미 사용자에게 알렸다. 링크 하나를 잃을 뿐이다.
+    console.error("[invites] 링크 되돌리기 실패:", err);
+  }
+}
+
+/**
+ * 링크를 소모한다. **계정을 만들기 전에** 부른다.
  *
- * 조건을 건 update 한 번이라 둘이 같은 링크를 동시에 눌러도 한 명만 성공한다.
- * 계정 생성보다 뒤에 두는 이유는, 비밀번호가 짧아서 실패한 사람이 링크를 잃으면 안 되기 때문이다.
- * 그 대가로 아주 드물게 초대 하나에 계정 둘이 생길 수 있는데, 어차피 둘 다 승인을 받아야 하고
- * 대표 관리자가 목록에서 거절하면 된다. 링크를 잃는 쪽이 사람을 더 괴롭힌다.
+ * 조건을 건 update 한 번이라 둘이 같은 링크를 동시에 눌러도 **한 명만** 성공한다.
+ *
+ * 전에는 계정을 만든 뒤에 소모했다. 그러면 요청을 동시에 여러 개 보냈을 때 전부 "아직 안 쓰임"을
+ * 보고 통과해, 초대 하나로 계정을 여러 개 만들 수 있었다. 지금은 먼저 소모하고 계정 만들기가
+ * 실패하면 releaseSignupInvite 로 되돌린다. 오타로 링크를 잃지 않으면서 중복도 막는다.
  */
 export async function consumeSignupInvite(token: string, username: string): Promise<boolean> {
   const row = unwrapMaybe(

@@ -165,7 +165,10 @@ export async function updateSnsContentAction(
 }
 
 export async function deleteSnsContentAction(contentId: string, accountId: string): Promise<ActionResult<null>> {
-  return runAuthedAction(async () => {
+  return runAuthedAction(async (user) => {
+    // 지우면 저장소의 파일까지 함께 사라지고 백업으로도 되살릴 수 없다.
+    // 파일이 같이 없어지는 삭제는 관리자 이상으로 좁힌다.
+    if (!isManager(user.role)) throw new ValidationError("콘텐츠 삭제는 관리자만 할 수 있습니다.");
     const deleted = await deleteSnsContent(contentId);
     if (!deleted) throw new ValidationError(CONTENT_NOT_FOUND);
     revalidateAccount(accountId);
@@ -229,7 +232,10 @@ export async function deleteSnsMediaAction(
   attachmentId: string,
   accountId: string
 ): Promise<ActionResult<boolean>> {
-  return runAuthedAction(async () => {
+  return runAuthedAction(async (user) => {
+    // 지우면 저장소의 파일까지 함께 사라지고 백업으로도 되살릴 수 없다.
+    // 파일이 같이 없어지는 삭제는 관리자 이상으로 좁힌다.
+    if (!isManager(user.role)) throw new ValidationError("시안 파일 삭제는 관리자만 할 수 있습니다.");
     if (!contentId || !attachmentId || !accountId) throw new ValidationError("잘못된 요청입니다.");
     const deleted = await deleteSnsMediaAttachment(contentId, attachmentId);
     if (!deleted) throw new ValidationError("첨부 파일이 이미 삭제되었거나 찾을 수 없습니다. 화면을 새로고침해주세요.");

@@ -59,7 +59,7 @@ test.describe("정보 노출 및 접근 제어", () => {
     expect(agencyCsv).toContain("INTERNAL_MEMO_E2E");
   });
 
-  test("시안 미디어: 2MB 업로드가 성공하고, 토큰 없이는 파일을 받을 수 없다", async ({ page, request }) => {
+  test("시안 미디어: 2MB 업로드가 성공하고, 밖에서는 파일을 받을 수 없다", async ({ page, request, playwright }) => {
     await page.goto(`/sns/${SAMPLE.snsAccountId}`);
     await page.getByRole("button", { name: /콘텐츠 목록/ }).click();
     await page.getByRole("button", { name: "수정", exact: true }).first().click();
@@ -72,8 +72,16 @@ test.describe("정보 노출 및 접근 제어", () => {
     expect(src).toContain("token=");
     const bare = src!.split("?")[0];
 
-    expect((await request.get(bare)).status()).toBe(401);
-    expect((await request.get(`${bare}?token=wrong`)).status()).toBe(401);
+    // **로그인하지 않은 쪽**에서 확인해야 한다. 직원은 자기 시안이라 토큰 없이도 봐야 맞다.
+    // 쿠키가 있는 요청으로 확인하면 "밖에서도 열리는가" 를 검증하지 못한다.
+    const outsider = await newPublicRequest(playwright);
+    expect((await outsider.get(bare)).status()).toBe(401);
+    expect((await outsider.get(`${bare}?token=wrong`)).status()).toBe(401);
+    // 아직 승인 대기 상태가 아니므로 올바른 토큰으로도 열리지 않는다.
+    expect((await outsider.get(src!)).status()).toBe(401);
+    await outsider.dispose();
+
+    // 직원(로그인)은 기획 단계 시안도 본다.
     const ok = await request.get(src!);
     expect(ok.status()).toBe(200);
     expect(ok.headers()["cache-control"]).toContain("private");

@@ -53,6 +53,10 @@ export default defineConfig({
       // 운영 DB 주소가 앱에 흘러들지 않게 테스트 주소로 덮는다 (백업 스크립트 등이 읽는다).
       SUPABASE_DB_URL: testEnv.dbUrl,
       GEMINI_API_KEY: "", // 테스트에서는 AI 를 호출하지 않는다 (폴백 경로 검증)
+      // .env.local 에 Blob 토큰이 들어와도 e2e 가 만든 파일이 운영 저장소에 섞이지 않게 한다.
+      // 유닛 테스트(tests/unit/setup.ts)에는 같은 방어가 이미 있다.
+      BLOB_READ_WRITE_TOKEN: "",
+      BLOB_STORE_ID: "",
     },
   },
 });

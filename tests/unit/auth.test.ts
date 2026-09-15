@@ -723,10 +723,19 @@ describe.skipIf(!hasTestDb)("동시 저장", () => {
     const now = await getEventPlan(event.id);
     expect(now?.field_values.intro).toBe("먼저 저장");
 
-    // 시각을 안 보내면(옛 화면) 예전처럼 그냥 덮어쓴다. 하위 호환.
-    const forced = await saveEventPlan({
-      event_id: event.id, template_id: BUILTIN_EVENT_TEMPLATE_ID, field_values: { intro: "옛 화면" },
-    });
-    expect(forced.field_values.intro).toBe("옛 화면");
+    // 기준 시각을 아예 안 보내도 거부한다.
+    //
+    // 전에는 "옛 화면 하위 호환" 이라며 그냥 덮어쓰게 두었는데, 운영안이 아직 없는 행사를 둘이
+    // 같이 열면 양쪽 다 기준 시각이 비어 있어서 뒤에 저장한 사람이 앞사람 것을 조용히 지웠다.
+    // 옛 화면은 존재하지 않으므로 지킬 하위 호환도 없다.
+    await expect(
+      saveEventPlan({
+        event_id: event.id, template_id: BUILTIN_EVENT_TEMPLATE_ID, field_values: { intro: "기준 없이" },
+      })
+    ).rejects.toThrow(OPTIMISTIC_LOCK_CONFLICT_MESSAGE);
+
+    // 먼저 저장한 내용이 그대로다.
+    const still = await getEventPlan(event.id);
+    expect(still?.field_values.intro).toBe("먼저 저장");
   }, 30_000);
 });

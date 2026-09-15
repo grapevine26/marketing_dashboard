@@ -35,10 +35,21 @@ export const BACKUP_TABLES = [
   // 계정의 아이디·이름·등급·승인 상태. 로그인 비밀번호(auth.users)는 이 백업에 들어가지 않는다.
   // 그건 Supabase 가 따로 보관하며, 사라지면 각자 다시 가입하고 여기 있는 등급을 되살리는 방식이 된다.
   "profiles",
+  // 누가 누구를 불렀고 누가 그 링크를 썼는지. 감사 로그에는 토큰을 일부러 안 남기므로
+  // 계정이 생긴 경위를 되짚을 수 있는 유일한 기록이다.
+  //
+  // **복원 대상에는 넣지 않는다**(scripts/db-backup.mjs 의 TABLES). 되돌리면 이미 쓴 링크가
+  // 다시 살아나 1회용이라는 전제가 깨진다.
+  "signup_invites",
 ] as const;
 
 /** 정렬 기준. 페이지를 나눠 읽을 때 순서가 고정돼야 행이 빠지거나 겹치지 않는다. */
-const ORDER_COLUMN: Record<string, string> = { hidden_builtin_templates: "template_id" };
+// 기본키가 id 가 아닌 표. 여기 빠뜨리고 BACKUP_TABLES 에만 추가하면 정렬에 실패해
+// **그날부터 백업이 한 건도 안 만들어진다.** 표를 추가할 때 반드시 같이 본다.
+const ORDER_COLUMN: Record<string, string> = {
+  hidden_builtin_templates: "template_id",
+  signup_invites: "token",
+};
 
 const PAGE = 1000;
 
