@@ -20,6 +20,39 @@ test.describe("C-0. 광고주 승인 페이지 (로그인 없이)", () => {
 });
 
 test.describe("C. SNS 운영", () => {
+  test("신규 기획안에서 고른 시안이 목록에 남고 등록과 함께 올라간다", async ({ page }) => {
+    // 이미 만들어진 콘텐츠를 "수정" 하며 올리는 길과 달리, 신규 등록은 파일을 바로 올리지 않고
+    // 화면에 쌓아 두었다가 등록 버튼을 누를 때 함께 보낸다. 그 "쌓아 두는" 부분이 조용히
+    // 비어 버린 적이 있어(선택해도 아무 반응이 없었다) 여기서 지킨다.
+    await page.goto(`/sns/${SAMPLE.snsAccountId}`);
+    await page.getByRole("button", { name: "새 콘텐츠 기획" }).click();
+    await page.getByPlaceholder(/하이드라 세럼 제형 릴스/).fill("신규 시안 첨부 테스트");
+
+    const png = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(1024, 7),
+    ]);
+    await page
+      .locator("input[type='file']")
+      .first()
+      .setInputFiles({ name: "신규시안.png", mimeType: "image/png", buffer: png });
+
+    // 고른 파일이 화면에 남아 있어야 한다. 여기서 사라지면 사용자는 아무 반응도 못 본다.
+    await expect(page.getByText("신규시안.png")).toBeVisible();
+
+    await page.getByRole("button", { name: "기획안 등록" }).click();
+    await expect(page.getByRole("heading", { name: "신규 SNS 콘텐츠 기획안 등록" })).toBeHidden();
+
+    // 등록된 콘텐츠에 그 시안이 실제로 붙어 있어야 한다.
+    await page.getByRole("button", { name: /콘텐츠 목록 및 성과 관리/ }).click();
+    const card = contentCard(page, "신규 시안 첨부 테스트");
+    await expect(card).toBeVisible();
+    await card.getByRole("button", { name: "수정", exact: true }).click();
+    // 저장된 첨부는 섬네일과 파일명 두 군데에 이름이 나온다. 하나만 보면 된다.
+    await expect(page.getByText("신규시안.png").first()).toBeVisible({ timeout: 20000 });
+    await expect(page.locator("img[src*='/api/media/']").first()).toBeVisible({ timeout: 20000 });
+  });
+
   test("콘텐츠 생성 → 승인대기 → 광고주 수정요청 → 대시보드에 코멘트 표시 → 승인", async ({ page }) => {
     page.on("dialog", (d) => d.accept());
 

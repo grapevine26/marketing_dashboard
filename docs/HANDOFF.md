@@ -311,7 +311,7 @@ CI 에는 Supabase 테스트 프로젝트 키가 GitHub Secrets 로 들어가 �
 | 종류 | 개수 | 명령 |
 |---|---|---|
 | 단위 | 197 | `npm test` |
-| e2e | 49 | `npm run test:e2e` |
+| e2e | 50 | `npm run test:e2e` |
 
 **둘을 동시에 돌리지 마세요.** 같은 테스트 DB를 비웁니다.
 
@@ -369,6 +369,7 @@ e2e 는 `tests/e2e/global-setup.ts` 가 매번 테스트 DB를 비우고, 전용
 - **CSP 는 `proxy.ts` 한 곳에서만 내보냅니다.** `next.config.ts` 에도 넣으면 브라우저가 두 정책을 모두 적용해 서로를 막습니다. 난수가 요청마다 달라야 해서 정적 설정에는 둘 수 없습니다(`lib/security/csp.ts`).
 - **`app/layout.tsx` 의 `<Script id="theme-init">` 에 `nonce` 를 계속 넘기세요.** 안 넘기면 서버는 난수를 달고 클라이언트는 빈 값으로 그려 개발 모드에 하이드레이션 경고가 뜹니다(배포 동작에는 문제없지만 로그가 지저분해집니다).
 - **`app/layout.tsx` 의 `force-dynamic` 을 빼지 마세요.** 정적으로 미리 만든 HTML 에는 그 요청의 CSP 난수가 들어갈 수 없어, 그 페이지만 스크립트가 전부 막힌 죽은 화면이 됩니다.
+- **`e.target.files` 는 곧바로 배열로 옮기고 나서 `input.value` 를 비우세요.** `files` 는 input 에 붙어 있는 살아 있는 목록이라, 비우면 같은 객체가 그 자리에서 빕니다. `setState` 의 함수형 업데이터는 늦게 실행되므로 그 안에서 `Array.from(files)` 를 하면 빈 배열을 담습니다. 실제로 신규 기획안에서 시안을 골라도 아무 일도 안 일어났습니다(2026-09-07 ~ 09-15).
 - **인라인 `onclick` 같은 속성 핸들러는 이제 동작하지 않습니다.** CSP 가 막습니다. React 의 `onClick` 은 속성이 아니라 이벤트 리스너라 영향 없습니다.
 - **`package.json` 의 `overrides` 를 지우지 마세요.** `uuid` 는 exceljs 가 끌고 오는 취약한 옛 버전을 고친 버전으로 밀어 올리는 항목이고, `image-size` 도 같은 이유입니다. 지우면 `npm audit` 이 다시 빨개집니다.
 

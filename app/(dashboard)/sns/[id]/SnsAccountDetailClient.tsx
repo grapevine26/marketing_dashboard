@@ -392,11 +392,16 @@ export default function SnsAccountDetailClient({
     clientUpload ? uploadDirect(contentId, file) : uploadViaServer(contentId, file);
 
   const handleSelectFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+    // **여기서 바로 배열로 옮긴다.** e.target.files 는 input 에 붙어 있는 살아 있는 FileList 라서,
+    // 아래에서 input.value 를 비우는 순간 **같은 객체가 그 자리에서 빈다**(길이 0).
+    // setState 의 함수형 업데이터는 렌더 때 늦게 실행되므로, 그 안에서 Array.from(files) 를
+    // 하면 이미 빈 목록을 복사하게 된다. 실제로 신규 기획안에서 파일을 골라도 아무 일도
+    // 일어나지 않았다. 수정 모드는 for 문이 즉시 돌아서 우연히 멀쩡했다.
+    const picked = Array.from(e.target.files ?? []);
+    if (picked.length === 0) return;
 
     if (!editingId) {
-      setSelectedFiles((prev) => [...prev, ...Array.from(files)]);
+      setSelectedFiles((prev) => [...prev, ...picked]);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
@@ -404,7 +409,7 @@ export default function SnsAccountDetailClient({
     setUploadingMedia(true);
     setError(null);
     try {
-    for (const file of Array.from(files)) {
+    for (const file of picked) {
       const res = await safeUpload(editingId, file);
       if (!res.ok) {
         setError(res.error);
