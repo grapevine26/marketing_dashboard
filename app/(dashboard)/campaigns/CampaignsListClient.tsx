@@ -22,9 +22,15 @@ import { safeCall } from "@/lib/actions/safeCall";
 
 interface CampaignsListClientProps {
   initialCampaigns: Campaign[];
+  /**
+   * 이 사람이 캠페인을 지울 수 있는가(관리자 이상).
+   * **화면 편의일 뿐 방어가 아니다.** 진짜 방어는 deleteCampaignAction 안에 그대로 있다.
+   * 없으면 직원이 캠페인 이름을 다 옮겨 적고 버튼을 누른 뒤에야 거부당한다.
+   */
+  canDelete: boolean;
 }
 
-export default function CampaignsListClient({ initialCampaigns }: CampaignsListClientProps) {
+export default function CampaignsListClient({ initialCampaigns, canDelete }: CampaignsListClientProps) {
   const router = useRouter();
   const [campaigns, setCampaigns] = useState<Campaign[]>(initialCampaigns);
   const [filter, setFilter] = useState<"active" | "all" | "completed">("active");
@@ -308,18 +314,20 @@ export default function CampaignsListClient({ initialCampaigns }: CampaignsListC
                     <span className="text-xs text-text-muted font-mono">
                       {new Date(camp.created_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}
                     </span>
-                    <button
-                      type="button"
-                      title="캠페인 삭제"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setTargetCampaign(camp);
-                        setDeleteError(null);
-                      }}
-                      className="p-1.5 rounded-lg text-text-muted hover:text-rose-400 hover:bg-rose-500/10 transition opacity-80 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {canDelete && (
+                      <button
+                        type="button"
+                        title="캠페인 삭제"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTargetCampaign(camp);
+                          setDeleteError(null);
+                        }}
+                        className="p-1.5 rounded-lg text-text-muted hover:text-rose-400 hover:bg-rose-500/10 transition opacity-80 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
 

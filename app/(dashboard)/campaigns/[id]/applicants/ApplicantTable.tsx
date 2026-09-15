@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   PublicCampaign,
@@ -179,6 +179,23 @@ export default function ApplicantTable({
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templates, setTemplates] = useState<Record<string, string>>(messageTemplates || {});
 
+  // ESC 키로 모달 닫기 — PendingApprovalSnsCard / ScheduledSnsThisWeekCard 와 같은 방식이다.
+  //
+  // 그 두 모달은 **배경 클릭으로도** 닫히지만 여기서는 일부러 넣지 않았다. 이 모달의 textarea 는
+  // 사용자가 직접 고쳐 쓰는 칸이라, 글을 드래그해 고르다가 손을 모달 밖에서 떼기만 해도
+  // 배경 클릭으로 잡혀 편집 중이던 안내문이 통째로 날아간다(저장 전 내용은 어디에도 남지 않는다).
+  // ESC 는 일부러 눌러야 하는 키라 실수로 닫힐 일이 없어 ESC 만 받는다.
+  useEffect(() => {
+    if (!msgModalApp) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMsgModalApp(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [msgModalApp]);
+
   const openMessageModal = (app: Applicant) => {
     setMsgModalApp(app);
     const initialType: CampaignMessageType =
@@ -205,7 +222,9 @@ export default function ApplicantTable({
       setCopiedMsg(true);
       setTimeout(() => setCopiedMsg(false), 2000);
     } catch {
-      alert("클립보드 복사에 실패했습니다.");
+      // alert 은 화면을 멈추고 이 화면의 다른 알림과도 생김새가 다르다. 토스트로 통일한다.
+      // 복사 **성공** 쪽은 버튼 글자가 "클립보드에 복사됨!" 으로 바뀌므로(copiedMsg) 따로 띄우지 않는다.
+      toast.error("클립보드 복사에 실패했습니다.");
     }
   };
 
@@ -282,7 +301,10 @@ export default function ApplicantTable({
     markPending(applicantId, false);
     if (!res.ok) {
       if (previousStatus) patchApplicant(applicantId, { status: previousStatus });
+      // 배너는 카드 맨 위에 붙어 있어서, 목록이 길면 아래쪽에서 버튼을 누른 사람 눈에는 안 들어온다.
+      // 화면은 원래 상태로 되돌아가는데 이유는 어디에도 안 보이는 셈이라 토스트를 같이 띄운다.
       setError(res.error);
+      toast.error(res.error || "선정 상태 변경에 실패했습니다.");
       return;
     }
     patchApplicant(applicantId, res.data);
@@ -598,9 +620,11 @@ export default function ApplicantTable({
                           type="button"
                           disabled={savingMemo}
                           onClick={() => handleSaveMemo(a.id)}
-                          className="px-2.5 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold"
+                          className="px-2.5 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold inline-flex items-center gap-1 disabled:opacity-50"
                         >
-                          저장
+                          {/* 데스크톱 메모 저장과 같은 스피너. 모바일은 회선이 느린 자리라 저장 중인지가 더 안 보였다. */}
+                          {savingMemo ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                          <span>저장</span>
                         </button>
                         <button
                           type="button"

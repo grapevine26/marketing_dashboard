@@ -1,3 +1,5 @@
+import { toKstDateString } from "@/lib/seeding/dday";
+
 /** SNS 시안 미디어로 허용하는 형식과 저장 확장자. 서버와 브라우저가 같은 값을 봐야 한다. */
 export const ALLOWED_SNS_MEDIA_MIME_TYPES: Record<string, string> = {
   "image/jpeg": ".jpg",
@@ -316,6 +318,25 @@ export function sanitizeSeedingForCompany(s: SeedingRecord): SeedingRecord {
     updated_at: s.updated_at,
     created_at: s.created_at,
   };
+}
+
+/**
+ * 이 계정의 **공개 링크가 닫혀야 하는가**.
+ *
+ * 전에는 `status === "ended"` 만 봤다. 그런데 그 값은 사람이 손으로 바꾼다. 계약 종료일이
+ * 지나도 아무도 대시보드에 들어가 상태를 바꾸지 않으면, 계약이 끝난 광고주가 받아 둔
+ * 승인 링크로 **공개 전 시안을 계속 보고 승인 버튼까지 누를 수 있었다.** `ends_on` 은
+ * 저장·표시만 되고 판정에는 한 번도 쓰이지 않았다.
+ *
+ * 날짜는 KST 기준으로 비교한다. `ends_on` 은 `YYYY-MM-DD` 문자열이라 사전순 비교가 곧
+ * 날짜 비교다. 종료일 **당일까지는 열어 둔다**(그날 승인해야 하는 일이 남아 있을 수 있다).
+ *
+ * 되돌리려면: 종료일이 지나도 링크를 열어 두고 싶다면 그 계정의 `ends_on` 을 비우거나
+ * 미래로 미루면 된다. 이 함수를 고칠 일은 아니다.
+ */
+export function isSnsAccountClosed(account: Pick<SnsAccount, "status" | "ends_on">): boolean {
+  if (account.status === "ended") return true;
+  return Boolean(account.ends_on && account.ends_on < toKstDateString());
 }
 
 export interface PreSurveyQuestion {

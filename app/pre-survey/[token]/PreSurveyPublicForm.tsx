@@ -5,6 +5,7 @@ import { PublicCampaign, PreSurveyTemplate } from "@/lib/db/types";
 import { submitPublicPreSurveyAction, getPublicAiAssistAction } from "./actions";
 import { Sparkles, Send, CheckCircle2, Loader2, Edit3 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import { toast } from "@/components/Toast";
 
 const MAX_AI_ATTEMPTS = 3;
 
@@ -58,7 +59,9 @@ export default function PreSurveyPublicForm({
     );
     setLoadingAiMap((prev) => ({ ...prev, [questionId]: false }));
     if (!res.ok) {
+      // 이 폼은 길어서 배너가 화면 밖일 때가 많다. 토스트를 같이 띄운다(배너는 그대로 둔다).
       setError(res.error);
+      toast.error(res.error || "AI 추천을 불러오지 못했습니다.");
       return;
     }
     if (res.data.fallback) {
@@ -67,11 +70,12 @@ export default function PreSurveyPublicForm({
       // 서버는 폴백일 때 남은 횟수를 돌려주지 않으므로 화면이 직접 세야 한다.
       const usedAfterFallback = currentUsage + 1;
       setAiUsageMap((prev) => ({ ...prev, [questionId]: usedAfterFallback }));
-      setNotice(
+      const msg =
         usedAfterFallback >= MAX_AI_ATTEMPTS
           ? "AI 제안 실패 — 이 질문의 추천 횟수를 모두 사용했습니다. 직접 입력해주세요."
-          : "AI 제안 실패 — 직접 입력해주세요."
-      );
+          : "AI 제안 실패 — 직접 입력해주세요.";
+      setNotice(msg);
+      toast.warning(msg);
       return;
     }
 
@@ -97,9 +101,12 @@ export default function PreSurveyPublicForm({
     const res = await safeCall(submitPublicPreSurveyAction({ token, answers, usedAiAssist: usedAi, honeypot }));
     setSubmitting(false);
     if (!res.ok) {
+      // 폼 맨 아래에서 제출하므로 위쪽 배너는 보이지 않는다.
       setError(res.error);
+      toast.error(res.error || "제출하지 못했습니다. 잠시 후 다시 시도해주세요.");
       return;
     }
+    toast.success("사전조사서가 제출되었습니다.");
     setSubmitted(true);
   };
 

@@ -5,6 +5,7 @@ import { PublicSnsAccount, ReviewableSnsContent, SnsMediaAttachment } from "@/li
 import { reviewSnsContentByTokenAction } from "./actions";
 import { CheckCircle2, AlertCircle, MessageSquare, Loader2, Image as ImageIcon, Video as VideoIcon, ExternalLink, X } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import { toast } from "@/components/Toast";
 
 export default function SnsApprovalClient({
   token,
@@ -27,6 +28,11 @@ export default function SnsApprovalClient({
     const comment = comments[c.id]?.trim();
     if (decision === "request_changes" && !comment) {
       setError("수정 요청 사항을 입력해주세요.");
+      // 시안이 여러 개면 맨 위 배너가 스크롤 밖이라, 버튼을 눌러도 아무 반응이 없어 보였다.
+      // 배너는 그대로 두고, 화면 어디에서 눌러도 보이는 토스트를 같이 띄운다.
+      toast.warning("수정 요청 사항을 입력해주세요.", {
+        description: "어떤 부분을 고쳐야 할지 적어주시면 그대로 전달됩니다.",
+      });
       return;
     }
     if (decision === "approve" && !confirm(`"${c.title}" 시안을 승인할까요?`)) return;
@@ -36,6 +42,7 @@ export default function SnsApprovalClient({
     setLoadingId(null);
     if (!res.ok) {
       setError(res.error);
+      toast.error(res.error || "처리하지 못했습니다. 잠시 후 다시 시도해주세요.");
       return;
     }
     setContents((prev) => prev.filter((x) => x.id !== c.id));
@@ -43,6 +50,17 @@ export default function SnsApprovalClient({
       ...prev,
       { title: c.title, decision: res.data.changed ? (decision === "approve" ? "승인 완료" : "수정 요청 전달") : "이미 처리된 시안" },
     ]);
+    // 처리하면 카드가 목록에서 사라지는 게 전부라, 접수가 됐는지 확인할 방법이 없었다.
+    // 확대 보기 창(z-50)이 열린 채로 눌러도 토스트(z-9999)는 그 위에 보인다.
+    if (!res.data.changed) {
+      toast.info(`"${c.title}" 시안은 이미 처리된 상태입니다.`);
+    } else if (decision === "approve") {
+      toast.success(`"${c.title}" 시안을 승인했습니다.`);
+    } else {
+      toast.success(`"${c.title}" 수정 요청을 전달했습니다.`, {
+        description: "요청하신 내용을 반영해 다시 시안을 보내드리겠습니다.",
+      });
+    }
   };
 
   return (

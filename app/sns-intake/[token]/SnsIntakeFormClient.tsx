@@ -5,6 +5,7 @@ import { PublicSnsAccount, SnsIntakeTemplate } from "@/lib/db/types";
 import { submitSnsIntakeAction, assistSnsIntakeAction } from "../actions";
 import { CheckCircle2, Loader2, Send, Sparkles, Info, Edit3 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import { toast } from "@/components/Toast";
 
 const MAX_AI_ATTEMPTS = 3;
 
@@ -56,7 +57,12 @@ export default function SnsIntakeFormClient({
       })
     );
     setAiLoadingKey(null);
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) {
+      // 이 폼은 길어서 배너가 화면 밖일 때가 많다. 토스트를 같이 띄운다(배너는 그대로 둔다).
+      setError(res.error);
+      toast.error(res.error || "AI 추천을 불러오지 못했습니다.");
+      return;
+    }
     if (res.data.fallback) {
       // **폴백도 한 번 쓴 것으로 센다.** 서버는 이미 모델을 불렀고(돈이 나갔고) 횟수를
       // 차감한다. 여기서 안 세면 화면은 계속 "3회 가능" 이라고 하다가 누르면 거부당해,
@@ -64,11 +70,12 @@ export default function SnsIntakeFormClient({
       // 화면이 직접 세야 한다.
       const usedAfterFallback = currentUsage + 1;
       setAiUsageMap((prev) => ({ ...prev, [questionId]: usedAfterFallback }));
-      setNotice(
+      const msg =
         usedAfterFallback >= MAX_AI_ATTEMPTS
           ? "AI 제안 실패 — 이 질문의 추천 횟수를 모두 사용했습니다. 직접 입력해주세요."
-          : "AI 제안 실패 — 직접 입력해주세요."
-      );
+          : "AI 제안 실패 — 직접 입력해주세요.";
+      setNotice(msg);
+      toast.warning(msg);
       return;
     }
 
@@ -92,8 +99,18 @@ export default function SnsIntakeFormClient({
     setError(null);
     const res = await safeCall(submitSnsIntakeAction({ token, answers, honeypot }));
     setLoading(false);
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) {
+      setError(res.error);
+      // 제출 버튼은 긴 폼의 맨 아래에 있다. 오류 배너는 폼 맨 위라 스크롤 밖이어서,
+      // 실패해도 "눌렀는데 아무 일도 안 일어난다"로 보였다. 배너는 그대로 두고 토스트를 같이 띄운다.
+      toast.error(res.error || "제출하지 못했습니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
     setSubmitted(true);
+    // 완료 화면으로 바뀌긴 하지만, 맨 아래에서 누른 뒤 스크롤 위치가 그대로면 바뀐 걸 놓칠 수 있다.
+    toast.success("사전설문이 제출되었습니다.", {
+      description: "보내주신 답변을 바탕으로 준비를 시작하겠습니다.",
+    });
   };
 
   if (submitted) {

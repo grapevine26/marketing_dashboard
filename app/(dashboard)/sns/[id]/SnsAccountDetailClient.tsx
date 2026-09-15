@@ -61,6 +61,7 @@ import { safeCall } from "@/lib/actions/safeCall";
 import { guardedSave, useSaveGuard } from "@/components/PendingSaveGuard";
 import { toast } from "@/components/Toast";
 import SnsIntakeQuestionEditor from "./SnsIntakeQuestionEditor";
+import { isSnsAccountClosed } from "@/lib/db/types";
 
 const STATUS_TONE: Record<SnsContentStatus, string> = {
   planning: "text-text-sub",
@@ -745,7 +746,13 @@ export default function SnsAccountDetailClient({
                   title="클릭하여 상태 변경"
                   className={`px-2 py-0.5 rounded text-[10px] font-bold ${account.status === "active" ? "bg-emerald-500/15 text-emerald-400" : "bg-surface3 text-text-muted"}`}
                 >
-                  {account.status === "active" ? "운영중" : "계약종료"}
+                  {/* 공개 링크가 닫혔는지와 같은 기준을 쓴다. status 만 보면 종료일이 지나
+                      링크는 닫혔는데 여기만 "운영중" 이라고 말하는 상태가 된다. */}
+                  {!isSnsAccountClosed(account)
+                    ? "운영중"
+                    : account.status === "ended"
+                    ? "계약종료"
+                    : "기간종료"}
                 </button>
               </div>
               <h1 className="text-xl sm:text-2xl font-extrabold text-text">{account.company_name}</h1>

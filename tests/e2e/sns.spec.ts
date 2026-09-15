@@ -75,7 +75,9 @@ test.describe("C. SNS 운영", () => {
     await page.goto(`/sns-approval/${SAMPLE.snsApprovalToken}`);
     const approvalCard = contentCard(page, "E2E 릴스 기획");
     await approvalCard.getByRole("button", { name: "수정 요청" }).click();
-    await expect(page.getByText("수정 요청 사항을 입력해주세요.")).toBeVisible();
+    // 같은 문구가 폼 안 배너와 토스트 두 곳에 뜬다. 긴 폼에서는 배너가 화면 밖이라
+    // 토스트를 같이 띄운다. 둘 다 보이는 것이 맞으므로 각각을 따로 확인한다.
+    await expect(page.getByLabel("알림 메시지").getByText("수정 요청 사항을 입력해주세요.")).toBeVisible();
     await approvalCard.getByPlaceholder(/수정 요청 사항/).fill("두 번째 줄 문구를 바꿔주세요");
     await approvalCard.getByRole("button", { name: "수정 요청" }).click();
     await expect(page.getByRole("heading", { name: "E2E 릴스 기획" })).toBeHidden();

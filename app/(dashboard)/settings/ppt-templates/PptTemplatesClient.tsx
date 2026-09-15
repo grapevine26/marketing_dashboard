@@ -53,6 +53,9 @@ export default function PptTemplatesClient({
   const [editKind, setEditKind] = useState<PptTemplateKind>("event");
   const [savingEdit, setSavingEdit] = useState(false);
   const [replacingId, setReplacingId] = useState<string | null>(null);
+  // 삭제·되살리기도 서버 왕복이라 표시가 없으면 멈춘 줄 알고 다시 누른다. 교체(replacingId)와 같은 방식.
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
   const [hiddenBuiltinCount, setHiddenBuiltinCount] = useState(initialHiddenBuiltinCount);
 
   // 탭에 돌아오면 DashboardShell 의 RefreshOnFocus 가 router.refresh() 를 부른다.
@@ -147,31 +150,42 @@ export default function PptTemplatesClient({
     if (!confirm(message)) return;
     setError(null);
     setNotice(null);
-    const res = await safeCall(deletePptTemplateAction(t.id));
-    if (!res.ok) {
-      setError(res.error);
-      toast.error(res.error || "템플릿 삭제에 실패했습니다.");
-      return;
+    // finally 로 반드시 잠금을 푼다. 업로드와 같은 이유 — 여기서 예외가 새면 버튼이 영구히 비활성으로 남는다.
+    setDeletingId(t.id);
+    try {
+      const res = await safeCall(deletePptTemplateAction(t.id));
+      if (!res.ok) {
+        setError(res.error);
+        toast.error(res.error || "템플릿 삭제에 실패했습니다.");
+        return;
+      }
+      setTemplates((prev) => prev.filter((x) => x.id !== t.id));
+      if (t.builtin) setHiddenBuiltinCount((n) => n + 1);
+      toast.info(`"${t.name}" 템플릿이 목록에서 삭제되었습니다.`);
+    } finally {
+      setDeletingId(null);
     }
-    setTemplates((prev) => prev.filter((x) => x.id !== t.id));
-    if (t.builtin) setHiddenBuiltinCount((n) => n + 1);
-    toast.info(`"${t.name}" 템플릿이 목록에서 삭제되었습니다.`);
   };
 
   const handleRestoreBuiltins = async () => {
     setError(null);
-    const res = await safeCall(restoreBuiltinPptTemplatesAction());
-    if (!res.ok) {
-      setError(res.error);
-      toast.error(res.error || "기본 템플릿 복원에 실패했습니다.");
-      return;
+    setRestoring(true);
+    try {
+      const res = await safeCall(restoreBuiltinPptTemplatesAction());
+      if (!res.ok) {
+        setError(res.error);
+        toast.error(res.error || "기본 템플릿 복원에 실패했습니다.");
+        return;
+      }
+      setHiddenBuiltinCount(0);
+      // 이제 router.refresh() 가 내려준 목록이 위 syncedFrom 으로 화면에 반영되므로
+      // 사람이 직접 새로고침할 필요가 없다. 안내 문구도 그에 맞춘다.
+      setNotice(`기본 템플릿 ${res.data.restored}개를 되살렸습니다.`);
+      toast.success(`기본 템플릿 ${res.data.restored}개를 되살렸습니다.`);
+      router.refresh();
+    } finally {
+      setRestoring(false);
     }
-    setHiddenBuiltinCount(0);
-    // 이제 router.refresh() 가 내려준 목록이 위 syncedFrom 으로 화면에 반영되므로
-    // 사람이 직접 새로고침할 필요가 없다. 안내 문구도 그에 맞춘다.
-    setNotice(`기본 템플릿 ${res.data.restored}개를 되살렸습니다.`);
-    toast.success(`기본 템플릿 ${res.data.restored}개를 되살렸습니다.`);
-    router.refresh();
   };
 
   const startEdit = (t: PptTemplate) => {
@@ -342,10 +356,11 @@ export default function PptTemplatesClient({
           {hiddenBuiltinCount > 0 && (
             <button
               type="button"
+              disabled={restoring}
               onClick={handleRestoreBuiltins}
-              className="px-3 py-1.5 rounded-lg bg-surface2 border border-border text-text-sub hover:text-text text-[11px] font-semibold inline-flex items-center gap-1.5 transition"
+              className="px-3 py-1.5 rounded-lg bg-surface2 border border-border text-text-sub hover:text-text text-[11px] font-semibold inline-flex items-center gap-1.5 transition disabled:opacity-50"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              {restoring ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
               지운 기본 템플릿 {hiddenBuiltinCount}개 되살리기
             </button>
           )}
@@ -410,11 +425,16 @@ export default function PptTemplatesClient({
                     )}
                     <button
                       type="button"
+                      disabled={deletingId === t.id}
                       onClick={() => handleDelete(t)}
-                      className="px-2 py-1 rounded-lg text-text-sub hover:text-red-400 hover:bg-surface2 text-[11px] font-semibold inline-flex items-center gap-1 transition"
+                      className="px-2 py-1 rounded-lg text-text-sub hover:text-red-400 hover:bg-surface2 text-[11px] font-semibold inline-flex items-center gap-1 transition disabled:opacity-50 disabled:hover:text-text-sub"
                       title={t.builtin ? "목록에서 지우기 (되살릴 수 있습니다)" : "삭제"}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      {deletingId === t.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
                       <span className="hidden sm:inline">삭제</span>
                     </button>
                   </div>

@@ -66,13 +66,29 @@ export default function SnsPlanEditorClient({
       placeholders: targets,
       currentValues: fieldValues,
     }));
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) {
+      setError(res.error);
+      // 항목이 많은 긴 폼이라 화면 위쪽 배너가 스크롤 밖에 있을 수 있다. 배너는 그대로 두고,
+      // 어느 위치에서 눌러도 보이는 토스트를 같이 띄운다. 안 그러면 "눌렀는데 아무 일도 안 일어난다"로 보인다.
+      toast.error(res.error || "AI 초안 생성에 실패했습니다.");
+      return;
+    }
     if (res.data.fallback) {
       setNotice("AI 제안 실패 — 직접 입력해주세요.");
+      // 폴백은 결과적으로 실패와 같다(채워진 항목이 없다). 배너만 바뀌면 실패한 줄 모른다.
+      toast.warning("AI 초안을 만들지 못했습니다.", { description: "직접 입력해주세요." });
       return;
     }
     setFieldValues((prev) => ({ ...prev, ...res.data.values }));
     setDirty(true);
+    // 성공해도 화면 아래쪽 입력칸이 조용히 바뀌는 게 전부라, 무엇이 채워졌는지 알 수 없었다.
+    // 채운 항목 이름을 그대로 보여준다.
+    const filled = Object.keys(res.data.values);
+    if (filled.length > 0) {
+      toast.success(`AI 초안으로 ${filled.length}개 항목을 채웠습니다.`, {
+        description: filled.join(", "),
+      });
+    }
   };
 
   const handleAiField = async (ph: string) => {
@@ -85,6 +101,10 @@ export default function SnsPlanEditorClient({
     const empty = placeholders.filter((ph) => !(fieldValues[ph] || "").trim());
     if (empty.length === 0) {
       setNotice("비어 있는 항목이 없습니다. 항목별 AI 버튼으로 다시 생성할 수 있습니다.");
+      // 아무것도 안 하고 끝나는 경로다. 배너가 스크롤 밖이면 버튼이 고장 난 것처럼 보인다.
+      toast.info("비어 있는 항목이 없습니다.", {
+        description: "항목별 AI 버튼으로 다시 생성할 수 있습니다.",
+      });
       return;
     }
     setLoadingAiAll(true);

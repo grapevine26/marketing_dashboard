@@ -20,6 +20,14 @@ export interface ToastItem {
 
 type Listener = () => void;
 
+// 퇴장 애니메이션 길이. **한 곳에서만 정한다.**
+// 예전에는 세 숫자가 따로 놀았다 — 카드의 transition 은 240ms, 카드가 스스로 사라지는
+// setTimeout 은 160ms, 스토어(addToast)의 제거 타이머는 duration 정각이었다.
+// 그래서 스토어가 duration 에 토스트를 목록에서 빼 버리면 카드는 퇴장을 시작하지도 못하고
+// 그 자리에서 사라졌다. 이제 transition·unmount 지연이 이 값을 함께 쓰고,
+// 스토어 타이머는 그 뒤(duration + EXIT_MS)로 미뤄 안전망 역할만 한다.
+const EXIT_MS = 240;
+
 let toasts: ToastItem[] = [];
 const listeners = new Set<Listener>();
 
@@ -45,10 +53,13 @@ export function addToast(type: ToastType, message: string, options?: ToastOption
   toasts = [...toasts.slice(-4), item];
   emitChange();
 
+  // 표시 시간(duration)은 그대로다. 실제로 사라지게 하는 쪽은 카드(ToastItemView)이고,
+  // 이 타이머는 카드가 마운트되지 않은 경우(컨테이너 없음 등)를 대비한 안전망이라
+  // 퇴장 애니메이션이 끝나는 시점까지 기다렸다가 목록에서 뺀다. removeToast 는 여러 번 불려도 안전하다.
   if (duration > 0 && typeof window !== "undefined") {
     setTimeout(() => {
       removeToast(id);
-    }, duration);
+    }, duration + EXIT_MS);
   }
 
   return id;
@@ -149,9 +160,10 @@ function ToastItemView({
   const handleClose = React.useCallback(() => {
     if (exiting) return;
     setExiting(true);
+    // 아래 transition 과 **같은 값**을 쓴다. 더 짧으면 애니메이션 도중에 사라진다.
     setTimeout(() => {
       onDismiss(t.id);
-    }, 160); // 160ms snappy exit budget
+    }, EXIT_MS);
   }, [exiting, onDismiss, t.id]);
 
   React.useEffect(() => {
@@ -170,7 +182,7 @@ function ToastItemView({
     <div
       role="status"
       style={{
-        transition: "transform 240ms var(--ease-out), opacity 240ms var(--ease-out)",
+        transition: `transform ${EXIT_MS}ms var(--ease-out), opacity ${EXIT_MS}ms var(--ease-out)`,
         transform: isVisible
           ? "translateY(0) scale(1)"
           : "translateY(-8px) scale(0.96)",

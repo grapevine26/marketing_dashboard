@@ -94,6 +94,10 @@ export default function AllEventsListClient({
       all: base.length,
       preparing: base.filter((c) => c.status === "preparing").length,
       done: base.filter((c) => c.status === "done").length,
+      // 행사 상태는 preparing / done / canceled 셋인데 탭이 둘뿐이라, 취소된 행사가
+      // 어느 탭에도 안 잡혀 **두 탭 숫자를 더해도 "전체" 와 안 맞았다.** 사용자는
+      // 숫자가 틀린 줄 알거나 취소한 행사를 영영 못 찾는다.
+      canceled: base.filter((c) => c.status === "canceled").length,
     };
   }, [initialCards, selectedCampaignId]);
 
@@ -179,6 +183,21 @@ export default function AllEventsListClient({
             >
               행사완료 <span className="font-mono ml-0.5 opacity-80">{statusCounts.done}</span>
             </button>
+            {/* 취소된 행사가 0건이면 탭을 띄우지 않는다. 평소에는 안 쓰는 상태라
+                늘 보이면 자리만 차지하고, 숫자가 생기면 그때 나타나는 편이 눈에 띈다. */}
+            {statusCounts.canceled > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedStatus("canceled")}
+                className={`px-3 py-1 rounded-lg font-semibold transition cursor-pointer ${
+                  selectedStatus === "canceled"
+                    ? "bg-rose-500/15 text-rose-400 border border-rose-500/30"
+                    : "bg-surface2/60 text-text-sub hover:text-text"
+                }`}
+              >
+                취소됨 <span className="font-mono ml-0.5 opacity-80">{statusCounts.canceled}</span>
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2 text-text-muted text-xs">

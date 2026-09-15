@@ -49,7 +49,10 @@ test.describe("A. 인플루언서 시딩 전체 흐름", () => {
       document.querySelectorAll("input[required]").forEach((el) => el.removeAttribute("required"));
     });
     await page.getByRole("button", { name: "인플루언서 지원서 제출하기" }).click();
-    await expect(page.getByText("개인정보 수집 및 이용에 동의해주세요.")).toBeVisible();
+    // 같은 문구가 폼 안 배너와 토스트 두 곳에 뜬다. 긴 폼에서는 배너가 화면 밖이라
+    // 토스트를 같이 띄운다. 둘 다 보이는 것이 맞으므로 각각을 따로 확인한다.
+    await expect(page.getByLabel("알림 메시지").getByText("개인정보 수집 및 이용에 동의해주세요.")).toBeVisible();
+    await expect(page.locator("form").getByText("개인정보 수집 및 이용에 동의해주세요.")).toBeVisible();
 
     await page.getByLabel(/\(필수\) 개인정보/).check();
     await page.getByRole("button", { name: "인플루언서 지원서 제출하기" }).click();

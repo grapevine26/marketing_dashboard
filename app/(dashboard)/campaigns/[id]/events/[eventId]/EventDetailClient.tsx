@@ -525,8 +525,12 @@ export default function EventDetailClient({
                 <button type="button" onClick={() => setEditingInfo(true)} className="px-3 py-2 rounded-xl bg-surface2 hover:bg-surface3 border border-border text-text text-xs font-semibold inline-flex items-center gap-1.5">
                   <Pencil className="w-3.5 h-3.5" /> 정보 수정
                 </button>
-                <button type="button" onClick={handleDeleteEvent} className="px-3 py-2 rounded-xl bg-rose-600/10 hover:bg-rose-600/20 border border-rose-500/30 text-rose-300 text-xs font-semibold inline-flex items-center gap-1.5">
-                  <Trash2 className="w-3.5 h-3.5" /> 삭제
+                {/* 삭제는 지우고 화면을 옮기기까지 시간이 걸린다. 위 [정보 수정] 저장 버튼과 같은 방식으로
+                    진행 중에는 잠그고 스피너를 보여준다. handleDeleteEvent 안의 가드만으로는
+                    눌러도 아무 반응이 없어 보여 사람이 계속 다시 누른다. */}
+                <button type="button" onClick={handleDeleteEvent} disabled={deletingEvent} className="px-3 py-2 rounded-xl bg-rose-600/10 hover:bg-rose-600/20 border border-rose-500/30 text-rose-300 text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
+                  {deletingEvent ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  {deletingEvent ? "삭제 중..." : "삭제"}
                 </button>
               </div>
             </div>

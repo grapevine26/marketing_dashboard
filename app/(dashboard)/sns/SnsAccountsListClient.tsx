@@ -18,6 +18,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import { isSnsAccountClosed } from "@/lib/db/types";
 
 interface SnsAccountsListClientProps {
   initialAccounts: SnsAccount[];
@@ -46,8 +47,11 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
     setAccounts(initialAccounts);
   }
 
-  const activeCount = accounts.filter((a) => a.status === "active").length;
-  const endedCount = accounts.filter((a) => a.status === "ended").length;
+  // **공개 링크가 닫혔는지와 같은 기준으로 센다.** 전에는 `status` 만 봐서, 계약 종료일이
+  // 지났지만 아무도 상태를 안 바꾼 계정이 대시보드에는 "운영중" 으로 뜨는데 광고주 쪽
+  // 승인 링크는 이미 닫혀 있었다. 화면이 실제와 반대말을 하면 안 된다.
+  const activeCount = accounts.filter((a) => !isSnsAccountClosed(a)).length;
+  const endedCount = accounts.filter((a) => isSnsAccountClosed(a)).length;
 
   const isFiltered = search !== "" || selectedPlatform !== "all" || filter !== "active";
 
@@ -59,8 +63,8 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
 
   const q = search.trim().toLowerCase();
   const filteredAccounts = accounts.filter((a) => {
-    if (filter === "active" && a.status !== "active") return false;
-    if (filter === "ended" && a.status !== "ended") return false;
+    if (filter === "active" && isSnsAccountClosed(a)) return false;
+    if (filter === "ended" && !isSnsAccountClosed(a)) return false;
     if (selectedPlatform !== "all" && a.platform !== selectedPlatform) return false;
     if (q) {
       return (
@@ -237,10 +241,14 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
                   <div className="flex items-center gap-2">
                     <span
                       className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        acc.status === "active" ? "bg-emerald-500/15 text-emerald-400" : "bg-surface3 text-text-muted"
+                        !isSnsAccountClosed(acc) ? "bg-emerald-500/15 text-emerald-400" : "bg-surface3 text-text-muted"
                       }`}
                     >
-                      {acc.status === "active" ? "운영중" : "계약종료"}
+                      {!isSnsAccountClosed(acc)
+                        ? "운영중"
+                        : acc.status === "ended"
+                        ? "계약종료"
+                        : "기간종료"}
                     </span>
                     <button
                       type="button"

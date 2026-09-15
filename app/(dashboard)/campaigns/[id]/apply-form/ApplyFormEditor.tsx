@@ -24,10 +24,9 @@ export default function ApplyFormEditor({
   initialConfig: CampaignFormConfig | null;
   applyPath: string;
 }) {
-  const [introText, setIntroText] = useState(
-    initialConfig?.intro_text ||
-      `안녕하세요! ${campaign.company_name}의 신규 캠페인 '${campaign.name}' 인플루언서 체험단을 모집합니다.`
-  );
+  // 저장된 소개글이 없을 때 깔아 두는 자동 문구. 아래 AI 초안에서 "사람이 써 둔 글인지" 가리는 데도 쓴다.
+  const defaultIntroText = `안녕하세요! ${campaign.company_name}의 신규 캠페인 '${campaign.name}' 인플루언서 체험단을 모집합니다.`;
+  const [introText, setIntroText] = useState(initialConfig?.intro_text || defaultIntroText);
   const [customQuestions, setCustomQuestions] = useState<CustomQuestion[]>(initialConfig?.custom_questions || []);
   const [isPublished, setIsPublished] = useState(initialConfig?.is_published ?? true);
 
@@ -38,6 +37,17 @@ export default function ApplyFormEditor({
   const [error, setError] = useState<string | null>(null);
 
   const handleAiIntro = async () => {
+    // AI 초안은 소개글을 통째로 갈아엎는다. 되돌리기가 없으니 먼저 물어본다.
+    // 저장된 적 없는 자동 기본 문구만 남아 있으면 잃을 것이 없어 묻지 않는다 —
+    // 처음 만드는 사람이 매번 확인창을 보면 확인창을 읽지 않고 누르는 습관만 생긴다.
+    const isUntouchedDefault = !initialConfig && introText === defaultIntroText;
+    if (
+      introText.trim() !== "" &&
+      !isUntouchedDefault &&
+      !window.confirm("지금 써 둔 모집 소개글이 AI 초안으로 덮어쓰기 됩니다. 계속할까요?")
+    ) {
+      return;
+    }
     setLoadingAi(true);
     setNotice(null);
     setError(null);
