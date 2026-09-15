@@ -4,7 +4,7 @@ import { getCampaignById, getCampaignByToken, getApplicantsByCampaignId, getForm
 import { applicantsToCSV } from "@/lib/applicants/csv";
 import { applicantsToXlsx } from "@/lib/applicants/xlsx";
 import { fileDownloadResponse } from "@/lib/http/fileResponse";
-import { sanitizeApplicantForCompany } from "@/lib/db/types";
+import { sanitizeApplicantForCompany, questionsSharedWithCompany } from "@/lib/db/types";
 
 /**
  * 지원자 데이터 내보내기 (CSV 및 Excel .xlsx).
@@ -55,7 +55,12 @@ export async function GET(request: NextRequest) {
   // 현재 질문 목록을 같이 넘겨 지워진 질문의 옛 답변이 파일에 실리지 않게 한다.
   // 생성기는 현재 질문만 컬럼으로 만들지만, 값 자체를 지워 두면 컬럼 고르기가 바뀌어도 안전하다.
   // `.map(sanitizeApplicantForCompany)` 로 넘기면 안 된다 — map 이 두 번째 인자로 index 를 준다.
-  const customQuestions = formConfig?.custom_questions || [];
+  // **광고주에게 공개로 표시된 질문만** 남긴다. 표시가 없으면 막는다(모르면 가린다).
+  // 컬럼을 고를 때와 값을 지울 때 같은 목록을 써야 한다. 한쪽만 걸면 질문 제목은 보이는데
+  // 답이 빈칸인 표가 나가서, 오히려 "뭔가 숨겼구나" 가 드러난다.
+  const customQuestions = token
+    ? questionsSharedWithCompany(formConfig?.custom_questions || [])
+    : formConfig?.custom_questions || [];
   const allowedQuestionIds = customQuestions.map((q) => q.id);
   const applicants = token
     ? rawApplicants.map((a) => sanitizeApplicantForCompany(a, allowedQuestionIds))

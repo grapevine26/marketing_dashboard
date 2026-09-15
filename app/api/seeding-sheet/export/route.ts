@@ -13,7 +13,7 @@ import { seedingSheetToXlsx } from "@/lib/seeding/sheetXlsx";
 import { mergeSeedingRows } from "@/lib/seeding/rows";
 import { toKstDateString } from "@/lib/seeding/dday";
 import { fileDownloadResponse } from "@/lib/http/fileResponse";
-import { sanitizeApplicantForCompany, sanitizeSeedingForCompany } from "@/lib/db/types";
+import { sanitizeApplicantForCompany, sanitizeSeedingForCompany, questionsSharedWithCompany } from "@/lib/db/types";
 
 /**
  * 관리시트 데이터 내보내기 (CSV 및 Excel .xlsx).
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
   // 지워진 질문의 옛 답변도 같은 이유로 뺀다. 이 파일은 커스텀 답변 컬럼을 만들지 않지만,
   // 기준이 화면과 달라지는 순간 파일이 다시 우회 경로가 된다.
   // `.map(sanitizeApplicantForCompany)` 로 넘기면 안 된다 — map 이 두 번째 인자로 index 를 준다.
-  const allowedQuestionIds = (formConfig?.custom_questions || []).map((q) => q.id);
+  const allowedQuestionIds = questionsSharedWithCompany(formConfig?.custom_questions || []).map((q) => q.id);
   const applicants = token
     ? rawApplicants.map((a) => sanitizeApplicantForCompany(a, allowedQuestionIds))
     : rawApplicants;

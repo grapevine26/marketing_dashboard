@@ -3,7 +3,7 @@
 // 규칙: 액션 본문 첫 문장은 `return runAction(...)`. 토큰 확인·DB 조회도 래퍼 안에서 해서 오류가 밖으로 새지 않게 한다.
 
 import { getCampaignByToken, getApplicantById, updateApplicantStatus, getFormConfig, ValidationError } from "@/lib/db";
-import { sanitizeApplicantForCompany } from "@/lib/db/types";
+import { sanitizeApplicantForCompany, questionsSharedWithCompany } from "@/lib/db/types";
 import { Applicant, ApplicantStatus } from "@/lib/db/types";
 import { revalidatePath } from "next/cache";
 import { ActionResult, runAction } from "@/lib/actions/result";
@@ -60,7 +60,7 @@ export async function changeApplicantStatusByTokenAction(params: {
     // 현재 질문 목록도 같이 넘긴다. 화면(page.tsx)과 기준이 다르면,
     // 첫 렌더에서는 빠졌던 옛 답변이 버튼 한 번에 응답으로 되돌아온다.
     const formConfig = await getFormConfig(campaign.id);
-    const allowedQuestionIds = (formConfig?.custom_questions || []).map((q) => q.id);
+    const allowedQuestionIds = questionsSharedWithCompany(formConfig?.custom_questions || []).map((q) => q.id);
     return sanitizeApplicantForCompany(result.applicant, allowedQuestionIds);
   });
 }

@@ -542,6 +542,10 @@ export async function saveFormConfig(data: {
       type,
       required: Boolean(q.required),
       ...(options ? { options } : {}),
+      // 이 줄을 빠뜨리면 체크박스가 조용히 버려진다. 여기는 골라 담기 방식이라
+      // 새 칸을 추가할 때마다 이 목록에도 같이 적어야 한다.
+      // 저장할 때 항상 적어 두면, 읽는 쪽이 "값이 없다" 를 만날 일이 없어진다.
+      share_with_company: q.share_with_company === true,
     };
   });
 

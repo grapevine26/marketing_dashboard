@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import ClosedLinkNotice from "@/components/ClosedLinkNotice";
 import { getCampaignByToken, getSeedingRecordsByCampaignId, getApplicantsByCampaignId, getFormConfig } from "@/lib/db";
-import { toPublicCampaign, sanitizeApplicantForCompany, sanitizeSeedingForCompany } from "@/lib/db/types";
+import { toPublicCampaign, sanitizeApplicantForCompany, sanitizeSeedingForCompany, questionsSharedWithCompany } from "@/lib/db/types";
 import { mergeSeedingRows } from "@/lib/seeding/rows";
 import { toKstDateString } from "@/lib/seeding/dday";
 import SeedingSheetTable from "@/app/(dashboard)/campaigns/[id]/seeding-sheet/SeedingSheetTable";
@@ -32,7 +32,7 @@ export default async function PublicSeedingSheetSharePage({
   //
   // 이 화면은 커스텀 답변을 아예 그리지 않지만, 그래도 현재 질문 목록을 넘긴다.
   // 안 그리는 값이라도 서버가 내려보내면 페이지 소스에 실리기 때문이다.
-  const allowedQuestionIds = (formConfig?.custom_questions || []).map((q) => q.id);
+  const allowedQuestionIds = questionsSharedWithCompany(formConfig?.custom_questions || []).map((q) => q.id);
   const rows = mergeSeedingRows(campaign.id, applicants, records).map((r) => ({
     ...r,
     applicant: sanitizeApplicantForCompany(r.applicant, allowedQuestionIds),

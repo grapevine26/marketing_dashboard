@@ -13,6 +13,7 @@ import {
   Campaign,
   Applicant,
   SeedingRecord,
+  CustomFormQuestion,
 } from "@/lib/db/types";
 
 describe("웹훅 URL 검증 (SSRF 방지)", () => {
@@ -519,6 +520,9 @@ describe("지워진 커스텀 질문의 옛 답변", () => {
     ]) {
       const src = readFileSync(p, "utf8");
       expect(src).toMatch(/sanitizeApplicantForCompany\([^)]*,\s*allowedQuestionIds\)/);
+      // 그 목록은 **광고주 공개로 표시된 질문만** 이어야 한다. 전체 목록을 넘기면
+      // 체크박스를 꺼 둔 질문의 답까지 그대로 나간다.
+      expect(src).toContain("questionsSharedWithCompany");
     }
   });
 });
@@ -597,3 +601,85 @@ describe.skipIf(!hasTestDb)("광고주 내려받기 기록", () => {
     }
   });
 });
+
+
+/**
+ * 커스텀 질문별 "광고주 공개" 표시.
+ *
+ * 전에는 지원폼에 질문을 추가하면 그 답이 무조건 광고주에게 갔다. 대행사가 "카카오톡 ID",
+ * "생년월일", "상세 주소" 같은 걸 물어보는 순간 지원자 전원의 값이 광고주 화면·CSV 로 나갔고,
+ * 편집 화면에는 그렇게 된다는 안내가 한 줄도 없었다.
+ * 특히 주소는 고정 칸(`shipping_address`)을 막아 뒀는데 커스텀 질문으로 물으면 그 방어가
+ * 그대로 우회됐다.
+ */
+describe("커스텀 질문의 광고주 공개 표시", () => {
+  const q = (id: string, share?: boolean): CustomFormQuestion => ({
+    id,
+    label: id,
+    type: "text",
+    required: false,
+    ...(share === undefined ? {} : { share_with_company: share }),
+  });
+
+  it("표시가 없으면 막는다 (모르면 가린다)", async () => {
+    const { isSharedWithCompany } = await import("@/lib/db/types");
+    // 이 칸이 생기기 전에 저장된 옛 질문, 또는 이 칸을 모르는 코드가 만든 질문.
+    // 보이는 쪽으로 읽으면 그런 질문이 조용히 새어 나간다.
+    expect(isSharedWithCompany(q("old"))).toBe(false);
+    expect(isSharedWithCompany(q("off", false))).toBe(false);
+    expect(isSharedWithCompany(q("on", true))).toBe(true);
+  });
+
+  it("공개로 표시한 질문만 광고주에게 나간다", async () => {
+    const { questionsSharedWithCompany, sanitizeApplicantForCompany } = await import("@/lib/db/types");
+    const questions = [q("q_open", true), q("q_secret", false), q("q_old")];
+
+    const shared = questionsSharedWithCompany(questions);
+    expect(shared.map((x) => x.id)).toEqual(["q_open"]);
+
+    const applicant = {
+      ...fullApplicantForShareTest,
+      custom_answers: {
+        q_open: "공개해도 되는 답",
+        q_secret: "카카오톡 아이디 haneul_0312",
+        q_old: "1997-03-12",
+      },
+    };
+    const clean = sanitizeApplicantForCompany(applicant, shared.map((x) => x.id));
+    expect(Object.keys(clean.custom_answers || {})).toEqual(["q_open"]);
+
+    const serialized = JSON.stringify(clean);
+    expect(serialized).not.toContain("haneul_0312");
+    expect(serialized).not.toContain("1997-03-12");
+  });
+
+  it("새 질문은 광고주 비공개로 만들어진다", async () => {
+    const { readFileSync } = await import("node:fs");
+    // 반대로 두면 "카카오톡 ID" 를 물어보며 체크를 깜빡하는 순간 전원의 값이 나간다.
+    // 보여줘야 하는 질문은 만들 때 한 번 눌러 주면 된다.
+    const src = readFileSync("app/(dashboard)/campaigns/[id]/apply-form/ApplyFormEditor.tsx", "utf8");
+    expect(src).toMatch(/share_with_company:\s*false/);
+  });
+});
+
+const fullApplicantForShareTest: Applicant = {
+  id: "app_9",
+  campaign_id: "camp_1",
+  name: "최서연",
+  sns_link: "https://instagram.com/seoyeon",
+  nationality: "대한민국",
+  contact: "010-5555-6666",
+  follower_count: 12000,
+  category: "패션",
+  agency_memo: "메모",
+  shipping_address: "서울시 강남구 1",
+  visit_schedule: undefined,
+  visit_party_size: undefined,
+  custom_answers: {},
+  privacy_agreed: true,
+  secondary_use_agreed: true,
+  status: "applied",
+  status_changed_by: "agency",
+  status_changed_at: undefined,
+  applied_at: "2026-09-01T00:00:00.000Z",
+};

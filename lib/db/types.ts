@@ -356,6 +356,32 @@ export interface CustomFormQuestion {
   type: CustomQuestionType;
   required: boolean;
   options?: string[];
+  /**
+   * 이 질문의 **답을 광고주에게 보여줄지**. 지원자가 그 칸에 써 넣는 내용이 광고주 화면과
+   * CSV·엑셀로 나갈지를 정한다. 질문 제목이 아니라 답이 기준이다.
+   *
+   * **값이 없으면 "안 보임" 으로 읽는다**(`isSharedWithCompany`). 없을 때 보이는 쪽으로
+   * 읽으면, 이 칸을 모르는 코드가 질문을 하나 만드는 순간 조용히 새어 나간다. 모르면 막는다.
+   *
+   * 화면이 이 값을 항상 적어 저장하므로 실제로는 비어 있지 않다. optional 로 둔 것은
+   * 이 칸이 생기기 전에 저장된 옛 질문 때문이다.
+   */
+  share_with_company?: boolean;
+}
+
+/**
+ * 이 질문의 답이 광고주에게 나가는가.
+ *
+ * 값이 없으면 **막는다**. 개인정보가 걸린 판단이라 "모르면 보여준다" 가 아니라
+ * "모르면 가린다" 여야 한다. 대행사 화면은 이 함수를 쓰지 않고 전부 본다.
+ */
+export function isSharedWithCompany(q: CustomFormQuestion): boolean {
+  return q.share_with_company === true;
+}
+
+/** 광고주에게 보여줄 질문만 남긴다. */
+export function questionsSharedWithCompany(questions: CustomFormQuestion[]): CustomFormQuestion[] {
+  return questions.filter(isSharedWithCompany);
 }
 export type CustomQuestion = CustomFormQuestion;
 

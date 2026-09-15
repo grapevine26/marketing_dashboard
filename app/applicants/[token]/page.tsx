@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import ClosedLinkNotice from "@/components/ClosedLinkNotice";
 import { getCampaignByToken, getApplicantsByCampaignId, getFormConfig } from "@/lib/db";
-import { toPublicCampaign, sanitizeApplicantForCompany } from "@/lib/db/types";
+import { toPublicCampaign, sanitizeApplicantForCompany, questionsSharedWithCompany } from "@/lib/db/types";
 import { findDuplicates } from "@/lib/applicants/duplicates";
 import ApplicantTable from "@/app/(dashboard)/campaigns/[id]/applicants/ApplicantTable";
 import { Building2 } from "lucide-react";
@@ -35,7 +35,10 @@ export default async function PublicApplicantsSharePage({
   // **연락처 사유는 빼고 보낸다.** 번호 자체는 무해화가 비우지만, "이 둘이 같은 번호를 썼다" 는
   // 사실이 사유 문자열로 그대로 나가면 가족·지인 관계가 광고주에게 드러난다.
   const duplicates = Object.fromEntries(findDuplicates(allApplicants, { includeContact: false }));
-  const customQuestions = formConfig?.custom_questions || [];
+  // **광고주에게 공개로 표시된 질문만** 남긴다. 표시가 없으면 막는다(모르면 가린다).
+  // 컬럼을 고를 때와 값을 지울 때 같은 목록을 써야 한다. 한쪽만 걸면 질문 제목은 보이는데
+  // 답이 빈칸인 표가 나가서, 오히려 "뭔가 숨겼구나" 가 드러난다.
+  const customQuestions = questionsSharedWithCompany(formConfig?.custom_questions || []);
   // 지금 남아 있는 질문의 답변만 내려보낸다. 지운 질문의 옛 답변은 DB 에 그대로 남아 있어서,
   // 넘기지 않으면 화면에 안 그려도 페이지 소스에 실린다.
   // `.map(sanitizeApplicantForCompany)` 로 넘기면 안 된다 — map 이 두 번째 인자로 index 를 준다.

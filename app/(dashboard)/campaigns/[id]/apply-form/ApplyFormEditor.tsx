@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Campaign, CampaignFormConfig, CustomQuestion, CustomQuestionType } from "@/lib/db/types";
+import { Campaign, CampaignFormConfig, CustomQuestion, CustomQuestionType, isSharedWithCompany } from "@/lib/db/types";
 import { saveFormConfigAction, generateAiIntroAction } from "./actions";
 import { Sparkles, Save, Plus, Trash2, ChevronLeft, Loader2, CheckCircle2, ExternalLink } from "lucide-react";
 import Link from "next/link";
@@ -60,7 +60,10 @@ export default function ApplyFormEditor({
   const handleAddQuestion = () => {
     setCustomQuestions((prev) => [
       ...prev,
-      { id: `cq_${Date.now()}`, label: "", type: "text", required: false },
+      // 새 질문은 **광고주에게 안 보이는 것이 기본**이다. 반대로 두면 "카카오톡 ID" 같은 걸
+      // 물어보면서 체크를 깜빡하는 순간 지원자 전원의 값이 광고주에게 나간다.
+      // 보여줘야 하는 질문은 만들 때 한 번 눌러 주면 된다.
+      { id: `cq_${Date.now()}`, label: "", type: "text", required: false, share_with_company: false },
     ]);
   };
 
@@ -178,6 +181,20 @@ export default function ApplyFormEditor({
             </div>
           ) : (
             <div className="space-y-3">
+              {/* 깜빡하고 안 켠 질문이 눈에 띄게, 반대로 켜 둔 것도 한눈에 보이게 한다.
+                  체크박스만 있으면 질문이 늘었을 때 어느 게 나가는지 세어보지 않으면 모른다. */}
+              <p className="text-[11px] text-text-muted">
+                광고주에게 보이는 질문{" "}
+                <strong className="text-warn-soft font-semibold">
+                  {customQuestions.filter(isSharedWithCompany).length}개
+                </strong>
+                {" · "}우리만 보는 질문{" "}
+                <strong className="text-text-sub font-semibold">
+                  {customQuestions.filter((q) => !isSharedWithCompany(q)).length}개
+                </strong>
+                {" — "}지원자가 쓴 <strong className="text-text-sub">답</strong>이 광고주 화면과 내려받기 파일에 나갑니다.
+                연락처·주소·생년월일 같은 건 켜지 마세요.
+              </p>
               {customQuestions.map((q, idx) => (
                 <div key={q.id} className="p-4 rounded-xl bg-bg border border-border space-y-2">
                   <div className="flex items-center gap-3">
@@ -210,6 +227,23 @@ export default function ApplyFormEditor({
                         className="accent-blue-600"
                       />
                       <span>필수</span>
+                    </label>
+                    {/* 이 질문의 **답**이 광고주 화면·CSV·엑셀로 나갈지. 켜져 있으면 눈에 띄게 보여준다. */}
+                    <label
+                      className={`flex items-center gap-1 text-xs cursor-pointer whitespace-nowrap px-2 py-1 rounded-lg border transition ${
+                        isSharedWithCompany(q)
+                          ? "border-amber-500/40 bg-amber-500/10 text-warn-soft"
+                          : "border-border text-text-muted hover:text-text-sub"
+                      }`}
+                      title="켜면 지원자가 이 칸에 쓴 내용이 광고주 화면과 내려받기 파일에 그대로 나갑니다."
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSharedWithCompany(q)}
+                        onChange={(e) => updateQuestion(q.id, { share_with_company: e.target.checked })}
+                        className="accent-amber-500"
+                      />
+                      <span>광고주 공개</span>
                     </label>
                     <button type="button" onClick={() => handleRemoveQuestion(q.id)} className="p-1.5 text-text-muted hover:text-red-400 transition">
                       <Trash2 className="w-4 h-4" />
