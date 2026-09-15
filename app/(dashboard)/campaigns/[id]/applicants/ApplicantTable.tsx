@@ -274,7 +274,12 @@ export default function ApplicantTable({
   });
 
   const totalPages = Math.max(1, Math.ceil(displayedApplicants.length / PAGE_SIZE));
-  const paginatedApplicants = displayedApplicants.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // 목록이 줄어 지금 페이지가 사라질 수 있다. 검색·정렬·필터는 setPage(1) 을 하지만
+  // **상태 변경(선정/예비 등)에는 그 자리가 없다.** 21명 중 2페이지의 1명을 최종선정하면
+  // totalPages 가 1 이 되는데 page 는 2 로 남아, 빈 표가 되고 페이지 버튼까지 사라져
+  // (`totalPages > 1` 조건) 필터를 다시 누르기 전에는 빠져나올 수 없었다.
+  const safePage = Math.min(page, totalPages);
+  const paginatedApplicants = displayedApplicants.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const count = (s: ApplicantStatus) => applicants.filter((a) => a.status === s).length;
 
@@ -728,25 +733,25 @@ export default function ApplicantTable({
       {totalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-xs text-text-sub">
           <span>
-            총 {displayedApplicants.length}명 중 {(page - 1) * PAGE_SIZE + 1} ~{" "}
-            {Math.min(page * PAGE_SIZE, displayedApplicants.length)}명 표시
+            총 {displayedApplicants.length}명 중 {(safePage - 1) * PAGE_SIZE + 1} ~{" "}
+            {Math.min(safePage * PAGE_SIZE, displayedApplicants.length)}명 표시
           </span>
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={safePage <= 1}
+              onClick={() => setPage(Math.max(1, safePage - 1))}
               className="px-3 py-1.5 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 disabled:opacity-40 border border-border font-medium transition btn-press"
             >
               이전
             </button>
             <span className="px-3 py-1.5 rounded-xl bg-bg border border-border font-mono text-text">
-              {page} / {totalPages}
+              {safePage} / {totalPages}
             </span>
             <button
               type="button"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safePage >= totalPages}
+              onClick={() => setPage(Math.min(totalPages, safePage + 1))}
               className="px-3 py-1.5 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 disabled:opacity-40 border border-border font-medium transition btn-press"
             >
               다음

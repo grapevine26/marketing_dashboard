@@ -78,11 +78,19 @@ export default async function CampaignDetailPage({
       stepNumber: "02",
       href: `/campaigns/${campaign.id}/apply-form`,
       icon: FileText,
-      badge: (
-        <span className={`text-[11px] font-semibold flex items-center gap-1 ${formConfig?.is_published === false ? "text-warn" : "text-blue-400"}`}>
-          <Sparkles className="w-3.5 h-3.5" /> {formConfig?.is_published === false ? "접수 중단" : "접수중"}
-        </span>
-      ),
+      // 배지가 `is_published` 만 보던 시절에는, 캠페인을 종료해도 "접수중" 이라고 떠 있었다.
+      // 실제 지원 링크는 `campaign.status === "completed"` 로 이미 닫혀 있어(app/apply/[token]) 화면과
+      // 실제가 반대였다. 닫히는 조건이 둘이니 배지도 둘 다 봐야 한다.
+      badge: (() => {
+        const closed = campaign.status === "completed";
+        const paused = formConfig?.is_published === false;
+        const label = closed ? "종료됨" : paused ? "접수 중단" : "접수중";
+        return (
+          <span className={`text-[11px] font-semibold flex items-center gap-1 ${closed || paused ? "text-warn" : "text-blue-400"}`}>
+            <Sparkles className="w-3.5 h-3.5" /> {label}
+          </span>
+        );
+      })(),
       title: "인플루언서 지원폼 설정",
       desc: "인플루언서 모집 소개글, 필수 항목 및 커스텀 질문 설정",
       cta: "신청폼 에디터",
