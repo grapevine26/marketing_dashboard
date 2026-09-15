@@ -11,6 +11,11 @@ import { toast } from "@/components/Toast";
 export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTemplate: SnsIntakeTemplate }) {
   const router = useRouter();
   const [questions, setQuestions] = useState<PreSurveyQuestion[]>(initialTemplate.questions);
+  // 불러온 템플릿의 저장 시각. 저장할 때 같이 보내 다른 사람의 저장을 덮어쓰지 않게 한다.
+  // 성공하면 서버가 준 새 시각으로 바꾼다(새로고침 없이 이어서 저장할 수 있게).
+  const [templateUpdatedAt, setTemplateUpdatedAt] = useState<string | null>(
+    initialTemplate.updated_at ?? null
+  );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +48,7 @@ export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTe
   const handleSave = async () => {
     setSaving(true);
     setError(null);
-    const res = await safeCall(updateSnsIntakeTemplateAction(questions));
+    const res = await safeCall(updateSnsIntakeTemplateAction(questions, templateUpdatedAt));
     setSaving(false);
     if (!res.ok) {
       setError(res.error);
@@ -51,6 +56,7 @@ export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTe
       return;
     }
     setQuestions(res.data.questions);
+    setTemplateUpdatedAt(res.data.updated_at);
     router.refresh();
     setSaved(true);
     toast.success("SNS 사전설문 표준 템플릿이 저장되었습니다.", {

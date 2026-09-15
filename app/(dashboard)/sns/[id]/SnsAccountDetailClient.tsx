@@ -1194,6 +1194,15 @@ export default function SnsAccountDetailClient({
                           >
                             {m.mime_type.startsWith("image/") ? (
                               <div className="w-full h-20 rounded-lg overflow-hidden bg-bg relative">
+                                {/*
+                                  next/image 를 쓰지 않고 <img> 를 그대로 두는 이유 (이 파일의 시안 이미지 전부 동일):
+                                  1) 여기 이미지는 /api/media/[id] 가 권한을 확인하고 내려주는 비공개 시안 파일이다.
+                                     next/image 최적화기는 토큰이 붙은 이 주소를 그대로 다루기 어렵고,
+                                     최적화 결과가 캐시되면 권한 검사를 건너뛰고 파일에 닿는 경로가 생긴다.
+                                  2) 업로드된 원본의 가로·세로 크기를 미리 알 수 없어 width/height 를 줄 수 없다.
+                                  3) Vercel 이미지 최적화는 요청당 과금인데 이 앱은 무료 요금제로 돌린다.
+                                */}
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={mediaSrc(m)} alt={m.name} className="w-full h-full object-cover group-hover:scale-105 transition" />
                               </div>
                             ) : (
@@ -1393,6 +1402,8 @@ export default function SnsAccountDetailClient({
                       <div key={m.id} className="relative p-2 rounded-xl bg-bg border border-border group">
                         {m.mime_type.startsWith("image/") ? (
                           <div className="w-full h-16 rounded-lg overflow-hidden bg-surface2">
+                            {/* 권한 확인이 필요한 비공개 시안이라 next/image 를 쓰지 않는다. 자세한 이유는 위쪽 첫 <img> 주석 참고. */}
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={mediaSrc(m)} alt={m.name} className="w-full h-full object-cover" />
                           </div>
                         ) : (
@@ -1493,6 +1504,8 @@ export default function SnsAccountDetailClient({
 
             <div className="flex items-center justify-center bg-black/60 rounded-2xl overflow-hidden max-h-[70vh] p-2">
               {previewMedia.mime_type.startsWith("image/") ? (
+                // 원본 미리보기도 같은 비공개 시안이다. 이유는 위쪽 첫 <img> 주석 참고.
+                // eslint-disable-next-line @next/next/no-img-element
                 <img src={mediaSrc(previewMedia)} alt={previewMedia.name} className="max-h-[65vh] max-w-full object-contain rounded-xl" />
               ) : (
                 <video controls autoPlay playsInline src={mediaSrc(previewMedia)} className="max-h-[65vh] max-w-full rounded-xl bg-black" />

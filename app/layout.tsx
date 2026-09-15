@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import Script from "next/script";
 import localFont from "next/font/local";
 import "./globals.css";
@@ -33,6 +34,18 @@ export const metadata: Metadata = {
   // Next 가 알아서 링크를 넣는다. 두 곳에 적으면 한쪽만 고치는 사고가 난다.
 };
 
+/**
+ * 모든 페이지를 요청마다 렌더한다.
+ *
+ * CSP 난수는 요청마다 달라야 하는데, 정적으로 미리 만들어 둔 HTML 에는 그 요청의 난수를
+ * 넣을 수 없다. 그대로 두면 미리 만들어진 페이지(/signup, 404 화면)만 스크립트가 전부 막혀
+ * 죽은 화면이 된다. proxy.ts / lib/security/csp.ts 참고.
+ *
+ * 잃는 것: 정적으로 굳힐 수 있던 페이지가 /signup 과 오류 화면뿐이었고, 쓰는 사람이 몇 명인
+ * 사내 도구라 사실상 없다.
+ */
+export const dynamic = "force-dynamic";
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -44,11 +57,16 @@ const themeInitScript = `
 (function(){try{var s=localStorage.getItem("marketing_theme");var t=(s==="light"||s==="dark")?s:(window.matchMedia&&window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark");var r=document.documentElement;r.classList.remove("dark","light");r.classList.add(t);r.setAttribute("data-theme",t);}catch(e){}})();
 `;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // CSP 난수를 proxy.ts 가 요청 헤더에 실어 보낸다. Next 가 자기 스크립트에는 알아서 붙이지만,
+  // 이 <Script> 에는 직접 넘겨야 한다. 안 넘기면 서버는 난수를 달고 클라이언트는 빈 값으로 그려
+  // 개발 모드에서 하이드레이션 불일치 경고가 뜬다(배포에서는 동작에 문제가 없지만 로그가 지저분해진다).
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html lang="ko" className={`dark ${brand.variable}`} data-theme="dark" suppressHydrationWarning>
       <body className="min-h-screen antialiased flex flex-col selection:bg-accent selection:text-accent-on font-sans">
-        <Script id="theme-init" strategy="beforeInteractive">{themeInitScript}</Script>
+        <Script id="theme-init" strategy="beforeInteractive" nonce={nonce}>{themeInitScript}</Script>
         <ThemeProvider>
           {children}
           <ToastContainer />

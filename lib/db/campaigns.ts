@@ -19,6 +19,7 @@ import { insertAuditLog } from "./audit";
 import { CAMPAIGN_STATUS_LABELS } from "./types";
 import { db, unwrap, unwrapMaybe } from "./client";
 import { DEFAULT_PRE_SURVEY_QUESTIONS } from "./defaults";
+import { writeWithOptimisticLock } from "./optimistic-lock";
 import {
   rowToCampaign,
   rowToFormConfig,
@@ -337,11 +338,17 @@ async function readPreSurveyTemplateRow(): Promise<PreSurveyTemplateRow | null> 
   );
 }
 
+/** 템플릿 행을 실제로 읽어 내려보내는 값. 낙관적 잠금 기준 시각이 반드시 들어 있다. */
+type StoredPreSurveyTemplate = PreSurveyTemplate & { updated_at: string };
+
 /**
  * 사전조사 기본 질문 템플릿.
  * 행이 없으면 코드의 기본 질문으로 채운다. 동시에 두 요청이 들어와도 ignoreDuplicates 로 한 쪽만 쓴다.
+ *
+ * 편집 화면이 낙관적 잠금 기준으로 쓰므로 `updated_at` 을 반드시 함께 내려준다.
+ * 행을 만들고 바로 다시 읽으니 첫 저장이라도 비어 있지 않다.
  */
-export async function getPreSurveyTemplate(): Promise<PreSurveyTemplate> {
+export async function getPreSurveyTemplate(): Promise<StoredPreSurveyTemplate> {
   let row = await readPreSurveyTemplateRow();
   if (!row) {
     unwrap(
@@ -354,23 +361,37 @@ export async function getPreSurveyTemplate(): Promise<PreSurveyTemplate> {
     );
     row = await readPreSurveyTemplateRow();
   }
-  return { id: PRE_SURVEY_TEMPLATE_ID, questions: row?.questions ?? DEFAULT_PRE_SURVEY_QUESTIONS };
+  // 행을 만든 직후에도 못 읽는 경우는 사실상 없다. 그래도 그때 지금 시각 같은 그럴듯한 값을 주면
+  // 나중에 잠금을 통과해 남의 저장을 덮어쓴다. 1970-01-01 을 주면 저장이 조용히 성공하는 대신
+  // "다른 사람이 먼저 저장했습니다" 로 막혀 새로고침을 유도하므로 이쪽이 안전하다.
+  const updatedAt = row?.updated_at ?? new Date(0).toISOString();
+  return {
+    id: PRE_SURVEY_TEMPLATE_ID,
+    questions: row?.questions ?? DEFAULT_PRE_SURVEY_QUESTIONS,
+    updated_at: updatedAt,
+  };
 }
 
+/**
+ * 공용 사전조사 문항 저장.
+ *
+ * 둘이 같은 화면을 열고 차례로 저장하면 뒤에 저장한 쪽이 앞사람 문항을 통째로 덮어쓰므로
+ * 행사 운영안·SNS 제안서와 같은 낙관적 잠금을 건다. `expectedUpdatedAt` 은 화면이 불러올 때
+ * 받은 `updated_at` 이고, 그 사이 다른 사람이 저장했으면 ValidationError 로 거부한다.
+ * 감사 로그는 잠금을 통과해 실제로 저장된 뒤에만 남는다.
+ */
 export async function updatePreSurveyTemplate(
-  questions: PreSurveyTemplate["questions"]
-): Promise<PreSurveyTemplate> {
+  questions: PreSurveyTemplate["questions"],
+  expectedUpdatedAt?: string | null
+): Promise<StoredPreSurveyTemplate> {
   const cleaned = cleanQuestions(questions);
-  const row = unwrap(
-    await db()
-      .from("pre_survey_template")
-      .upsert(
-        { id: PRE_SURVEY_TEMPLATE_ID, questions: cleaned, updated_at: nowIso() },
-        { onConflict: "id" }
-      )
-      .select("*")
-      .single<PreSurveyTemplateRow>()
-  );
+  const row = await writeWithOptimisticLock<PreSurveyTemplateRow>({
+    table: "pre_survey_template",
+    keyColumn: "id",
+    keyValue: PRE_SURVEY_TEMPLATE_ID,
+    values: { id: PRE_SURVEY_TEMPLATE_ID, questions: cleaned },
+    expectedUpdatedAt,
+  });
   await insertAuditLog({
     entity_type: "campaign",
     entity_id: String(PRE_SURVEY_TEMPLATE_ID),
@@ -378,7 +399,11 @@ export async function updatePreSurveyTemplate(
     actor_type: "agency",
     summary: `공용 사전조사 문항을 저장했습니다. (${cleaned.length}개)`,
   });
-  return { id: PRE_SURVEY_TEMPLATE_ID, questions: row.questions ?? cleaned };
+  return {
+    id: PRE_SURVEY_TEMPLATE_ID,
+    questions: row.questions ?? cleaned,
+    updated_at: row.updated_at,
+  };
 }
 
 /** 캠페인별 질문이 있으면 그것, 없으면 공용 템플릿. */

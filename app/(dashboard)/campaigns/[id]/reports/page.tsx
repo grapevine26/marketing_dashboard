@@ -2,7 +2,7 @@ import { getCampaignById, getReportsByCampaignId } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import CreateReportButton from "./CreateReportButton";
-import { FileSpreadsheet, ChevronLeft, ArrowRight, Download, Calendar } from "lucide-react";
+import { ChevronLeft, ArrowRight, Download, Calendar } from "lucide-react";
 
 export const revalidate = 0;
 

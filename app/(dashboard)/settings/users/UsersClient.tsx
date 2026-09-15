@@ -34,7 +34,6 @@ import {
   RotateCcw,
   Shield,
   ShieldCheck,
-  ShieldOff,
   Trash2,
   UserCheck,
   Users,

@@ -117,10 +117,6 @@ describe.skipIf(!hasTestDb)("사용자 관리", () => {
     });
   }
 
-  function asActor(id: string, username: string, displayName: string): SessionUser {
-    return { id, username, display_name: displayName, role: "owner", status: "active" };
-  }
-
   async function makeActive(username: string, displayName: string, role: "owner" | "admin" | "staff"): Promise<SessionUser> {
     const { db } = await import("@/lib/db/client");
     const id = await signUp(username, displayName);

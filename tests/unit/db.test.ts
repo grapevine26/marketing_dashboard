@@ -40,8 +40,12 @@ import {
   updateSnsAccountIntakeQuestions,
   getPreSurveyTemplate,
   getSnsIntakeTemplate,
+  updatePreSurveyTemplate,
+  updateSnsIntakeTemplate,
+  getAuditLogs,
   ValidationError,
 } from "@/lib/db";
+import { OPTIMISTIC_LOCK_CONFLICT_MESSAGE } from "@/lib/db/optimistic-lock";
 
 async function seedCampaign() {
   const camp = await createCampaign({ name: "테스트 캠페인", company_name: "브랜드", campaign_type: "shipping" });
@@ -374,4 +378,102 @@ describeDb("Phase 1: 캠페인/SNS 삭제 및 메모/템플릿", () => {
     const afterResetQs = await getSnsIntakeQuestionsForAccount(acc.id);
     expect(afterResetQs).toEqual(globalSnsTmpl.questions);
   });
+});
+
+describeDb("공용 질문 템플릿 동시 저장", () => {
+  it("불러올 때 받은 기준 시각을 그대로 보내면 공용 질문 템플릿이 저장된다", async () => {
+    // 행이 아직 없어도 읽는 순간 기본 질문으로 행을 만들고 그 행의 저장 시각을 함께 돌려준다.
+    // 이게 비어 있으면 낙관적 잠금이 "행은 있는데 기준 시각이 없다" 로 보고 첫 저장부터 막는다.
+    const opened = await getPreSurveyTemplate();
+    expect(opened.updated_at).toBeTruthy();
+
+    const saved = await updatePreSurveyTemplate(
+      [{ id: "q1", question: "핵심 소구점은 무엇인가요?", placeholder: "예시", type: "textarea", required: true }],
+      opened.updated_at
+    );
+    expect(saved.questions.map((q) => q.question)).toEqual(["핵심 소구점은 무엇인가요?"]);
+    // 저장하면 기준 시각이 새로 바뀐다. 화면은 이 값을 들고 다음 저장을 한다.
+    expect(saved.updated_at).not.toBe(opened.updated_at);
+
+    const reloaded = await getPreSurveyTemplate();
+    expect(reloaded.questions.map((q) => q.question)).toEqual(["핵심 소구점은 무엇인가요?"]);
+    expect(reloaded.updated_at).toBe(saved.updated_at);
+
+    // 새 기준 시각으로 이어서 저장하는 것도 된다(새로고침 없이 연속 저장).
+    const again = await updatePreSurveyTemplate(
+      [{ id: "q1", question: "두 번째 저장", placeholder: "", type: "textarea", required: true }],
+      saved.updated_at
+    );
+    expect(again.questions.map((q) => q.question)).toEqual(["두 번째 저장"]);
+
+    // SNS 사전설문 템플릿도 같은 방식으로 저장된다.
+    const snsOpened = await getSnsIntakeTemplate();
+    expect(snsOpened.updated_at).toBeTruthy();
+    const snsSaved = await updateSnsIntakeTemplate(
+      [{ id: "sq1", question: "브랜드 톤앤매너는 어떤가요?", placeholder: "예시", required: true }],
+      snsOpened.updated_at
+    );
+    expect(snsSaved.questions.map((q) => q.question)).toEqual(["브랜드 톤앤매너는 어떤가요?"]);
+    expect((await getSnsIntakeTemplate()).updated_at).toBe(snsSaved.updated_at);
+  }, 30_000);
+
+  it("남이 먼저 저장한 뒤에 저장하면 거부되고 앞사람 문항이 그대로 남는다", async () => {
+    // 두 사람이 같은 설정 화면을 열었다. 둘 다 이 시각을 들고 있다.
+    const opened = await getPreSurveyTemplate();
+
+    const first = await updatePreSurveyTemplate(
+      [{ id: "q1", question: "앞사람 문항", placeholder: "", type: "textarea", required: true }],
+      opened.updated_at
+    );
+    expect(first.questions.map((q) => q.question)).toEqual(["앞사람 문항"]);
+
+    // 뒤늦게 저장하는 사람은 낡은 시각을 들고 있어 거부된다.
+    await expect(
+      updatePreSurveyTemplate(
+        [{ id: "q1", question: "뒷사람 문항", placeholder: "", type: "textarea", required: true }],
+        opened.updated_at
+      )
+    ).rejects.toThrow(OPTIMISTIC_LOCK_CONFLICT_MESSAGE);
+
+    // 기준 시각을 아예 안 보내도 거부한다. 행이 이미 있는데 기준이 없다는 건
+    // 그 사이 누군가 처음 저장했다는 뜻이라 덮어쓰면 안 된다.
+    await expect(
+      updatePreSurveyTemplate([
+        { id: "q1", question: "기준 없이", placeholder: "", type: "textarea", required: true },
+      ])
+    ).rejects.toThrow(OPTIMISTIC_LOCK_CONFLICT_MESSAGE);
+
+    // DB 에는 앞사람 문항이 그대로다.
+    const now = await getPreSurveyTemplate();
+    expect(now.questions.map((q) => q.question)).toEqual(["앞사람 문항"]);
+    expect(now.updated_at).toBe(first.updated_at);
+
+    // 거부된 저장은 감사 로그를 남기지 않는다. 성공한 한 번만 기록되어 있어야 한다.
+    const preSurveyLogs = (await getAuditLogs({ entity_types: ["campaign"], limit: 100 })).filter(
+      (l) => l.action === "pre_survey_template.saved"
+    );
+    expect(preSurveyLogs).toHaveLength(1);
+
+    // SNS 사전설문 템플릿도 같은 방식으로 막힌다.
+    const snsOpened = await getSnsIntakeTemplate();
+    const snsFirst = await updateSnsIntakeTemplate(
+      [{ id: "sq1", question: "앞사람 SNS 문항", placeholder: "", required: true }],
+      snsOpened.updated_at
+    );
+    await expect(
+      updateSnsIntakeTemplate(
+        [{ id: "sq1", question: "뒷사람 SNS 문항", placeholder: "", required: true }],
+        snsOpened.updated_at
+      )
+    ).rejects.toThrow(OPTIMISTIC_LOCK_CONFLICT_MESSAGE);
+
+    const snsNow = await getSnsIntakeTemplate();
+    expect(snsNow.questions.map((q) => q.question)).toEqual(["앞사람 SNS 문항"]);
+    expect(snsNow.updated_at).toBe(snsFirst.updated_at);
+
+    const snsLogs = (await getAuditLogs({ entity_types: ["sns_account"], limit: 100 })).filter(
+      (l) => l.action === "sns_intake_template.saved"
+    );
+    expect(snsLogs).toHaveLength(1);
+  }, 30_000);
 });

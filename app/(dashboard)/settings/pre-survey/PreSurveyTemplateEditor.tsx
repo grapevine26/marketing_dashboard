@@ -16,6 +16,11 @@ export default function PreSurveyTemplateEditor({
 }) {
   const router = useRouter();
   const [questions, setQuestions] = useState<PreSurveyQuestion[]>(initialTemplate.questions || []);
+  // 불러온 템플릿의 저장 시각. 저장할 때 같이 보내 다른 사람의 저장을 덮어쓰지 않게 한다.
+  // 성공하면 서버가 준 새 시각으로 바꾼다(새로고침 없이 이어서 저장할 수 있게).
+  const [templateUpdatedAt, setTemplateUpdatedAt] = useState<string | null>(
+    initialTemplate.updated_at ?? null
+  );
   const [recentlyMovedId, setRecentlyMovedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -61,7 +66,7 @@ export default function PreSurveyTemplateEditor({
   const handleSave = async () => {
     setSaving(true);
     setError(null);
-    const res = await safeCall(saveTemplateAction(questions));
+    const res = await safeCall(saveTemplateAction(questions, templateUpdatedAt));
     setSaving(false);
     if (!res.ok) {
       setError(res.error);
@@ -69,6 +74,7 @@ export default function PreSurveyTemplateEditor({
       return;
     }
     setQuestions(res.data.questions);
+    setTemplateUpdatedAt(res.data.updated_at);
     router.refresh();
     setSaved(true);
     toast.success("사전조사 표준 템플릿이 저장되었습니다.", {

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createProxyAuthClient, PERSIST_COOKIE } from "@/lib/supabase/auth";
+import { buildCsp, createNonce } from "@/lib/security/csp";
 
 /**
  * 로그인 검사의 바깥 겹.
@@ -11,6 +12,9 @@ import { createProxyAuthClient, PERSIST_COOKIE } from "@/lib/supabase/auth";
  * 승인 상태 같은 진짜 판정은 데이터에 닿는 쪽(lib/auth/session.ts)에서 한다.
  *
  * 세션 토큰 갱신도 여기서 한다. 서버 컴포넌트는 쿠키를 쓸 수 없어서 갱신을 맡을 수 없다.
+ *
+ * CSP 난수(nonce)도 여기서 만든다. 요청마다 달라야 하는 값이라 정적 설정(next.config.ts)에
+ * 둘 수 없다. 자세한 이유는 lib/security/csp.ts 참고.
  */
 
 /** 로그인 없이 열려야 하는 경로(정확히 일치). */
@@ -46,9 +50,31 @@ function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
 }
 
+/**
+ * 요청을 그대로 흘려보내되 CSP 난수를 얹는다.
+ *
+ * 난수는 **요청 헤더에도** 넣어야 한다. Next 가 렌더할 때 그 헤더를 읽어 자기가 만드는
+ * 스크립트 태그에 같은 난수를 붙이기 때문이다. 응답 헤더에만 넣으면 브라우저는 막고
+ * Next 는 난수를 모르는 상태가 되어 화면이 통째로 죽는다.
+ *
+ * 헤더는 그때그때 request 에서 새로 뜬다. 토큰이 갱신되면 request.cookies 가 바뀌는데,
+ * 미리 떠 둔 사본을 쓰면 그 갱신이 렌더로 전달되지 않는다.
+ */
+function passThrough(request: NextRequest, nonce: string, csp: string): NextResponse {
+  const headers = new Headers(request.headers);
+  headers.set("x-nonce", nonce);
+  headers.set("Content-Security-Policy", csp);
+  const res = NextResponse.next({ request: { headers } });
+  res.headers.set("Content-Security-Policy", csp);
+  return res;
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  let response = NextResponse.next({ request });
+  const nonce = createNonce();
+  const csp = buildCsp(nonce, process.env.NODE_ENV === "development");
+
+  let response = passThrough(request, nonce, csp);
 
   if (isPublic(pathname)) return response;
 
@@ -61,7 +87,7 @@ export async function proxy(request: NextRequest) {
       (name, value, options) => {
         // 갱신된 토큰을 요청과 응답 양쪽에 실어, 이어지는 렌더가 새 값을 보게 한다.
         request.cookies.set(name, value);
-        response = NextResponse.next({ request });
+        response = passThrough(request, nonce, csp);
         response.cookies.set(name, value, options);
       },
       persist
@@ -78,7 +104,9 @@ export async function proxy(request: NextRequest) {
     url.pathname = "/login";
     // 로그인 후 원래 가려던 곳으로 되돌려 보낸다.
     if (pathname !== "/") url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
+    const redirect = NextResponse.redirect(url);
+    redirect.headers.set("Content-Security-Policy", csp);
+    return redirect;
   }
 
   return response;

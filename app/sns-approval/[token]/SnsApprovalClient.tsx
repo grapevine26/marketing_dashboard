@@ -116,6 +116,15 @@ export default function SnsApprovalClient({
                             className="w-full text-left space-y-2 cursor-pointer"
                           >
                             <div className="w-full h-44 rounded-xl overflow-hidden bg-bg relative">
+                              {/*
+                                next/image 를 쓰지 않고 <img> 를 그대로 두는 이유 (이 화면의 시안 이미지 전부 동일):
+                                1) 여기 이미지는 /api/media/[id] 가 승인 토큰을 확인하고 내려주는 비공개 시안 파일이다.
+                                   next/image 최적화기는 토큰이 붙은 이 주소를 그대로 다루기 어렵고,
+                                   최적화 결과가 캐시되면 토큰 검사를 건너뛰고 파일에 닿는 경로가 생긴다.
+                                2) 업로드된 원본의 가로·세로 크기를 미리 알 수 없어 width/height 를 줄 수 없다.
+                                3) Vercel 이미지 최적화는 요청당 과금인데 이 앱은 무료 요금제로 돌린다.
+                              */}
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={mediaSrc}
                                 alt={m.name}
@@ -208,6 +217,8 @@ export default function SnsApprovalClient({
 
             <div className="flex items-center justify-center bg-black/60 rounded-2xl overflow-hidden max-h-[70vh] p-2">
               {activeMedia.mime_type.startsWith("image/") ? (
+                // 확대 보기도 같은 비공개 시안이다. 이유는 위쪽 첫 <img> 주석 참고.
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={`${activeMedia.url}?token=${encodeURIComponent(token)}`}
                   alt={activeMedia.name}

@@ -61,7 +61,6 @@ function walk(dir, out = []) {
 }
 
 let filesChanged = 0;
-let total = 0;
 for (const root of ROOTS) {
   if (!fs.existsSync(root)) continue;
   for (const file of walk(root)) {
@@ -81,8 +80,6 @@ for (const root of ROOTS) {
 
     if (after !== before) {
       filesChanged++;
-      const n = before.length - after.length;
-      total += Math.abs(n);
       if (!DRY) fs.writeFileSync(file, after);
       console.log(`${DRY ? "[dry] " : ""}${file}`);
     }

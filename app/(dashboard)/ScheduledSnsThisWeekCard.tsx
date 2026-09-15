@@ -15,7 +15,6 @@ import {
   ChevronRight,
   ExternalLink,
   CheckCircle2,
-  Clock,
 } from "lucide-react";
 
 interface ScheduledSnsThisWeekCardProps {

@@ -254,6 +254,15 @@ export interface PreSurveyQuestion {
 export interface PreSurveyTemplate {
   id: number;
   questions: PreSurveyQuestion[];
+  /**
+   * 낙관적 잠금 기준 시각(DB 행의 updated_at).
+   * 편집 화면이 불러올 때 받아 들고 있다가 저장할 때 그대로 되돌려 보낸다.
+   *
+   * 공개 사전조사 폼처럼 DB 행이 아니라 "이 캠페인에 적용될 질문 목록" 만으로 조립한 값에는 없다.
+   * 그 화면들은 템플릿을 저장하지 않으므로 기준 시각이 필요 없어 optional 로 둔다.
+   * 템플릿 행을 실제로 읽는 `getPreSurveyTemplate()` 은 항상 값을 채워 돌려준다.
+   */
+  updated_at?: string;
 }
 
 export interface PreSurveyResponse {
@@ -504,6 +513,12 @@ export function toPublicSnsAccount(a: SnsAccount): PublicSnsAccount {
 export interface SnsIntakeTemplate {
   id: number;
   questions: PreSurveyQuestion[];
+  /**
+   * 낙관적 잠금 기준 시각(DB 행의 updated_at). 자세한 이유는 `PreSurveyTemplate` 쪽 설명 참고.
+   * 공개 인테이크 폼처럼 질문 목록만으로 조립한 값에는 없고, 템플릿 행을 실제로 읽는
+   * `getSnsIntakeTemplate()` 은 항상 값을 채워 돌려준다.
+   */
+  updated_at?: string;
 }
 
 export interface SnsIntakeResponse {

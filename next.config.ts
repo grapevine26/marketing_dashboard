@@ -7,8 +7,9 @@ import type { NextConfig } from "next";
  * 다른 사이트가 그 화면을 투명한 프레임으로 덮어 클릭을 유도하는 것(클릭재킹)을 frame-ancestors 로 막는다.
  * 이 앱 자신도 프레임 안에 넣지 않으므로 잃는 것이 없다.
  *
- * script-src 까지 포함한 전체 CSP 는 넣지 않았다. app/layout.tsx 의 테마 초기화 인라인 스크립트에
- * nonce 를 붙이는 작업이 먼저다. 지금 값은 그것과 충돌하지 않는 것만 골랐다.
+ * Content-Security-Policy 는 여기에 없다. 요청마다 난수(nonce)가 달라야 해서 정적 설정으로는
+ * 만들 수 없다. proxy.ts 가 요청마다 만들어 붙인다 (lib/security/csp.ts).
+ * 여기서도 CSP 를 내보내면 브라우저가 두 정책을 **모두** 적용해 서로를 막는다. 한 곳에만 둔다.
  */
 const SECURITY_HEADERS = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
@@ -16,7 +17,6 @@ const SECURITY_HEADERS = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-  { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" },
 ];
 
 const nextConfig: NextConfig = {

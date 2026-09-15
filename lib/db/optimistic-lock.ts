@@ -1,5 +1,5 @@
 /**
- * 문서 전체를 덮어쓰는 단일 행(행사 운영안, SNS 제안서)의 낙관적 잠금.
+ * 문서 전체를 덮어쓰는 단일 행(행사 운영안, SNS 제안서, 공용 질문 템플릿)의 낙관적 잠금.
  *
  * 두 사람이 같은 문서를 열어 놓고 차례로 저장하면, 뒤에 저장한 쪽이 앞사람의 변경을 모르고
  * 통째로 덮어쓴다. 이를 막으려고 화면이 불러올 때 받은 `updated_at` 을 저장할 때 함께 보내고,
@@ -27,9 +27,14 @@ function normalizeTs(v: string): string | null {
 
 export async function writeWithOptimisticLock<Row extends { updated_at: string }>(opts: {
   table: string;
-  /** 문서를 하나로 특정하는 unique 컬럼(event_id, account_id). */
+  /** 문서를 하나로 특정하는 unique 컬럼(event_id, account_id, 단일 행 템플릿의 id). */
   keyColumn: string;
-  keyValue: string;
+  /**
+   * 공용 질문 템플릿은 키가 uuid 가 아니라 정수 1 이라 number 도 받는다.
+   * PostgREST 는 eq 값을 쿼리스트링(`id=eq.1`)으로 보내고 Postgres 가 컬럼 타입으로 캐스팅하므로
+   * 숫자를 그대로 넘겨도 integer 컬럼에 정상적으로 걸린다.
+   */
+  keyValue: string | number;
   /** updated_at 을 제외한 저장 값. insert 와 update 에 같이 쓴다. */
   values: Record<string, unknown>;
   expectedUpdatedAt?: string | null;

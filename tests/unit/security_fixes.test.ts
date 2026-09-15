@@ -235,3 +235,47 @@ describe("공개 경로 목록", () => {
     expect(seeding).toContain("sanitizeSeedingForCompany");
   });
 });
+
+describe("CSP (lib/security/csp.ts)", () => {
+  it("스크립트는 그 요청의 난수를 단 것만 실행된다", async () => {
+    const { buildCsp, createNonce } = await import("@/lib/security/csp");
+    const nonce = createNonce();
+    const csp = buildCsp(nonce, false);
+    const scriptSrc = csp.split("; ").find((d) => d.startsWith("script-src "))!;
+
+    expect(scriptSrc).toContain(`'nonce-${nonce}'`);
+    // 이 둘이 들어오는 순간 CSP 는 XSS 를 막지 못한다. 실수로 붙이는 걸 막는다.
+    expect(scriptSrc).not.toContain("'unsafe-inline'");
+    expect(scriptSrc).not.toContain("'unsafe-eval'");
+    // 난수는 요청마다 달라야 한다. 같으면 공격자가 앞선 응답에서 베껴 쓸 수 있다.
+    expect(createNonce()).not.toBe(nonce);
+  });
+
+  it("개발에서만 eval 과 웹소켓을 연다", async () => {
+    const { buildCsp } = await import("@/lib/security/csp");
+    const dev = buildCsp("n", true);
+    // React 가 서버 오류 스택을 되살리는 데 eval 을 쓰고, HMR 이 웹소켓으로 붙는다.
+    expect(dev).toContain("'unsafe-eval'");
+    expect(dev).toContain("ws:");
+  });
+
+  it("브라우저가 Blob 저장소에 직접 올리는 길은 열어둔다", async () => {
+    const { buildCsp } = await import("@/lib/security/csp");
+    const connect = buildCsp("n", false).split("; ").find((d) => d.startsWith("connect-src "))!;
+    // 여기를 닫으면 4.5MB 넘는 시안 업로드가 통째로 막힌다 (app/api/media/upload/route.ts).
+    expect(connect).toContain("https://vercel.com");
+    expect(connect).toContain("https://*.vercel-storage.com");
+  });
+
+  it("CSP 를 내보내는 곳은 proxy.ts 한 곳뿐이다", async () => {
+    const { readFileSync } = await import("node:fs");
+    // 두 곳에서 내보내면 브라우저가 두 정책을 모두 적용해 서로를 막는다.
+    // 주석에서 언급하는 건 괜찮다. 헤더 항목으로 들어가 있으면 안 된다.
+    expect(readFileSync("next.config.ts", "utf8")).not.toMatch(/key:\s*"Content-Security-Policy"/);
+    expect(readFileSync("proxy.ts", "utf8")).toContain("Content-Security-Policy");
+    // 난수는 요청 헤더로도 넘겨야 Next 가 자기 스크립트 태그에 같은 값을 붙인다.
+    expect(readFileSync("proxy.ts", "utf8")).toContain("x-nonce");
+    // 정적으로 미리 만든 HTML 에는 그 요청의 난수가 들어갈 수 없다.
+    expect(readFileSync("app/layout.tsx", "utf8")).toContain('export const dynamic = "force-dynamic"');
+  });
+});
