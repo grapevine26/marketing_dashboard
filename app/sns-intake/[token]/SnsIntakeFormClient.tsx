@@ -58,7 +58,17 @@ export default function SnsIntakeFormClient({
     setAiLoadingKey(null);
     if (!res.ok) return setError(res.error);
     if (res.data.fallback) {
-      setNotice("AI 제안 실패 — 직접 입력해주세요.");
+      // **폴백도 한 번 쓴 것으로 센다.** 서버는 이미 모델을 불렀고(돈이 나갔고) 횟수를
+      // 차감한다. 여기서 안 세면 화면은 계속 "3회 가능" 이라고 하다가 누르면 거부당해,
+      // 사용자는 왜 안 되는지 모른다. 서버는 폴백일 때 남은 횟수를 돌려주지 않으므로
+      // 화면이 직접 세야 한다.
+      const usedAfterFallback = currentUsage + 1;
+      setAiUsageMap((prev) => ({ ...prev, [questionId]: usedAfterFallback }));
+      setNotice(
+        usedAfterFallback >= MAX_AI_ATTEMPTS
+          ? "AI 제안 실패 — 이 질문의 추천 횟수를 모두 사용했습니다. 직접 입력해주세요."
+          : "AI 제안 실패 — 직접 입력해주세요."
+      );
       return;
     }
 

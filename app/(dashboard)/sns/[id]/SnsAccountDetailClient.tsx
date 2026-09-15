@@ -144,6 +144,24 @@ export default function SnsAccountDetailClient({
     }
   }, [highlightContentId, activeTab]);
   const [contents, setContents] = useState<SnsContent[]>(initialContents);
+
+  // 콘텐츠 목록도 같은 방식으로 서버 값에 다시 맞춘다.
+  //
+  // RefreshOnFocus 가 탭 복귀 후 router.refresh() 를 부르지만, refresh 는 서버 컴포넌트만
+  // 다시 그리고 클라이언트의 useState 는 그대로 둔다(로컬 Next 문서 use-router.md).
+  // 그래서 initialContents 로 한 번 심어 둔 이 목록은 새로 받은 데이터를 무시해 왔다.
+  // "자리를 비운 사이 광고주가 시안을 승인했을 수 있다"는 그 화면이 바로 여기라서,
+  // 승인대기가 승인으로 바뀐 것을 돌아와도 못 보는 문제가 있었다.
+  //
+  // 목록(contents)만 맞춘다. 모달의 입력값은 form/selectedFiles, 성과 입력칸은 perfInputs,
+  // 계정 수정 폼은 accountForm 이라는 별도 state 에 들어 있어서 여기서 건드리지 않는다.
+  // account 는 이 화면에서 직접 고치고 setAccount 로 반영하는 값이라 함께 되돌리지 않는다.
+  const [syncedFrom, setSyncedFrom] = useState(initialContents);
+  if (syncedFrom !== initialContents) {
+    setSyncedFrom(initialContents);
+    setContents(initialContents);
+  }
+
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const origin = useOrigin();
   const [error, setError] = useState<string | null>(null);
@@ -583,7 +601,11 @@ export default function SnsAccountDetailClient({
 
   const handleStatusChange = async (c: SnsContent, status: SnsContentStatus) => {
     if (c.status === status) return;
-    const previousContents = contents;
+    // 실패했을 때 되돌릴 값은 "이 항목의 클릭 직전 상태"만 기억한다.
+    // 예전에는 배열 전체를 스냅샷 떠서 통째로 setContents 했는데, A·B 를 연달아 바꾸고
+    // A 만 실패하면 이미 저장에 성공한 B 까지 화면에서 옛 상태로 되돌아갔다.
+    const rollbackStatus = c.status;
+    const rollbackStatusChangedAt = c.status_changed_at;
     setError(null);
 
     // 1. 낙관적 업데이트: 클릭 즉시 UI(배지 및 드롭다운)를 0ms 만에 변경
@@ -613,8 +635,14 @@ export default function SnsAccountDetailClient({
     });
 
     if (!res.ok) {
-      // 실패 시 이전 상태로 즉시 롤백
-      setContents(previousContents);
+      // 실패 시 해당 항목 하나만 클릭 직전 상태로 되돌린다. 다른 항목의 변경은 그대로 둔다.
+      setContents((prev) =>
+        prev.map((x) =>
+          x.id === c.id
+            ? { ...x, status: rollbackStatus, status_changed_at: rollbackStatusChangedAt }
+            : x
+        )
+      );
       return setError(res.error);
     }
 

@@ -50,7 +50,12 @@ export default function TemplateTabs({
         )}
       </div>
 
-      {tab === "presurvey" ? preSurvey : sns}
+      {/* 두 탭을 **항상 마운트해 두고 보이기만 감춘다.**
+          삼항으로 갈아끼우면 탭을 옮기는 순간 반대쪽이 언마운트되면서 그 안에서 편집 중이던
+          문항이 마지막 저장본으로 되돌아간다. 경고도 없어서 쓴 것이 그냥 사라진다.
+          `hidden` 은 표시만 끄고 state 는 남긴다. */}
+      <div hidden={tab !== "presurvey"}>{preSurvey}</div>
+      <div hidden={tab !== "sns"}>{sns}</div>
     </div>
   );
 }

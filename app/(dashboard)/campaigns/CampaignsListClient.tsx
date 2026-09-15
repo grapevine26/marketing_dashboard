@@ -48,6 +48,19 @@ export default function CampaignsListClient({ initialCampaigns }: CampaignsListC
     setConfirmName("");
   }
 
+  // 탭에 돌아오면 DashboardShell 의 RefreshOnFocus 가 router.refresh() 를 부른다.
+  // 그런데 router.refresh() 는 useState 를 그대로 두기 때문에, 서버가 새 목록을 내려줘도
+  // 여기 campaigns 는 자리를 비우기 전 값에 머문다. 그래서 새 initialCampaigns 가 오면 다시 맞춘다.
+  //
+  // 목록만 갈아끼우고 targetCampaign(삭제 확인 대상)은 건드리지 않는다. 그래야 위의
+  // confirmSyncedFrom 비교가 유지되어, 옮겨 적던 캠페인 이름이 지워지지 않는다.
+  // 필터·검색어도 사용자가 고른 값이므로 그대로 둔다.
+  const [syncedFrom, setSyncedFrom] = useState(initialCampaigns);
+  if (syncedFrom !== initialCampaigns) {
+    setSyncedFrom(initialCampaigns);
+    setCampaigns(initialCampaigns);
+  }
+
   // 대소문자 무시는 하지 않는다. 한글 이름에는 의미가 없고, 정확히 옮겨 적게 하는 것이 목적이다.
   const isNameConfirmed =
     targetCampaign !== null && confirmName.trim() === targetCampaign.name.trim();

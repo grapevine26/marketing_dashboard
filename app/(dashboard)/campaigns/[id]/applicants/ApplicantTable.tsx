@@ -22,7 +22,6 @@ import { changeApplicantStatusByTokenAction } from "@/app/applicants/[token]/act
 import {
   Search,
   ExternalLink,
-  Download,
   AlertTriangle,
   CheckCircle2,
   Clock,
@@ -35,9 +34,11 @@ import {
   ArrowUpDown,
   X,
   FileSpreadsheet,
+  Download,
 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
 import { guardedSave, useSaveGuard } from "@/components/PendingSaveGuard";
+import DownloadFileButton from "@/components/DownloadFileButton";
 import { toast } from "@/components/Toast";
 
 type Mode = "agency" | "company";
@@ -142,9 +143,27 @@ export default function ApplicantTable({
   const [sortBy, setSortBy] = useState<"latest" | "followers">("latest");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
-  const [pendingId, setPendingId] = useState<string | null>(null);
+  // 저장 중인 지원자 id 들. 다른 행의 버튼은 잠그지 않아 A 를 저장하는 동안 B 도 누를 수 있는데,
+  // 진행 중인 id 를 하나만 들고 있으면 A 가 끝나는 순간 B 의 스피너까지 같이 꺼졌다.
+  const [pendingIds, setPendingIds] = useState<ReadonlySet<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // router.refresh() 로 서버가 새 목록을 내려주면 화면 상태를 다시 맞춘다.
+  // refresh 는 서버 데이터만 새로 받고 useState 는 그대로 두므로(Next 문서의 useRouter 설명),
+  // initialApplicants 를 useState 초기값으로만 쓰면 탭 복귀 후에도 옛 목록이 그대로 보인다.
+  //
+  // useEffect 가 아니라 렌더 중에 맞춘다. props 가 바뀔 때 state 를 되돌리는 경우에 React 가
+  // 권하는 방식이고, effect 로 하면 옛 목록을 한 번 그린 뒤 다시 그리게 되어 깜빡인다.
+  //
+  // duplicates 는 state 로 받지 않고 props 를 그대로 읽으므로 따로 맞출 것이 없다. 중복 판정은
+  // SNS·연락처만 보는데(lib/applicants/duplicates.ts) 이 화면이 낙관적으로 바꾸는 값은 상태·메모뿐이라
+  // 목록과 배지가 어긋날 일이 없고, 같은 서버 렌더에서 함께 내려온 짝이라 항상 같은 시점을 가리킨다.
+  const [syncedFrom, setSyncedFrom] = useState(initialApplicants);
+  if (syncedFrom !== initialApplicants) {
+    setSyncedFrom(initialApplicants);
+    setApplicants(initialApplicants);
+  }
 
   // Agency memo state
   const [memoEditingId, setMemoEditingId] = useState<string | null>(null);
@@ -214,14 +233,27 @@ export default function ApplicantTable({
     }
   };
 
+  /** 목록에서 **한 건만** 고친다. 배열을 통째로 갈아끼우면 그 사이 저장된 다른 변경이 함께 날아간다. */
+  const patchApplicant = (applicantId: string, patch: Partial<Applicant>) => {
+    setApplicants((prev) => prev.map((a) => (a.id === applicantId ? { ...a, ...patch } : a)));
+  };
+
+  /** 저장 중 표시를 지원자 단위로 켜고 끈다. 동시에 여러 건이 저장될 수 있다. */
+  const markPending = (applicantId: string, pending: boolean) => {
+    setPendingIds((prev) => {
+      const next = new Set(prev);
+      if (pending) next.add(applicantId);
+      else next.delete(applicantId);
+      return next;
+    });
+  };
+
   const handleSaveMemo = async (applicantId: string) => {
     setSavingMemo(true);
     const res = await safeCall(updateAgencyMemoAction({ applicantId, memo: memoDraft }));
     setSavingMemo(false);
     if (res.ok) {
-      setApplicants((prev) =>
-        prev.map((a) => (a.id === applicantId ? { ...a, agency_memo: memoDraft } : a))
-      );
+      patchApplicant(applicantId, { agency_memo: memoDraft });
       setMemoEditingId(null);
       toast.success("인플루언서 관리 메모가 저장되었습니다.");
     } else {
@@ -233,10 +265,13 @@ export default function ApplicantTable({
   // 화면을 먼저 바꾸고 저장은 뒤에서 한다. 그 사이에 다른 메뉴로 넘어가면 요청이 끊겨
   // 화면만 바뀌고 DB 에는 남지 않는다. 가드가 저장이 끝날 때까지 이동을 미뤄 준다.
   const handleStatusChange = async (applicantId: string, nextStatus: ApplicantStatus) => {
-    const before = applicants;
+    // 되돌릴 때를 대비해 **이 한 건의 이전 상태만** 기억한다. 예전에는 배열 전체를 스냅샷 떠 두고
+    // 실패하면 통째로 되돌렸는데, A·B 를 연달아 바꾸고 A 만 실패하면 이미 저장된 B 까지 화면에서
+    // 옛 상태로 돌아갔다(DB 에는 B 가 남아 있어 새로고침하면 다시 나타났다).
+    const previousStatus = applicants.find((a) => a.id === applicantId)?.status;
     setError(null);
-    setPendingId(applicantId);
-    setApplicants((prev) => prev.map((a) => (a.id === applicantId ? { ...a, status: nextStatus } : a)));
+    markPending(applicantId, true);
+    patchApplicant(applicantId, { status: nextStatus });
 
     const res = await guardedSave(saveGuard, () =>
       mode === "company"
@@ -244,13 +279,13 @@ export default function ApplicantTable({
         : safeCall(changeApplicantStatusAction({ applicantId, status: nextStatus }))
     );
 
-    setPendingId(null);
+    markPending(applicantId, false);
     if (!res.ok) {
-      setApplicants(before);
+      if (previousStatus) patchApplicant(applicantId, { status: previousStatus });
       setError(res.error);
       return;
     }
-    setApplicants((prev) => prev.map((a) => (a.id === applicantId ? res.data : a)));
+    patchApplicant(applicantId, res.data);
     router.refresh();
   };
 
@@ -296,7 +331,7 @@ export default function ApplicantTable({
   ];
 
   const renderActions = (a: Applicant, compact: boolean) => {
-    const busy = pendingId === a.id;
+    const busy = pendingIds.has(a.id);
     const base = compact
       ? "flex-1 py-2 rounded-xl text-xs font-semibold btn-press transition disabled:opacity-50"
       : "px-2.5 py-1 rounded-lg text-xs font-semibold btn-press transition disabled:opacity-50 inline-flex items-center gap-1";
@@ -443,23 +478,31 @@ export default function ApplicantTable({
           </div>
         </div>
 
+        {/*
+          생 <a href> 로 내려받으면 서버가 4xx 를 줄 때 브라우저가 그 본문을 문서로 그려서
+          {"error":"로그인이 필요합니다."} 같은 JSON 이 흰 화면에 그대로 떴다. DownloadFileButton 은
+          fetch 로 받아 실패하면 그 메시지를 버튼 아래에 한국어로 보여주고, 받는 동안 스피너도 돈다.
+          생김새가 달라지면 안 되므로 기존 <a> 의 클래스를 그대로 넘긴다.
+        */}
         <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
-          <a
+          <DownloadFileButton
             href={`${csvHref}&format=xlsx`}
-            className="w-full sm:w-auto text-center justify-center px-3.5 py-2.5 sm:py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-medium inline-flex items-center gap-1.5 transition border border-border btn-press"
+            label="Excel 다운로드"
+            fallbackFilename="지원자목록.xlsx"
+            // 생 <a> 였을 때의 아이콘·툴팁을 그대로 옮긴다. 버튼 모양이 달라지면
+            // 쓰던 사람이 "뭐가 바뀌었지?" 하고 멈칫한다.
+            icon={<FileSpreadsheet className="w-3.5 h-3.5 text-text-sub" />}
             title="마이크로소프트 엑셀 서식 적용 파일 다운로드"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-text-sub" />
-            <span>Excel 다운로드</span>
-          </a>
-          <a
+            className="w-full sm:w-auto text-center justify-center px-3.5 py-2.5 sm:py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-medium inline-flex items-center gap-1.5 transition border border-border btn-press disabled:opacity-50"
+          />
+          <DownloadFileButton
             href={csvHref}
-            className="w-full sm:w-auto text-center justify-center px-3 py-2.5 sm:py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-medium inline-flex items-center gap-1.5 transition border border-border btn-press"
+            label="CSV"
+            fallbackFilename="지원자목록.csv"
+            icon={<Download className="w-3.5 h-3.5 text-text-sub" />}
             title="표준 CSV 파일 다운로드"
-          >
-            <Download className="w-3.5 h-3.5 text-text-sub" />
-            <span>CSV</span>
-          </a>
+            className="w-full sm:w-auto text-center justify-center px-3 py-2.5 sm:py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-medium inline-flex items-center gap-1.5 transition border border-border btn-press disabled:opacity-50"
+          />
         </div>
       </div>
 

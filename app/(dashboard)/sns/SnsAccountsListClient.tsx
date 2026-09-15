@@ -33,6 +33,19 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // 탭에 돌아오면 DashboardShell 의 RefreshOnFocus 가 router.refresh() 를 부른다.
+  // 그런데 router.refresh() 는 useState 를 그대로 두기 때문에, 서버가 새 목록을 내려줘도
+  // 여기 accounts 는 자리를 비우기 전 값에 머문다. 그래서 새 initialAccounts 가 오면 다시 맞춘다.
+  //
+  // effect 가 아니라 렌더 중에 맞춘다. effect 로 하면 옛 목록으로 한 번 그린 뒤 다시 그려 깜빡인다.
+  // 목록만 갈아끼우고 filter·selectedPlatform·search 처럼 사용자가 고른 값과
+  // targetAccount(삭제 확인 대상)는 건드리지 않는다.
+  const [syncedFrom, setSyncedFrom] = useState(initialAccounts);
+  if (syncedFrom !== initialAccounts) {
+    setSyncedFrom(initialAccounts);
+    setAccounts(initialAccounts);
+  }
+
   const activeCount = accounts.filter((a) => a.status === "active").length;
   const endedCount = accounts.filter((a) => a.status === "ended").length;
 

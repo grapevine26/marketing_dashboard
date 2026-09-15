@@ -2,6 +2,7 @@ import { getCampaignById, getReportsByCampaignId } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import CreateReportButton from "./CreateReportButton";
+import DownloadFileButton from "@/components/DownloadFileButton";
 import { ChevronLeft, ArrowRight, Download, Calendar } from "lucide-react";
 
 export const revalidate = 0;
@@ -107,23 +108,26 @@ export default async function ReportsListPage({
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
 
+                {/*
+                  생 <a href> 로 받으면 서버가 4xx/5xx 로 돌려준 한국어 메시지("보고서를 찾을 수 없습니다." 등)를
+                  브라우저가 새 탭에 문서로 그려버린다. 클라이언트 버튼으로 받아 실패는 버튼 아래 메시지로,
+                  생성 대기는 로딩 표시로 보여준다. (서버 컴포넌트에서 클라이언트 컴포넌트를 쓰는 건 정상이다)
+                */}
                 <div className="flex items-center gap-2">
-                  <a
+                  <DownloadFileButton
                     href={`/api/reports/${rep.id}/pdf`}
-                    target="_blank"
-                    className="px-3 py-1.5 rounded-lg bg-surface2 hover:bg-surface3 text-text text-xs font-semibold inline-flex items-center gap-1 transition"
-                  >
-                    <Download className="w-3 h-3 text-red-400" />
-                    <span>PDF</span>
-                  </a>
-                  <a
+                    label="PDF"
+                    fallbackFilename={`${rep.title}.pdf`}
+                    icon={<Download className="w-3 h-3 text-red-400" />}
+                    className="px-3 py-1.5 rounded-lg bg-surface2 hover:bg-surface3 text-text text-xs font-semibold inline-flex items-center gap-1 transition disabled:opacity-50"
+                  />
+                  <DownloadFileButton
                     href={`/api/reports/${rep.id}/pptx`}
-                    target="_blank"
-                    className="px-3 py-1.5 rounded-lg bg-surface2 hover:bg-surface3 text-text text-xs font-semibold inline-flex items-center gap-1 transition"
-                  >
-                    <Download className="w-3 h-3 text-orange-400" />
-                    <span>PPTX</span>
-                  </a>
+                    label="PPTX"
+                    fallbackFilename={`${rep.title}.pptx`}
+                    icon={<Download className="w-3 h-3 text-orange-400" />}
+                    className="px-3 py-1.5 rounded-lg bg-surface2 hover:bg-surface3 text-text text-xs font-semibold inline-flex items-center gap-1 transition disabled:opacity-50"
+                  />
                 </div>
               </div>
             </div>

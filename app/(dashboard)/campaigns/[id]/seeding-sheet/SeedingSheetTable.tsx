@@ -6,9 +6,18 @@ import { SeedingRow } from "@/lib/seeding/rows";
 import { getStagesForType } from "@/lib/seeding/stages";
 import { calculateDDay, ddayToneClass } from "@/lib/seeding/dday";
 import { updateSeedingRecordAction } from "./actions";
-import { Search, ExternalLink, Download, Loader2, FileSpreadsheet } from "lucide-react";
+import { Search, ExternalLink, Download, Loader2, FileSpreadsheet, Lock } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
 import { toast } from "@/components/Toast";
+import DownloadFileButton from "@/components/DownloadFileButton";
+
+/**
+ * `temp_` 행 = 최종선정은 됐지만 시딩 레코드가 아직 없는 행(구버전 데이터).
+ * 저장을 시도하면 서버 액션이 같은 뜻의 오류를 돌려주지만, 입력칸이 잠겨 있어
+ * 그 메시지에 닿을 방법이 없다. 그래서 잠긴 이유를 행에서 바로 보여준다.
+ */
+const LOCKED_REASON = "관리시트 레코드가 아직 없어 입력이 잠겼습니다. 지원자 화면에서 선정 상태를 다시 지정해주세요.";
+const isLocked = (r: SeedingRecord) => r.id.startsWith("temp_");
 
 type Patch = {
   progress_stage?: ProgressStage;
@@ -34,6 +43,19 @@ export default function SeedingSheetTable({
   csvHref: string;
 }) {
   const [records, setRecords] = useState(initialRecords);
+  // 탭에 복귀하면 RefreshOnFocus 가 router.refresh() 를 부르는데, refresh 는 서버 데이터만 다시 받고
+  // useState 는 그대로 둔다. 그래서 prop 이 바뀐 것을 렌더 중에 알아채고 목록을 직접 갈아끼워야
+  // 자리를 비운 사이 바뀐 내용이 보인다. (settings/users/UsersClient.tsx 와 같은 패턴)
+  //
+  // 입력 중이던 값이 날아가지 않는 이유:
+  // 행 key 가 seeding.id 라 목록을 갈아끼워도 같은 행은 리마운트되지 않고 재사용된다. 그리고 React 는
+  // 비제어 입력의 defaultValue 를 element.value 가 아니라 element.defaultValue 에만 쓴다. 사용자가
+  // 이미 타이핑한 칸은 브라우저의 dirty 플래그가 서 있어 표시값이 유지되고, 손대지 않은 칸만 새 값으로 갱신된다.
+  const [syncedFrom, setSyncedFrom] = useState(initialRecords);
+  if (syncedFrom !== initialRecords) {
+    setSyncedFrom(initialRecords);
+    setRecords(initialRecords);
+  }
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
@@ -94,7 +116,7 @@ export default function SeedingSheetTable({
     return (
       <select
         value={r.progress_stage}
-        disabled={savingId === r.id || r.id.startsWith("temp_")}
+        disabled={savingId === r.id || isLocked(r)}
         onChange={(e) => handleUpdate(r.id, { progress_stage: e.target.value as ProgressStage })}
         className="px-2.5 py-1 rounded-lg bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500 font-semibold disabled:opacity-50"
       >
@@ -112,7 +134,7 @@ export default function SeedingSheetTable({
       step={1}
       defaultValue={r[key] || 0}
       placeholder={placeholder}
-      disabled={r.id.startsWith("temp_")}
+      disabled={isLocked(r)}
       onBlur={(e) => {
         const el = e.currentTarget;
         const original = String(r[key] || 0);
@@ -129,6 +151,14 @@ export default function SeedingSheetTable({
       }}
       className="w-20 px-2 py-1 rounded-lg bg-bg border border-border text-text text-xs focus:outline-none focus:border-blue-500 font-mono tabular-nums"
     />
+  );
+
+  // 잠긴 행 안내. title 속성은 모바일에서 뜨지 않으므로 글자로 보여준다.
+  const lockedNotice = (className: string) => (
+    <p className={`flex items-start gap-1 text-[11px] font-normal text-amber-400 ${className}`}>
+      <Lock className="w-3 h-3 mt-0.5 shrink-0" />
+      <span>{LOCKED_REASON}</span>
+    </p>
   );
 
   const stageBadge = (stage: ProgressStage) => (
@@ -155,22 +185,26 @@ export default function SeedingSheetTable({
         <div className="flex items-center gap-3 w-full sm:w-auto">
           {savingId && <Loader2 className="w-4 h-4 animate-spin text-text-muted" />}
           <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
-            <a
+            {/*
+              생 <a href> 로 받으면 서버가 4xx(예: "종료된 캠페인입니다.")를 줄 때 브라우저가 그 본문을
+              문서로 그려 흰 화면만 남는다. 공용 버튼으로 바꿔 실패는 메시지로, 진행은 로딩으로 보여준다.
+            */}
+            <DownloadFileButton
               href={`${csvHref}&format=xlsx`}
-              className="w-full sm:w-auto text-center justify-center px-3.5 py-2.5 sm:py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-medium inline-flex items-center gap-1.5 transition border border-border active:scale-95"
+              label="Excel 다운로드"
+              fallbackFilename="시딩관리시트.xlsx"
               title="마이크로소프트 엑셀 서식 적용 파일 다운로드"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-text-sub" />
-              <span>Excel 다운로드</span>
-            </a>
-            <a
+              icon={<FileSpreadsheet className="w-3.5 h-3.5 text-text-sub" />}
+              className="w-full sm:w-auto text-center justify-center px-3.5 py-2.5 sm:py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-medium inline-flex items-center gap-1.5 transition border border-border active:scale-95 disabled:opacity-50"
+            />
+            <DownloadFileButton
               href={csvHref}
-              className="w-full sm:w-auto text-center justify-center px-3 py-2.5 sm:py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-medium inline-flex items-center gap-1.5 transition border border-border"
+              label="CSV"
+              fallbackFilename="시딩관리시트.csv"
               title="표준 CSV 파일 다운로드"
-            >
-              <Download className="w-3.5 h-3.5 text-text-sub" />
-              <span>CSV</span>
-            </a>
+              icon={<Download className="w-3.5 h-3.5 text-text-sub" />}
+              className="w-full sm:w-auto text-center justify-center px-3 py-2.5 sm:py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs font-medium inline-flex items-center gap-1.5 transition border border-border disabled:opacity-50"
+            />
           </div>
         </div>
       </div>
@@ -196,6 +230,8 @@ export default function SeedingSheetTable({
                 </a>
               </div>
 
+              {!isReadOnly && isLocked(r) && lockedNotice("")}
+
               <div className="space-y-2 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-text-sub">진행 단계:</span>
@@ -210,7 +246,7 @@ export default function SeedingSheetTable({
                       <input
                         type="date"
                         defaultValue={r.upload_deadline || ""}
-                        disabled={r.id.startsWith("temp_")}
+                        disabled={isLocked(r)}
                         onBlur={(e) => {
                           const el = e.currentTarget;
                           const original = r.upload_deadline || "";
@@ -239,7 +275,7 @@ export default function SeedingSheetTable({
                       type="url"
                       defaultValue={r.upload_link || ""}
                       placeholder="https://..."
-                      disabled={r.id.startsWith("temp_")}
+                      disabled={isLocked(r)}
                       onBlur={(e) => {
                         const el = e.currentTarget;
                         const original = r.upload_link || "";
@@ -269,7 +305,7 @@ export default function SeedingSheetTable({
                     rows={2}
                     defaultValue={r.notes || ""}
                     placeholder="메모 (송장번호, 특이사항 등)"
-                    disabled={r.id.startsWith("temp_")}
+                    disabled={isLocked(r)}
                     onBlur={(e) => {
                       const el = e.currentTarget;
                       const original = r.notes || "";
@@ -311,7 +347,11 @@ export default function SeedingSheetTable({
             ) : (
               displayedRecords.map(({ applicant: app, seeding: r }) => (
                 <tr key={r.id} className="hover:bg-surface2 transition">
-                  <td className="p-3.5 font-bold text-text whitespace-nowrap min-w-[112px]">{app.name}</td>
+                  <td className="p-3.5 font-bold text-text whitespace-nowrap min-w-[112px]">
+                    {app.name}
+                    {/* 표가 좌우로 잘리므로 항상 보이는 첫 칸에 둔다. */}
+                    {!isReadOnly && isLocked(r) && lockedNotice("mt-1 whitespace-normal max-w-[200px]")}
+                  </td>
                   <td className="p-3.5">
                     <a href={app.sns_link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline inline-flex items-center gap-1 truncate max-w-[130px]">
                       <span>{app.sns_link}</span>
@@ -335,7 +375,7 @@ export default function SeedingSheetTable({
                       <input
                         type="date"
                         defaultValue={r.upload_deadline || ""}
-                        disabled={r.id.startsWith("temp_")}
+                        disabled={isLocked(r)}
                         onBlur={(e) => {
                           const el = e.currentTarget;
                           const original = r.upload_deadline || "";
@@ -362,7 +402,7 @@ export default function SeedingSheetTable({
                         type="url"
                         defaultValue={r.upload_link || ""}
                         placeholder="https://..."
-                        disabled={r.id.startsWith("temp_")}
+                        disabled={isLocked(r)}
                         onBlur={(e) => {
                           const el = e.currentTarget;
                           const original = r.upload_link || "";
@@ -391,7 +431,7 @@ export default function SeedingSheetTable({
                         type="text"
                         defaultValue={r.notes || ""}
                         placeholder="송장번호, 특이사항"
-                        disabled={r.id.startsWith("temp_")}
+                        disabled={isLocked(r)}
                         onBlur={(e) => {
                           const el = e.currentTarget;
                           const original = r.notes || "";

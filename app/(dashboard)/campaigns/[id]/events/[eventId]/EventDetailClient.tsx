@@ -133,6 +133,19 @@ export default function EventDetailClient({
     setChecklists(initialChecklists);
   }
 
+  // 행사 헤더도 같은 이유로 맞춘다. 초대 명단·체크리스트에만 있고 여기에는 없어서,
+  // 탭에 돌아와 router.refresh() 가 돌아도(router.refresh() 는 useState 를 보존한다)
+  // 행사명·일시·장소·상태는 자리를 비우기 전 값에 머물렀다.
+  //
+  // event 만 맞추고 아래 infoForm 은 손대지 않는다. infoForm 재동기화는 editingInfo 가
+  // 닫힘 → 열림으로 바뀌는 순간에만 걸려 있으므로, 여기서 event 를 바꿔도
+  // [정보 수정] 폼에 입력 중이던 값은 그대로 남는다.
+  const [eventFrom, setEventFrom] = useState(initialEvent);
+  if (eventFrom !== initialEvent) {
+    setEventFrom(initialEvent);
+    setEvent(initialEvent);
+  }
+
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 

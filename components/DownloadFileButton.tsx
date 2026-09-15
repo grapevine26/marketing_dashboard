@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Download, Loader2 } from "lucide-react";
 
 /**
@@ -13,12 +13,21 @@ export default function DownloadFileButton({
   className,
   fallbackFilename = "download",
   icon = true,
+  title,
 }: {
   href: string;
   label: string;
   className?: string;
   fallbackFilename?: string;
-  icon?: boolean;
+  /**
+   * `true` 면 기본 내려받기 아이콘, `false` 면 아이콘 없음.
+   * **아이콘 요소를 직접 넘길 수도 있다** — 생 `<a>` 를 이 버튼으로 바꿀 때 원래 쓰던
+   * 아이콘(예: 엑셀 모양)을 잃지 않게 하려는 것이다. 모양이 달라지면 쓰는 사람이
+   * "버튼이 바뀌었나?" 하고 멈칫한다.
+   */
+  icon?: boolean | ReactNode;
+  /** 마우스를 올렸을 때 나오는 설명. 생 `<a>` 의 title 을 옮겨 올 때 쓴다. */
+  title?: string;
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,12 +74,19 @@ export default function DownloadFileButton({
         type="button"
         onClick={handleClick}
         disabled={loading}
+        title={title}
         className={
           className ||
           "px-4 py-2 rounded-xl bg-surface2 hover:bg-surface border border-border text-text-sub hover:text-text text-xs font-semibold inline-flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50"
         }
       >
-        {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : icon ? <Download className="w-3.5 h-3.5" /> : null}
+        {loading ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : icon === true ? (
+          <Download className="w-3.5 h-3.5" />
+        ) : icon === false ? null : (
+          icon
+        )}
         <span>{label}</span>
       </button>
       {error && <span className="text-[11px] text-red-400 max-w-xs text-right">{error}</span>}

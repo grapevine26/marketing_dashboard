@@ -112,8 +112,15 @@ export default function CampaignPreSurveyClient({
         </button>
       </div>
 
-      {/* Tab Contents */}
-      {activeTab === "answers" && (
+      {/* Tab Contents
+          두 탭을 **항상 마운트해 두고 보이기만 감춘다.**
+          전에는 `{activeTab === "x" && <자식/>}` 로 조건부 렌더라, 탭을 옮기는 순간 자식이
+          언마운트되면서 그 안의 useState 가 통째로 사라졌다. 답변을 길게 써 놓고 이 화면 안의
+          "문항 수정하기" 링크(아래 onSwitchToQuestionsTab)를 눌렀다가 돌아오면 **쓴 내용이
+          마지막 저장본으로 되돌아가 있었다.** 경고도 확인창도 없었다. 화면이 그 링크로 직접
+          유도하기 때문에 더 밟기 쉬웠다.
+          `hidden` 은 표시만 끄고 state 는 그대로 두므로 오가도 입력이 남는다. */}
+      <div hidden={activeTab !== "answers"}>
         <PreSurveyAgencyView
           campaign={campaign}
           template={template}
@@ -121,16 +128,16 @@ export default function CampaignPreSurveyClient({
           isCustom={isCustom}
           onSwitchToQuestionsTab={() => setActiveTab("questions")}
         />
-      )}
+      </div>
 
-      {activeTab === "questions" && (
+      <div hidden={activeTab !== "questions"}>
         <CampaignPreSurveyQuestionEditor
           campaignId={campaign.id}
           initialQuestions={resolvedQuestions}
           isCustom={isCustom}
           defaultTemplateQuestions={defaultTemplateQuestions}
         />
-      )}
+      </div>
     </div>
   );
 }

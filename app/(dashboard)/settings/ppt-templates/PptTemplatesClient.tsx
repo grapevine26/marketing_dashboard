@@ -55,6 +55,28 @@ export default function PptTemplatesClient({
   const [replacingId, setReplacingId] = useState<string | null>(null);
   const [hiddenBuiltinCount, setHiddenBuiltinCount] = useState(initialHiddenBuiltinCount);
 
+  // 탭에 돌아오면 DashboardShell 의 RefreshOnFocus 가 router.refresh() 를 부른다.
+  // 그런데 router.refresh() 는 useState 를 그대로 두기 때문에, 서버가 새 목록을 내려줘도
+  // 여기 templates 는 옛 값에 머문다. "지운 기본 템플릿 되살리기" 도 같은 이유로
+  // router.refresh() 를 부르고도 목록에 아무 변화가 없어, 새로고침하라는 안내에 기대고 있었다.
+  //
+  // effect 가 아니라 렌더 중에 맞춘다. effect 로 하면 옛 목록으로 한 번 그린 뒤 다시 그려 깜빡인다.
+  // 목록(표시용)만 갈아끼운다. 업로드 폼(name·kind·file)과 이름 수정 폼(editingId·editName·editKind)은
+  // 사용자가 입력 중인 값이라 손대지 않는다.
+  const [syncedFrom, setSyncedFrom] = useState(initialTemplates);
+  if (syncedFrom !== initialTemplates) {
+    setSyncedFrom(initialTemplates);
+    setTemplates(initialTemplates);
+  }
+
+  // 되살리기 버튼을 보일지 말지는 서버가 센 값이 맞다. 지우기·되살리기로 화면에서 먼저 더하고 뺀
+  // 값은 서버 값이 새로 오면 양보한다. 숫자라 값 비교로 충분하다.
+  const [hiddenSyncedFrom, setHiddenSyncedFrom] = useState(initialHiddenBuiltinCount);
+  if (hiddenSyncedFrom !== initialHiddenBuiltinCount) {
+    setHiddenSyncedFrom(initialHiddenBuiltinCount);
+    setHiddenBuiltinCount(initialHiddenBuiltinCount);
+  }
+
   /** 파일을 브라우저에서 저장소로 바로 보낸 뒤, 서버에는 등록만 요청한다. */
   const uploadDirect = async () => {
     if (!file) return { ok: false as const, error: "파일을 선택해주세요." };
@@ -145,7 +167,9 @@ export default function PptTemplatesClient({
       return;
     }
     setHiddenBuiltinCount(0);
-    setNotice(`기본 템플릿 ${res.data.restored}개를 되살렸습니다. 새로고침하면 목록에 나타납니다.`);
+    // 이제 router.refresh() 가 내려준 목록이 위 syncedFrom 으로 화면에 반영되므로
+    // 사람이 직접 새로고침할 필요가 없다. 안내 문구도 그에 맞춘다.
+    setNotice(`기본 템플릿 ${res.data.restored}개를 되살렸습니다.`);
     toast.success(`기본 템플릿 ${res.data.restored}개를 되살렸습니다.`);
     router.refresh();
   };
