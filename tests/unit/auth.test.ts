@@ -184,6 +184,32 @@ describe.skipIf(!hasTestDb)("사용자 관리", () => {
     expect((await getUsers()).find((u) => u.id === staffId)!.status).toBe("active");
   });
 
+  /**
+   * 해제는 두 곳(profiles.status, 인증 쪽 잠금)을 건드리는데 뒤쪽만 실패할 수 있다.
+   * 그때 관리자가 화면에서 할 수 있는 일은 [차단 해제]를 한 번 더 누르는 것뿐이다.
+   * 전에는 `if (target.status === "active") return;` 이 그 재시도를 통째로 삼켜서
+   * 잠금 해제가 다시 나가지도 않았다. 여기서 그 조기 return 이 돌아오는 것을 막는다.
+   */
+  it("이미 활성인 계정에 차단 해제를 다시 불러도 통과하고, 기록은 한 번만 쌓인다", async () => {
+    const { getUsers, approveUser, blockUser, unblockUser } = await import("@/lib/auth/users");
+    const { getAuditLogs } = await import("@/lib/db");
+    const boss = await makeActiveAdmin(uid("boss"), "관리자");
+    const staffId = await signUp(uid("staff"), "직원");
+    await approveUser(boss, staffId);
+    await blockUser(boss, staffId);
+
+    await unblockUser(boss, staffId);
+    expect((await getUsers()).find((u) => u.id === staffId)!.status).toBe("active");
+
+    // 두 번째 호출. 인증 쪽 잠금 해제를 다시 시도하고, 성공했으니 조용히 끝난다.
+    await expect(unblockUser(boss, staffId)).resolves.toBeUndefined();
+    expect((await getUsers()).find((u) => u.id === staffId)!.status).toBe("active");
+
+    // 다만 DB 쓰기와 감사 로그는 건너뛴다. 같은 줄이 두 번 쌓이면 정작 볼 기록이 묻힌다.
+    const unblocks = (await getAuditLogs({ limit: 50 })).filter((l) => l.action === "user.unblocked");
+    expect(unblocks).toHaveLength(1);
+  });
+
   it("등급 변경은 대표 관리자만 할 수 있다", async () => {
     const { setUserRole, getUsers } = await import("@/lib/auth/users");
     const owner = await makeActive(uid("owner"), "대표", "owner");
@@ -676,6 +702,56 @@ describe.skipIf(!hasTestDb)("차단은 인증 쪽 계정까지 잠근다", () =>
     expect(await canSignIn(targetName)).toBe(false);
 
     // 해제하면 잠금도 함께 풀린다.
+    await unblockUser(boss, targetId);
+    expect(await canSignIn(targetName)).toBe(true);
+  }, 30_000);
+
+  /**
+   * 해제가 반쪽만 성공한 상태에서 복구되는지 본다.
+   *
+   * 실제로는 인증 서버 호출이 실패해서 생긴다. 테스트에서 그 실패를 만들 수는 없으므로
+   * **결과 상태를 직접 만든다**: 차단해서 잠금을 걸어 둔 뒤 profiles.status 만 active 로
+   * 되돌린다. 그러면 화면에는 멀쩡한 활성 계정인데 당사자는 로그인을 못 하는, 바로 그 상태가 된다.
+   *
+   * 관리자에게 남은 유일한 수단은 [차단 해제]를 다시 누르는 것이다. 그게 통해야 한다.
+   */
+  it("상태만 활성이고 잠금이 남아 있어도 차단 해제를 다시 부르면 로그인이 돌아온다", async () => {
+    const { signUpUser, blockUser, unblockUser } = await import("@/lib/auth/users");
+    const { db } = await import("@/lib/db/client");
+
+    const stamp = Date.now().toString(36);
+    const bossName = `half_boss_${stamp}`;
+    const targetName = `half_target_${stamp}`;
+    for (const [username, display] of [[bossName, "대표"], [targetName, "직원"]] as const) {
+      await signUpUser({ username, display_name: display, password: PASSWORD });
+    }
+    const idOf = async (username: string): Promise<string> => {
+      for (let i = 0; i < 20; i++) {
+        const res = await db().from("profiles").select("id").eq("username", username).maybeSingle<{ id: string }>();
+        if (res.data?.id) return res.data.id;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      throw new Error(`프로필을 찾지 못했습니다: ${username}`);
+    };
+    const bossId = await idOf(bossName);
+    const targetId = await idOf(targetName);
+    await db().from("profiles").update({ role: "owner", status: "active" }).eq("id", bossId);
+    await db().from("profiles").update({ status: "active" }).eq("id", targetId);
+
+    const boss: SessionUser = {
+      id: bossId, username: bossName, display_name: "대표", role: "owner", status: "active",
+    };
+
+    // 차단해서 인증 쪽 잠금을 실제로 걸어 둔다.
+    await blockUser(boss, targetId);
+    expect(await canSignIn(targetName)).toBe(false);
+
+    // 반쪽 성공 상태를 만든다: DB 는 활성인데 잠금은 그대로다.
+    await db().from("profiles").update({ status: "active" }).eq("id", targetId);
+    expect(await canSignIn(targetName)).toBe(false);
+
+    // 관리자가 [차단 해제]를 한 번 더 누른다. 조기 return 이 있으면 여기서 아무 일도 안 일어나
+    // 아래 단언이 false 로 남는다.
     await unblockUser(boss, targetId);
     expect(await canSignIn(targetName)).toBe(true);
   }, 30_000);

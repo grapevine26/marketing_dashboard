@@ -26,6 +26,44 @@ export default function PreSurveyTemplateEditor({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * 저장하려는데 그 사이 남이 먼저 저장한 상태. 토스트만 띄우면 막다른 길이 된다 —
+   * 실패 경로에서는 기준 시각이 안 바뀌므로 **다시 눌러도 영원히 같은 오류**고,
+   * 안내대로 새로고침하면 편집하던 문항이 통째로 사라진다.
+   * 내 문항은 멀쩡하니 무엇을 할지 고르게만 해 주면 된다(SNS 콘텐츠 모달과 같은 방식).
+   */
+  const [saveConflict, setSaveConflict] = useState(false);
+  /**
+   * "내 내용으로 덮어쓰기" 를 고른 상태. 저장할 때 화면이 들고 있는 옛 기준 대신
+   * 서버 컴포넌트가 방금 내려준 최신 기준 시각으로 보낸다.
+   *
+   * SNS 콘텐츠처럼 기준 시각을 null 로 버리는 방법은 여기서 못 쓴다. 단일 행 문서의 잠금
+   * (writeWithOptimisticLock)은 **행이 이미 있는데 기준 시각이 없으면 저장 자체를 거부**한다.
+   * 그래서 router.refresh() 로 최신 기준을 받아 오는 길을 택했다.
+   */
+  const [overwriteArmed, setOverwriteArmed] = useState(false);
+  /** "최신 내용 불러오기" 를 고른 상태. 새 props 가 도착하면 그 값으로 화면을 갈아끼운다. */
+  const [discardArmed, setDiscardArmed] = useState(false);
+
+  // 서버가 새 값을 내려주면(=router.refresh() 가 도착하면) 화면을 다시 맞춘다.
+  // effect 가 아니라 렌더 중에 맞춘다. SNS 계정 상세와 같은 방식이고, effect 로 하면
+  // 옛 값으로 한 번 그린 뒤 다시 그려 깜빡인다.
+  //
+  // **평소에는 아무것도 하지 않는다.** 사용자가 "최신 내용 불러오기" 를 고른 순간에만 받아들인다.
+  // 아무 refresh 에나 기준 시각을 최신으로 올려 버리면, 남의 저장을 본 적도 없이 덮어쓰게 되어
+  // 잠금이 있으나 마나 해진다.
+  const [syncedFrom, setSyncedFrom] = useState(initialTemplate);
+  if (syncedFrom !== initialTemplate) {
+    setSyncedFrom(initialTemplate);
+    if (discardArmed) {
+      setQuestions(initialTemplate.questions || []);
+      setTemplateUpdatedAt(initialTemplate.updated_at ?? null);
+      setDiscardArmed(false);
+      setSaveConflict(false);
+      setOverwriteArmed(false);
+      setError(null);
+    }
+  }
 
   const { registerRef } = useFlipList(questions);
 
@@ -62,13 +100,28 @@ export default function PreSurveyTemplateEditor({
   const handleSave = async () => {
     setSaving(true);
     setError(null);
-    const res = await safeCall(saveTemplateAction(questions, templateUpdatedAt));
+    // 덮어쓰기를 골랐으면 서버 컴포넌트가 방금 받아 온 최신 기준 시각으로 저장한다.
+    // 아직 안 왔으면 옛 기준 그대로라 또 충돌이 나는데, 그건 막다른 길이 아니라
+    // "조금 뒤 한 번 더" 로 풀리는 상태다(아래 실패 경로에서 refresh 를 다시 건다).
+    const baseline = overwriteArmed ? (initialTemplate.updated_at ?? templateUpdatedAt) : templateUpdatedAt;
+    const res = await safeCall(saveTemplateAction(questions, baseline));
     setSaving(false);
     if (!res.ok) {
+      // 충돌은 실패와 다르다. 내 문항은 멀쩡하고, 무엇을 할지 고르기만 하면 된다.
+      if ((res.error || "").includes("먼저 저장했습니다")) {
+        setSaveConflict(true);
+        setError(null);
+        // 덮어쓰기를 골랐는데도 충돌이면 최신 기준이 아직 안 온 것이다. 한 번 더 요청해 둔다.
+        if (overwriteArmed) router.refresh();
+        return;
+      }
       setError(res.error);
       toast.error(res.error || "템플릿 저장에 실패했습니다.");
       return;
     }
+    setSaveConflict(false);
+    setOverwriteArmed(false);
+    setDiscardArmed(false);
     setQuestions(res.data.questions);
     setTemplateUpdatedAt(res.data.updated_at);
     router.refresh();
@@ -109,6 +162,60 @@ export default function PreSurveyTemplateEditor({
         </div>
 
         {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">{error}</div>}
+
+        {(saveConflict || overwriteArmed) && (
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-warn-soft text-xs space-y-2">
+            {overwriteArmed ? (
+              <>
+                <p className="font-semibold">내 문항으로 덮어쓸 준비가 됐습니다.</p>
+                <p className="text-[11px] leading-relaxed">
+                  다시 [템플릿 저장하기] 를 누르면 다른 사람이 먼저 저장한 내용을 덮어쓰고 저장합니다.
+                  {saveConflict && " (최신 기준을 아직 받지 못했습니다. 잠시 뒤 한 번 더 눌러주세요.)"}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold">내가 이 화면을 연 뒤에 다른 사람이 먼저 저장했습니다.</p>
+                <p className="text-[11px] leading-relaxed">
+                  지금 화면의 문항은 그대로 있습니다. 그대로 저장하면 그 사람의 수정을 덮어씁니다.
+                </p>
+              </>
+            )}
+            <div className="flex flex-wrap gap-1.5">
+              {!overwriteArmed && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    // 최신 기준 시각을 받아 두고, 저장은 사용자가 한 번 더 누른다.
+                    // 덮어쓰기는 사고가 아니라 **선택**이어야 하므로 확인 단계를 남긴다.
+                    setOverwriteArmed(true);
+                    setSaveConflict(false);
+                    router.refresh();
+                    toast.info("다시 [템플릿 저장하기] 를 누르면 내 문항으로 덮어씁니다.");
+                  }}
+                  className="px-2 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 font-semibold transition"
+                >
+                  내 내용으로 덮어쓰기
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={discardArmed}
+                onClick={() => {
+                  // 서버 값이 도착하는 순간 위쪽 렌더 동기화가 화면을 갈아끼운다.
+                  // 여기서 지금 props 를 그냥 쓰면, 아직 refresh 가 안 왔을 때 내가 열었을 때의
+                  // 옛 내용을 "최신" 이라며 보여 주게 된다.
+                  setDiscardArmed(true);
+                  router.refresh();
+                  toast.info("최신 내용을 불러오는 중입니다.");
+                }}
+                className="px-2 py-1 rounded-lg bg-surface2 hover:bg-surface3 text-text-sub transition disabled:opacity-50"
+              >
+                {discardArmed ? "불러오는 중..." : "최신 내용 불러오기 (내 수정 버림)"}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-4">
           {questions.map((q, idx) => (
@@ -204,9 +311,11 @@ export default function PreSurveyTemplateEditor({
             )}
           </div>
 
+          {/* 최신 내용을 받아 오는 중에 저장을 누르면, 받아 온 값이 곧바로 화면을 갈아끼워
+              무엇을 저장한 것인지 알 수 없게 된다. 그동안만 저장을 잠근다. */}
           <button
             type="button"
-            disabled={saving}
+            disabled={saving || discardArmed}
             onClick={handleSave}
             className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-500/25 transition disabled:opacity-50 inline-flex items-center justify-center gap-2 shrink-0"
           >

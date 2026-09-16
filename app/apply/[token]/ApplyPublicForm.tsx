@@ -19,6 +19,27 @@ const inputCls =
  * 서버는 0 도 빈 값도 받아 주므로 막지 말고, 서버가 저장할 값으로 고쳐서 보여준다.
  * 화면에 보이는 숫자와 실제로 저장되는 숫자를 같게 만드는 것이 목적이다.
  */
+/** Postgres integer 상한. 이 칸은 `integer` 컬럼이라 넘기면 DB 오류가 그대로 화면에 뜬다. */
+const MAX_FOLLOWER = 2_147_483_647;
+
+/**
+ * 팔로워 수에서 숫자만 뽑는다.
+ *
+ * `<input type="number">` 를 쓰면 `15,000` 처럼 적었을 때 **칸에는 글자가 그대로 보이는데
+ * 값만 빈 문자열**로 온다. 그래서 지원자는 적었다고 믿는데 서버에는 null 이 저장됐고,
+ * 경고도 없었다. 쉼표를 찍는 건 흔한 입력이라 그냥 놓칠 수 없다.
+ *
+ * 그래서 text 로 받고 여기서 숫자만 남긴다. 칸을 벗어날 때 정리된 값으로 다시 써 주므로
+ * **화면에 보이는 숫자와 실제로 저장되는 숫자가 같아진다.** 방문 인원수와 같은 방식이다.
+ */
+function normalizeFollowerCount(raw: string): number | null {
+  const digits = raw.replace(/[^0-9]/g, "");
+  if (!digits) return null;
+  const n = Number(digits);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(n, MAX_FOLLOWER);
+}
+
 function normalizeVisitPartySize(raw: string): number | null {
   const t = raw.trim();
   // 빈 값은 null 로 보낸다. 서버가 `?? 1` 로 1명 처리한다.
@@ -83,7 +104,7 @@ export default function ApplyPublicForm({
     const res = await safeCall(submitApplicantAction({
       token,
       ...formData,
-      follower_count: formData.follower_count ? Number(formData.follower_count) : null,
+      follower_count: normalizeFollowerCount(formData.follower_count),
       category: formData.category || null,
       // 문자열로 들고 있던 인원수를 서버 기준(빈 값=1명, 1~20 정수)으로 바꿔 보낸다.
       visit_party_size: normalizeVisitPartySize(formData.visit_party_size),
@@ -200,13 +221,26 @@ export default function ApplyPublicForm({
           <label htmlFor="apply-follower" className="text-xs font-semibold text-text-2">
             팔로워 / 구독자 수 (선택)
           </label>
+          {/*
+            type="number" 가 아니다. 위 normalizeFollowerCount 주석 참고 — 쉼표를 찍으면
+            칸에는 글자가 남는데 값만 사라져, 지원자가 적은 줄 알았던 숫자가 조용히 없어졌다.
+          */}
           <input
             id="apply-follower"
-            type="number"
-            min="0"
+            type="text"
+            inputMode="numeric"
             value={formData.follower_count}
             onChange={(e) => setFormData({ ...formData, follower_count: e.target.value })}
-            placeholder="예: 15000"
+            onBlur={(e) => {
+              // 칸을 벗어날 때 저장될 값으로 다시 써 준다. `15,000` 은 `15,000` 그대로 보이고
+              // `1.5만` 처럼 해석이 갈리는 입력은 `15` 로 바뀌어 **지원자가 바로 알아챈다.**
+              const n = normalizeFollowerCount(e.target.value);
+              setFormData((prev) => ({
+                ...prev,
+                follower_count: n === null ? "" : n.toLocaleString("ko-KR"),
+              }));
+            }}
+            placeholder="예: 15,000"
             className={inputCls}
           />
         </div>

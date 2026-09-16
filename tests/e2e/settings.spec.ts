@@ -77,3 +77,56 @@ test.describe("설정 화면", () => {
     await expect(page.getByText("기본 내장")).toHaveCount(before);
   });
 });
+
+/**
+ * 저장이 충돌했을 때 **새로고침 없이** 빠져나올 수 있어야 한다.
+ *
+ * 전에는 잠금이 걸리면 막다른 길이었다. 화면은 "새로고침한 뒤 다시 저장해주세요" 라고 하는데,
+ * 기준 시각이 실패 경로에서 갱신되지 않아 **다시 눌러도 영원히 같은 오류**였고, 안내대로
+ * 새로고침하면 그때까지 고친 문항이 통째로 사라졌다. 잠금은 옳게 동작하는데 회복 경로가 없었다.
+ *
+ * B 의 저장은 테스트 DB 에 직접 써서 흉내 낸다. 확인하려는 것은 "A 의 화면이 어떻게 빠져나오는가" 다.
+ */
+test("템플릿 저장이 충돌해도 새로고침 없이 빠져나올 수 있다", async ({ page }) => {
+  const { createClient } = await import("@supabase/supabase-js");
+  const { loadTestEnv } = await import("./env");
+  const env = loadTestEnv();
+  const admin = createClient(env.url, env.serviceRoleKey, { auth: { persistSession: false } });
+
+  await page.goto("/settings/templates");
+  const 첫칸 = page.locator("input[placeholder*='핵심 특징은 무엇인가요']").first();
+  await expect(첫칸).not.toHaveValue("");
+
+  // A: 문항을 고친다. 아직 저장하지 않았다.
+  await 첫칸.fill("A 가 고친 문항");
+
+  // B: A 가 화면을 열어 둔 사이에 같은 템플릿을 저장한다. (트리거가 updated_at 을 올린다)
+  const { data: 원본 } = await admin.from("pre_survey_template").select("questions").eq("id", 1).single();
+  const 문항 = (원본?.questions ?? []) as { id: string; question: string }[];
+  const { error } = await admin
+    .from("pre_survey_template")
+    .update({ questions: [{ ...문항[0], question: "B 가 먼저 쓴 문항" }, ...문항.slice(1)] })
+    .eq("id", 1);
+  expect(error, `B 의 저장이 실패하면 이 테스트는 의미가 없다: ${error?.message}`).toBeNull();
+
+  // A: 저장 → 덮어쓰지 않고 알린다. 내 입력은 화면에 그대로 있어야 한다.
+  await page.getByRole("button", { name: "템플릿 저장하기" }).click();
+  await expect(page.getByText("다른 사람이 먼저 저장했습니다")).toBeVisible();
+  await expect(첫칸).toHaveValue("A 가 고친 문항");
+
+  // **여기가 핵심** — 새로고침하지 않고 버튼만으로 빠져나온다.
+  await page.getByRole("button", { name: "내 내용으로 덮어쓰기" }).click();
+  await expect(page.getByText("덮어쓸 준비가 됐습니다")).toBeVisible();
+  // 최신 기준 시각은 서버 컴포넌트를 다시 받아 얻는다. 그것이 도착할 때까지 기다린다.
+  await page.waitForLoadState("networkidle");
+
+  await page.getByRole("button", { name: "템플릿 저장하기" }).click();
+  await expect(page.getByText("기본 템플릿이 성공적으로 저장되었습니다!")).toBeVisible();
+
+  // 저장에 성공했으면 기준 시각도 갱신됐어야 한다. 연달아 한 번 더 저장해도 자기 자신과 충돌하면 안 된다.
+  await page.getByRole("button", { name: "템플릿 저장하기" }).click();
+  await expect(page.getByText("다른 사람이 먼저 저장했습니다")).toBeHidden();
+
+  const { data: 결과 } = await admin.from("pre_survey_template").select("questions").eq("id", 1).single();
+  expect(JSON.stringify(결과?.questions)).toContain("A 가 고친 문항");
+});

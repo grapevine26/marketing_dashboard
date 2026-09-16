@@ -64,11 +64,13 @@ export default function SnsIntakeFormClient({
       return;
     }
     if (res.data.fallback) {
-      // **폴백도 한 번 쓴 것으로 센다.** 서버는 이미 모델을 불렀고(돈이 나갔고) 횟수를
-      // 차감한다. 여기서 안 세면 화면은 계속 "3회 가능" 이라고 하다가 누르면 거부당해,
-      // 사용자는 왜 안 되는지 모른다. 서버는 폴백일 때 남은 횟수를 돌려주지 않으므로
-      // 화면이 직접 세야 한다.
-      const usedAfterFallback = currentUsage + 1;
+      // **남은 횟수는 서버가 알려주는 값을 그대로 쓴다.**
+      // 키가 없거나 호출 자체가 실패한 폴백은 서버가 횟수를 돌려주므로, 화면이 직접 더하면
+      // 서버와 어긋난다(사전조사 폼과 같은 이유).
+      const usedAfterFallback =
+        typeof res.data.remainingAttempts === "number"
+          ? Math.max(0, MAX_AI_ATTEMPTS - res.data.remainingAttempts)
+          : currentUsage + 1;
       setAiUsageMap((prev) => ({ ...prev, [questionId]: usedAfterFallback }));
       const msg =
         usedAfterFallback >= MAX_AI_ATTEMPTS

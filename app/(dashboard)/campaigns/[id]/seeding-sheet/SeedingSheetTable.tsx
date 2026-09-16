@@ -100,7 +100,13 @@ export default function SeedingSheetTable({
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const displayedRecords = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // 목록이 줄어 지금 페이지가 사라질 수 있다. 검색은 setPage(1) 을 하지만 **다른 창에서 선정이
+  // 취소되는 경우에는 그 자리가 없다.** 21명 중 2페이지를 보다가 한 명이 빠지면 totalPages 가
+  // 1 이 되는데 page 는 2 로 남아, 머리글만 있는 빈 표가 되고 페이지 버튼까지 사라져
+  // (`totalPages > 1` 조건) 검색창을 건드리기 전에는 빠져나올 수 없었다.
+  // 지원자 화면(ApplicantTable) 이 같은 이유로 이미 쓰고 있는 방식이다.
+  const safePage = Math.min(page, totalPages);
+  const displayedRecords = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const dday = (deadline: string | null) => {
     if (!deadline) return <span className="text-text-muted">-</span>;

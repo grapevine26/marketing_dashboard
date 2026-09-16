@@ -65,10 +65,14 @@ export default function PreSurveyPublicForm({
       return;
     }
     if (res.data.fallback) {
-      // **폴백도 한 번 쓴 것으로 센다.** 서버는 이미 모델을 불렀고 횟수를 차감한다.
-      // 여기서 안 세면 화면은 계속 "3회 가능" 이라고 하다가 누르면 거부당한다.
-      // 서버는 폴백일 때 남은 횟수를 돌려주지 않으므로 화면이 직접 세야 한다.
-      const usedAfterFallback = currentUsage + 1;
+      // **남은 횟수는 서버가 알려주는 값을 그대로 쓴다.**
+      // 전에는 "폴백이면 한 번 썼다" 고 화면이 직접 셌는데, 지금은 키가 없거나 호출 자체가
+      // 실패한 폴백은 서버가 횟수를 돌려준다. 화면이 계속 더하면 실제로는 3회가 남았는데
+      // "1회 사용" 으로 보인다. 세는 주체는 하나여야 한다.
+      const usedAfterFallback =
+        typeof res.data.remainingAttempts === "number"
+          ? Math.max(0, MAX_AI_ATTEMPTS - res.data.remainingAttempts)
+          : currentUsage + 1;
       setAiUsageMap((prev) => ({ ...prev, [questionId]: usedAfterFallback }));
       const msg =
         usedAfterFallback >= MAX_AI_ATTEMPTS

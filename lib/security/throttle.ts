@@ -146,6 +146,19 @@ export async function getClientIp(): Promise<string | null> {
 
 /** 공개 폼 제출. 같은 링크·같은 곳에서 10분에 10회. */
 export const PUBLIC_SUBMIT: ThrottlePolicy = { maxHits: 10, windowMs: 10 * MINUTE, lockMs: 10 * MINUTE };
+
+/**
+ * 인플루언서 지원 접수만 따로 둔다. 10분에 30회.
+ *
+ * 다른 공개 폼은 링크를 받은 **한 사람**이 쓴다(광고주 한 명, 담당자 한 명). 그런데 지원폼은
+ * 링크를 오픈채팅이나 SNS 에 뿌려 **불특정 다수가 동시에** 들어온다. 게다가 국내 모바일 회선은
+ * 여러 명이 같은 공인 IP 로 보이므로(CGNAT), 10회로 두면 **반응이 좋은 캠페인이 스스로 문을
+ * 닫는다** — 먼저 온 열 명 때문에 열한 번째 사람이 아무 잘못 없이 10분간 막힌다.
+ *
+ * 그렇다고 없앨 수는 없다. 스크립트로 같은 폼을 두드리면 지원자 행과 감사 로그가 그대로 쌓인다.
+ * 사람이 손으로 10분에 30번 지원할 일은 없으니 그 선에서 자른다.
+ */
+export const APPLY_SUBMIT: ThrottlePolicy = { maxHits: 30, windowMs: 10 * MINUTE, lockMs: 10 * MINUTE };
 /**
  * 링크 하나 기준 상한. 1시간 100회.
  *
@@ -170,22 +183,47 @@ export const aiLinkKey = (kind: string, token: string) => `ai:${kind}:${token}`;
 export const aiQuestionKey = (kind: string, token: string, questionId: string) =>
   `ai:${kind}:${token}:${questionId}`;
 
+/** 화면용 사용 횟수를 읽을 때 필요한 칸. 단수/복수 두 함수가 같은 칸을 읽어야 한다. */
+interface UsageRow {
+  failures: number;
+  window_start: string;
+  locked_until: string | null;
+}
+const USAGE_COLUMNS = "failures, window_start, locked_until";
+
+/**
+ * 한 행을 "지금까지 몇 번 썼나"로 옮기는 규칙. **단수/복수가 이 함수 하나만 쓴다.**
+ * 규칙이 두 벌이면 언젠가 갈라지고, 갈라지는 순간 화면과 실제 잠금이 어긋난다.
+ *
+ * **잠금을 먼저 본다.** 창(windowMs)은 **첫 호출** 시각부터 흐르고, 잠금(lockMs)은
+ * **상한에 닿은(세 번째) 호출** 시각부터 흐른다. `AI_BY_QUESTION` 은 둘 다 24시간이라
+ * 창이 먼저 끝나고 잠금이 그 뒤까지 남는다.
+ *
+ *   09:00 1회(창 시작) → 23:00 2회 → 23:30 3회(잠금이 다음날 23:30까지)
+ *   다음날 09:00 이후: 창은 끝났지만 잠금은 14시간 30분 더 남아 있다.
+ *
+ * 창만 보면 그 사이 화면은 "3회 가능"이라고 하고, 누르면 `isThrottled` 가 막는다.
+ * 잠겨 있는 동안은 창이 지났더라도 다 쓴 것으로 본다 — 화면이 실제 잠금과 같은 말을 해야 한다.
+ */
+function usedHits(row: UsageRow, now: number, policy: ThrottlePolicy = AI_BY_QUESTION): number {
+  const lockedUntil = row.locked_until ? Date.parse(row.locked_until) : NaN;
+  if (Number.isFinite(lockedUntil) && lockedUntil > now) return policy.maxHits;
+  // 잠기지 않았고 창도 지났으면 0 부터 다시 센다. 화면 숫자도 그래야 맞다.
+  const started = Date.parse(row.window_start);
+  if (!Number.isFinite(started) || now - started >= policy.windowMs) return 0;
+  return row.failures;
+}
+
 /** 지금까지 몇 번 썼나. 화면에 "남은 횟수"를 보여줄 때만 쓴다. */
 export async function getThrottleCount(key: string): Promise<number> {
   return softly(
     "사용 횟수 조회",
     async () => {
       const row = unwrap(
-        await db().from("auth_throttle").select("failures, window_start").eq("key", key).maybeSingle<{
-          failures: number;
-          window_start: string;
-        }>()
+        await db().from("auth_throttle").select(USAGE_COLUMNS).eq("key", key).maybeSingle<UsageRow>()
       );
       if (!row) return 0;
-      // 창이 지났으면 0 부터 다시 센다. 화면 숫자도 그래야 맞다.
-      const started = Date.parse(row.window_start);
-      if (!Number.isFinite(started) || Date.now() - started >= AI_BY_QUESTION.windowMs) return 0;
-      return row.failures;
+      return usedHits(row, Date.now());
     },
     0
   );
@@ -206,19 +244,19 @@ export async function getThrottleCounts(keys: string[]): Promise<Map<string, num
   return softly(
     "사용 횟수 일괄 조회",
     async () => {
+      // 키가 몇 개든 조회는 한 번이다. 그게 이 함수의 존재 이유다(위 주석 참고).
       const rows = unwrap(
         await db()
           .from("auth_throttle")
-          .select("key, failures, window_start")
+          .select(`key, ${USAGE_COLUMNS}`)
           .in("key", keys)
-          .returns<{ key: string; failures: number; window_start: string }[]>()
+          .returns<(UsageRow & { key: string })[]>()
       );
       const now = Date.now();
       for (const row of rows) {
-        // 창이 지났으면 0 부터 다시 센다. 화면 숫자도 그래야 맞다. (getThrottleCount 와 같은 규칙)
-        const started = Date.parse(row.window_start);
-        if (!Number.isFinite(started) || now - started >= AI_BY_QUESTION.windowMs) continue;
-        counts.set(row.key, row.failures);
+        // 규칙은 getThrottleCount 와 **같은 함수**를 쓴다. 베껴 두면 언젠가 갈라진다.
+        const used = usedHits(row, now);
+        if (used > 0) counts.set(row.key, used);
       }
       return counts;
     },

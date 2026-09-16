@@ -19,23 +19,48 @@ import { getAdminClient } from "../supabase/admin";
 const BAN_FOREVER = "876000h";
 
 /**
- * 인증 쪽 계정을 잠그거나 푼다.
+ * 인증 쪽 계정을 잠그거나 푼다. **성공했으면 true.**
  *
  * profiles.status 만 바꾸면 이미 로그인한 브라우저의 세션은 그대로 살아 있다.
  * 우리 화면은 요청마다 status 를 보므로 막히지만, 세션 자체를 끊어 두는 편이 한 겹 더 안전하다.
  * 잠가 두면 인증 서버가 로그인과 토큰 갱신을 모두 거부한다.
  *
- * **실패해도 차단 자체는 되돌리지 않는다.** 진짜 방어선은 profiles.status 이고 그건 이미 바뀌었다.
- * 여기서 예외를 올리면 인증 서버가 잠깐 흔들릴 때 관리자가 차단조차 못 하게 된다.
+ * **예외는 올리지 않는다.** 차단 방향에서 여기가 예외를 던지면 인증 서버가 잠깐 흔들릴 때
+ * 관리자가 차단조차 못 하게 된다. 진짜 방어선은 profiles.status 이고 그건 이미 바뀌었다.
+ *
+ * 다만 **해제 방향에서는 이야기가 뒤집힌다.** 여기가 실패하면 당사자는 상태가 active 인데도
+ * 로그인을 못 한다. 그래서 삼키기만 하지 않고 성공 여부를 돌려준다. 판단은 호출부가 한다.
  */
-async function setAuthBan(userId: string, banned: boolean): Promise<void> {
+async function setAuthBan(userId: string, banned: boolean): Promise<boolean> {
   const { error } = await getAdminClient().auth.admin.updateUserById(userId, {
     ban_duration: banned ? BAN_FOREVER : "none",
   });
   if (error) {
     console.error(`[auth] 계정 ${banned ? "잠금" : "잠금 해제"} 실패 (${userId}): ${error.message}`);
+    return false;
   }
+  return true;
 }
+
+/**
+ * 차단 해제가 반쪽만 성공했을 때 관리자에게 보여줄 문구.
+ *
+ * "실패했습니다" 로만 적으면 아무것도 안 바뀐 줄 알고 포기한다. 실제로는 절반은 바뀌었고,
+ * 남은 절반은 **같은 버튼을 한 번 더 누르면** 복구된다. 그 사실을 문구에 그대로 담는다.
+ */
+export const UNBLOCK_AUTH_FAILED_MESSAGE =
+  "상태는 활성으로 바꿨지만 로그인 잠금 해제에 실패했습니다. [차단 해제]를 한 번 더 눌러주세요. " +
+  "화면을 새로고침해 그 버튼이 사라졌다면, 다시 [차단]한 뒤 [차단 해제]하면 복구됩니다.";
+
+/**
+ * 이미 active 인 계정을 다시 해제할 때(재시도)의 문구. 상태는 이번에 바꾼 것이 아니다.
+ *
+ * 뒷문장이 중요하다 — [차단 해제] 버튼은 행이 `blocked` 일 때만 보인다. 실패 뒤 새로고침하면
+ * 행이 활성으로 보여 버튼이 사라지고, 그때는 차단부터 다시 하는 길밖에 없다. 그 사실을 적어 둔다.
+ */
+export const UNBLOCK_RETRY_AUTH_FAILED_MESSAGE =
+  "계정 상태는 활성이지만 로그인 잠금 해제에 실패했습니다. 잠시 후 [차단 해제]를 한 번 더 눌러주세요. " +
+  "버튼이 보이지 않으면 다시 [차단]한 뒤 [차단 해제]하면 복구됩니다.";
 
 export interface ManagedUser {
   id: string;
@@ -185,14 +210,42 @@ export async function blockUser(actor: SessionUser, userId: string): Promise<voi
   if (target.status === "blocked") return;
   unwrap(await db().from("profiles").update({ status: "blocked" }).eq("id", userId).select("id"));
   // 남아 있던 로그인 세션도 끊는다. 상태만 바꾸면 갖고 있던 쿠키가 계속 살아 있다.
+  //
+  // 여기서는 결과를 **일부러 무시한다.** 이유는 setAuthBan 주석에 적힌 대로다.
+  // 다만 남은 문제가 하나 있다: 잠금이 실패해도 화면에는 "차단됨" 만 뜨므로 관리자는
+  // 남의 브라우저 세션까지 끊겼다고 잘못 믿는다(실제로는 그 쿠키가 살아 있다).
+  // 우리 화면은 요청마다 profiles.status 를 보므로 그 세션으로 할 수 있는 일은 없지만,
+  // "세션까지 끊었다" 는 보장은 아니다. 굳이 확실히 하려면 [차단 해제] 후 다시 [차단] 하면 된다.
   await setAuthBan(userId, true);
   await logUserAction(actor, target, "user.blocked", `${actor.display_name}가 ${target.display_name}(${target.username}) 계정을 차단했습니다.`);
 }
 
+/**
+ * 차단 해제. **몇 번이고 다시 부를 수 있어야 한다.**
+ *
+ * 해제는 두 곳을 건드린다: profiles.status 와 인증 쪽 잠금. 뒤쪽이 실패하면 상태는 active 인데
+ * 당사자는 계속 로그인을 못 한다. 로그인 화면은 잠김과 오타를 같은 문구로 돌려주므로
+ * (app/login/actions.ts 의 CREDENTIAL_ERROR) 당사자도 관리자도 단서를 얻지 못한다.
+ *
+ * 전에는 여기 맨 앞에 `if (target.status === "active") return;` 이 있어서, 그 상태가 되면
+ * [차단 해제]를 다시 눌러도 잠금 해제를 **재시도조차 하지 않았다.** 성공 토스트만 다시 떴다.
+ * 화면에서 빠져나올 방법이 없어지는 것이다.
+ *
+ * 그래서 이미 active 여도 `setAuthBan(userId, false)` 는 반드시 부른다. `ban_duration: "none"`
+ * 은 멱등이라 여러 번 불러도 안전하다. 대신 DB 쓰기와 감사 로그는 건너뛴다 — 같은 버튼을
+ * 여러 번 눌렀다고 로그가 같은 줄로 채워지면 정작 봐야 할 기록이 묻힌다.
+ */
 export async function unblockUser(actor: SessionUser, userId: string): Promise<void> {
   const target = await readProfile(userId);
   guardTargetRank(actor, target, "차단 해제할");
-  if (target.status === "active") return;
+
+  // 이미 active. 반쪽만 성공한 뒤의 재시도이거나, 그냥 두 번 누른 것이다.
+  // 어느 쪽인지 알 수 없으므로 값싸고 멱등한 잠금 해제만 다시 시도한다.
+  if (target.status === "active") {
+    if (!(await setAuthBan(userId, false))) throw new ValidationError(UNBLOCK_RETRY_AUTH_FAILED_MESSAGE);
+    return;
+  }
+
   unwrap(
     await db()
       .from("profiles")
@@ -200,8 +253,17 @@ export async function unblockUser(actor: SessionUser, userId: string): Promise<v
       .eq("id", userId)
       .select("id")
   );
-  await setAuthBan(userId, false);
-  await logUserAction(actor, target, "user.unblocked", `${actor.display_name}가 ${target.display_name}(${target.username}) 계정의 차단을 해제했습니다.`);
+  const unlocked = await setAuthBan(userId, false);
+  // 상태는 실제로 바뀌었으므로 기록은 남긴다. 다만 절반만 됐다는 사실을 요약에 적어 둔다.
+  const summary = `${actor.display_name}가 ${target.display_name}(${target.username}) 계정의 차단을 해제했습니다.`;
+  await logUserAction(
+    actor,
+    target,
+    "user.unblocked",
+    unlocked ? summary : `${summary} (로그인 잠금 해제는 실패해 재시도가 필요합니다.)`
+  );
+  // 던지는 것은 기록을 남긴 뒤다. 여기서 먼저 던지면 상태만 바뀌고 흔적이 없는 편이 된다.
+  if (!unlocked) throw new ValidationError(UNBLOCK_AUTH_FAILED_MESSAGE);
 }
 
 /**

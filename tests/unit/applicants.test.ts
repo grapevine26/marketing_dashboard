@@ -33,6 +33,43 @@ describe("중복 감지", () => {
     expect(d.get("3")).toEqual([expect.stringContaining("동일 연락처 (A)")]);
   });
 
+  it("인스타 [링크 복사]가 붙이는 추적 값이 달라도 같은 계정으로 본다", () => {
+    // 인스타그램 앱의 [링크 복사] 는 `?igsh=...` 를 붙인다. 지원자 대다수가 그대로 붙여넣으므로
+    // 이걸 안 버리면 **같은 계정으로 두 번 응모한 것을 놓친다.** 중복 감지의 주된 목적이 그것이다.
+    const list = [
+      app({ id: "1", name: "A", sns_link: "https://instagram.com/abc", contact: "010-1111-1111" }),
+      app({ id: "2", name: "B", sns_link: "https://www.instagram.com/abc/?igsh=MXQ2b2s=", contact: "010-2222-2222" }),
+      app({ id: "3", name: "C", sns_link: "https://instagram.com/abc#top", contact: "010-3333-3333" }),
+    ];
+    const d = findDuplicates(list);
+    expect(d.get("1")).toEqual(
+      expect.arrayContaining([expect.stringContaining("동일 SNS 계정 (B)"), expect.stringContaining("동일 SNS 계정 (C)")])
+    );
+    expect(d.get("2")).toEqual(expect.arrayContaining([expect.stringContaining("동일 SNS 계정 (A)")]));
+  });
+
+  it("숫자가 없는 연락처끼리는 중복으로 묶지 않는다", () => {
+    // 국적 칸이 있는 앱이라 연락처에 이메일·카톡ID·"없음" 을 적는 경우가 흔하다.
+    // 숫자만 남기면 전부 빈 문자열이 되는데, 그걸 같다고 보면 **아무 상관없는 지원자들이
+    // 죄다 "동일 연락처" 로 묶여** 담당자가 정상 지원자를 부정으로 오해한다.
+    const list = [
+      app({ id: "1", name: "A", sns_link: "https://instagram.com/a", contact: "없음" }),
+      app({ id: "2", name: "B", sns_link: "https://instagram.com/b", contact: "카톡: abcd" }),
+      app({ id: "3", name: "C", sns_link: "https://instagram.com/c", contact: "hello@example.com" }),
+    ];
+    expect(findDuplicates(list).size).toBe(0);
+  });
+
+  it("+82 국제 표기와 국내 표기를 같은 번호로 본다", () => {
+    const list = [
+      app({ id: "1", name: "A", sns_link: "https://instagram.com/a", contact: "+82 10-1234-5678" }),
+      app({ id: "2", name: "B", sns_link: "https://instagram.com/b", contact: "010-1234-5678" }),
+    ];
+    const d = findDuplicates(list);
+    expect(d.get("1")).toEqual([expect.stringContaining("동일 연락처 (B)")]);
+    expect(d.get("2")).toEqual([expect.stringContaining("동일 연락처 (A)")]);
+  });
+
   it("광고주에게는 연락처 사유를 빼고 SNS 중복만 준다", () => {
     // 연락처 값 자체는 무해화가 비우지만, "이 둘이 같은 번호를 썼다" 는 사실이 사유 문자열로
     // 나가면 가족·지인이 각자 계정으로 지원한 정상적인 경우까지 관계가 드러난다.

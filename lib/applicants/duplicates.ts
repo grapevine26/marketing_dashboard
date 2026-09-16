@@ -20,9 +20,32 @@ export function findDuplicates(
   const { includeContact = true } = opts;
   const duplicatesMap = new Map<string, string[]>(); // applicant.id -> array of reasons
 
+  /**
+   * 주소에서 "같은 계정인가" 만 남긴다.
+   *
+   * **쿼리스트링을 반드시 버려야 한다.** 인스타그램 앱의 [링크 복사] 는
+   * `https://www.instagram.com/abc/?igsh=MXQ2b2s=` 처럼 추적 값을 붙인다. 지원자 대다수가
+   * 그 모양 그대로 붙여넣으므로, 안 버리면 **같은 계정을 다른 계정으로 본다.**
+   * 순서가 중요하다 — 물음표를 먼저 떼야 끝 슬래시 제거가 제대로 걸린다.
+   */
   const normalizeUrl = (url: string) =>
-    url.trim().toLowerCase().replace(/\/$/, "").replace(/^https?:\/\/(www\.)?/, "");
-  const normalizePhone = (phone: string) => phone.replace(/[^0-9]/g, "");
+    url
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\/(www\.)?/, "")
+      .replace(/[?#].*$/, "")
+      .replace(/\/$/, "");
+
+  /**
+   * 번호에서 숫자만 남긴다. `+82` 로 시작하면 국내 표기(0…)로 맞춘다 —
+   * `+82 10-1234-5678` 과 `010-1234-5678` 은 같은 번호다.
+   */
+  const normalizePhone = (phone: string) => {
+    const t = phone.trim();
+    const digits = t.replace(/[^0-9]/g, "");
+    if (t.startsWith("+82")) return `0${digits.slice(2)}`;
+    return digits;
+  };
 
   // 인덱스(`applicants[i]`) 대신 entries() 를 쓴다. 값이 반드시 있다는 사실이
   // 코드에 드러나서 "없을 수도 있는데?" 를 매번 방어할 필요가 없다.
@@ -35,7 +58,13 @@ export function findDuplicates(
       if (a.sns_link && b.sns_link && normalizeUrl(a.sns_link) === normalizeUrl(b.sns_link)) {
         reasons.push(`동일 SNS 계정 (${b.name})`);
       }
-      if (includeContact && a.contact && b.contact && normalizePhone(a.contact) === normalizePhone(b.contact)) {
+      // **정규화 결과가 비면 비교하지 않는다.** 이 앱은 국적 칸이 있는 해외 인플루언서도 받아서
+      // 연락처에 이메일·카톡ID·"없음" 을 적는 경우가 흔하다. 그런 값은 숫자만 남기면 전부 빈
+      // 문자열이 되어, **서로 아무 상관없는 지원자들이 죄다 "동일 연락처" 로 묶였다.**
+      // 담당자가 정상 지원자를 부정으로 오해하게 되는 쪽이라 놓치는 것보다 나쁘다.
+      const aPhone = includeContact && a.contact ? normalizePhone(a.contact) : "";
+      const bPhone = includeContact && b.contact ? normalizePhone(b.contact) : "";
+      if (aPhone && bPhone && aPhone === bPhone) {
         reasons.push(`동일 연락처 (${b.name})`);
       }
     }

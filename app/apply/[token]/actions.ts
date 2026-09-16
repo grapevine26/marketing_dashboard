@@ -4,11 +4,12 @@ import { getCampaignByToken, createApplicant } from "@/lib/db";
 import { ActionResult, runAction, fail } from "@/lib/actions/result";
 import { sendWebhookNotification } from "@/lib/notifications/webhook";
 import {
-  PUBLIC_SUBMIT,
+  APPLY_SUBMIT,
   getClientIp,
   hitThrottle,
   isThrottled,
   publicSubmitKey,
+  refundThrottle,
 } from "@/lib/security/throttle";
 import { revalidatePath } from "next/cache";
 
@@ -49,7 +50,9 @@ export async function submitApplicantAction(params: {
   if (await isThrottled([submitKey])) {
     return fail("단시간에 너무 많은 지원 요청이 발생했습니다. 10분 후 다시 시도해 주세요.");
   }
-  await hitThrottle(submitKey, PUBLIC_SUBMIT);
+  // **부르기 전에** 센다. 동시에 여러 번 눌러도 상한을 넘지 않게 하려는 것이고,
+  // 접수되지 않았으면 아래에서 돌려준다.
+  await hitThrottle(submitKey, APPLY_SUBMIT);
 
   const res = await runAction(async () => {
     const applicant = await createApplicant({
@@ -70,29 +73,42 @@ export async function submitApplicantAction(params: {
     });
     return { id: applicant.id };
   });
-  if (res.ok) {
-    if (campaign.webhook_url) {
-      try {
-        await sendWebhookNotification(campaign.webhook_url, {
-          event: "applicant.applied",
-          title: "새로운 인플루언서 지원 접수",
-          message: `${params.name}님이 '${campaign.name}' 캠페인에 지원했습니다. (SNS: ${params.sns_link})`,
-          campaign_id: campaign.id,
-          campaign_name: campaign.name,
-          data: {
-            applicant_id: res.data.id,
-            name: params.name,
-            sns_link: params.sns_link,
-            follower_count: params.follower_count,
-            category: params.category,
-          },
-        });
-      } catch (err) {
-        console.warn("[webhook] 지원 접수 웹훅 발송 오류:", err);
-      }
-    }
-    revalidatePath(`/campaigns/${campaign.id}`);
-    revalidatePath(`/campaigns/${campaign.id}/applicants`);
+
+  // **접수되지 않았으면 횟수를 돌려준다.**
+  //
+  // 여기서 실패하는 대부분은 지원자의 실수다 — SNS 주소에 https 를 안 붙였거나, 필수 질문을
+  // 빠뜨렸거나, 중복 경고를 받고 다시 보내는 경우다. 그걸 전부 차감하면 **몇 번 틀린 정상
+  // 지원자가 10분간 아예 못 내게 된다.** 게다가 국내 모바일 회선은 여러 명이 같은 IP 로
+  // 보이므로(CGNAT), 오픈채팅에 뿌린 링크에서는 남의 실수로 내 차례가 막히기까지 한다.
+  //
+  // 세는 목적은 "같은 곳에서 진짜 접수를 쏟아내는 것" 을 막는 것이지 오타를 벌하는 것이 아니다.
+  // 세는 것 자체를 뒤로 미루지 않는 이유는 위 주석대로 동시 제출 때문이다.
+  if (!res.ok) {
+    await refundThrottle(submitKey);
+    return res;
   }
+
+  if (campaign.webhook_url) {
+    try {
+      await sendWebhookNotification(campaign.webhook_url, {
+        event: "applicant.applied",
+        title: "새로운 인플루언서 지원 접수",
+        message: `${params.name}님이 '${campaign.name}' 캠페인에 지원했습니다. (SNS: ${params.sns_link})`,
+        campaign_id: campaign.id,
+        campaign_name: campaign.name,
+        data: {
+          applicant_id: res.data.id,
+          name: params.name,
+          sns_link: params.sns_link,
+          follower_count: params.follower_count,
+          category: params.category,
+        },
+      });
+    } catch (err) {
+      console.warn("[webhook] 지원 접수 웹훅 발송 오류:", err);
+    }
+  }
+  revalidatePath(`/campaigns/${campaign.id}`);
+  revalidatePath(`/campaigns/${campaign.id}/applicants`);
   return res;
 }

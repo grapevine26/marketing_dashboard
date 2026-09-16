@@ -9,6 +9,7 @@ import {
 } from "@/lib/db";
 import type { PreSurveyResponse } from "@/lib/db/types";
 import { assistPreSurvey, PreSurveyAssistResponse } from "@/lib/ai/preSurveyAssist";
+import { isRefundableFallback } from "@/lib/ai/config";
 import { ActionResult, runAction, fail } from "@/lib/actions/result";
 import {
   AI_BY_LINK,
@@ -169,13 +170,29 @@ export async function getPublicAiAssistAction(params: {
   );
 
   // 모델을 **부르지도 못했을 때만** 횟수를 돌려준다.
-  // fallback 은 모델을 이미 불러 돈이 나간 뒤 응답이 쓸 만하지 않았다는 뜻이다. 그때도
-  // 돌려주면, 파싱이 깨지도록 유도하는 입력을 반복해 질문당 상한을 무한히 우회할 수 있다.
+  // 이미 불러 돈이 나간 뒤 응답이 쓸 만하지 않았던 경우까지 돌려주면, 파싱이 깨지도록
+  // 유도하는 입력을 반복해 질문당 상한을 무한히 우회할 수 있다.
   if (!res.ok) {
     await refundThrottle(questionKey);
     return res;
   }
-  if (res.data.fallback) return res;
+  if (res.data.fallback) {
+    // 전에는 `fallback: true` 를 전부 "이미 불렀다" 로 봤다. 그런데 어시스트는 throw 하지
+    // 않고 **키가 없을 때도** 같은 모양으로 돌아온다. 그래서 GEMINI_API_KEY 가 빠져 있으면
+    // 광고주가 3번 누르는 순간 그 질문이 24시간 잠겼고, 키를 고쳐 넣어도 풀리지 않았다.
+    // 이제 이유를 보고 "부르지 못한" 쪽(no-key·call-failed)만 돌려준다.
+    if (isRefundableFallback(res.data.fallbackReason)) await refundThrottle(questionKey);
+    // **폴백에도 남은 횟수를 실어 보낸다.** 환불되는 폴백이 생긴 뒤로는 "폴백이면 한 번 썼다"
+    // 가 더 이상 참이 아니다. 화면이 스스로 세면 서버와 어긋나, 실제로는 3회가 남았는데
+    // "1회 사용" 으로 보이는 일이 생긴다. 세는 주체는 하나여야 한다.
+    return {
+      ok: true,
+      data: {
+        ...res.data,
+        remainingAttempts: Math.max(0, AI_BY_QUESTION.maxHits - (await getThrottleCount(questionKey))),
+      },
+    };
+  }
 
   return {
     ok: true,
