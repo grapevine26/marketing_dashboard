@@ -470,7 +470,7 @@ export default function GuidePage() {
                   {row.stages.map((s, i) => (
                     <span key={s} className="flex items-center gap-1.5">
                       <span className="px-2 py-0.5 rounded-lg bg-bg border border-border text-[11px] text-text-2">{s}</span>
-                      {i < row.stages.length - 1 && <span className="text-text-faint text-[11px]">→</span>}
+                      {i < row.stages.length - 1 && <span className="text-text-muted text-[11px]">→</span>}
                     </span>
                   ))}
                 </div>

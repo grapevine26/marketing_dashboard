@@ -761,7 +761,7 @@ export default function ApplicantTable({
                               title="클릭하여 메모 수정"
                             >
                               <span className="truncate text-xs">
-                                {a.agency_memo ? a.agency_memo : <span className="text-text-faint italic">메모 없음</span>}
+                                {a.agency_memo ? a.agency_memo : <span className="text-text-muted italic">메모 없음</span>}
                               </span>
                             </button>
                           )}

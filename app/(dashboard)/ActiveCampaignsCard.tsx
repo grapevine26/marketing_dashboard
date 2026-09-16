@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useFocusTrap } from "@/components/useFocusTrap";
 import { useMounted } from "@/components/useMounted";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -34,8 +35,11 @@ export default function ActiveCampaignsCard({
   count: number;
   items: HomeCampaignSummary[];
 }) {
+  /** 모달 상자. 열려 있는 동안 탭 포커스를 이 안에 가둔다. */
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const mounted = useMounted();
+  useFocusTrap(isOpen, dialogRef);
   const router = useRouter();
 
   // ESC 키로 모달 닫기
@@ -86,6 +90,8 @@ export default function ActiveCampaignsCard({
               <div
                 className="w-full max-w-xl bg-surface border border-border rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4 shadow-2xl max-h-[88vh] sm:max-h-[85vh] flex flex-col font-sans relative text-left"
                 onClick={(e) => e.stopPropagation()}
+                ref={dialogRef}
+                tabIndex={-1}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="active-campaigns-modal-title"

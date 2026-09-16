@@ -284,6 +284,7 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
                 <Link
                   href={`/sns/${acc.id}`}
                   className="flex items-center gap-1 group-hover:text-accent2 font-semibold transition"
+                  aria-label={`${acc.company_name} 계정 관리로 이동`}
                 >
                   <ArrowRight className="w-4 h-4 text-text-muted group-hover:text-accent2 group-hover:translate-x-0.5 transition" />
                 </Link>

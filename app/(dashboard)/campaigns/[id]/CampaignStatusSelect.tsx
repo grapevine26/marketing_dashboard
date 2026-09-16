@@ -38,10 +38,13 @@ export default function CampaignStatusSelect({
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <label className="text-[11px] text-text-muted">캠페인 상태</label>
+      <label htmlFor="campaign-status" className="text-[11px] text-text-muted">
+        캠페인 상태
+      </label>
       <div className="flex items-center gap-2">
         {saving && <Loader2 className="w-3.5 h-3.5 animate-spin text-text-muted" />}
         <select
+          id="campaign-status"
           value={status}
           disabled={saving}
           onChange={(e) => handleChange(e.target.value as CampaignStatus)}

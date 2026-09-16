@@ -606,6 +606,7 @@ export default function EventDetailClient({
 
               <div className="flex flex-wrap items-center gap-2">
                 <select
+                  aria-label="행사 상태"
                   value={event.status}
                   disabled={statusSaving}
                   onChange={(e) => handleStatusChange(e.target.value as EventStatus)}
@@ -798,12 +799,13 @@ export default function EventDetailClient({
                             <ExternalLink className="w-3 h-3 shrink-0" />
                           </a>
                         ) : (
-                          <span className="text-text-faint">-</span>
+                          <span className="text-text-muted">-</span>
                         )}
                       </td>
                       <td className="p-3.5 font-mono text-text-2">{inv.contact || "-"}</td>
                       <td className="p-3.5">
                         <select
+                          aria-label={`${inv.name} 참석 여부`}
                           value={inv.rsvp_status}
                           onChange={(e) => handleRsvpChange(inv, e.target.value as EventRsvpStatus)}
                           className="px-2.5 py-1 rounded-lg bg-bg border border-border text-text text-xs focus:outline-none focus:border-teal-500 font-semibold"

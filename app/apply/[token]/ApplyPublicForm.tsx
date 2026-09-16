@@ -216,8 +216,10 @@ export default function ApplyPublicForm({
           <input type="tel" required value={formData.contact} onChange={(e) => setFormData({ ...formData, contact: e.target.value })} placeholder="010-1234-5678" className={inputCls} />
         </div>
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-text-2">국적 *</label>
-          <input type="text" required value={formData.nationality} onChange={(e) => setFormData({ ...formData, nationality: e.target.value })} className={inputCls} />
+          <label htmlFor="apply-nationality" className="text-xs font-semibold text-text-2">
+            국적 *
+          </label>
+          <input id="apply-nationality" type="text" required value={formData.nationality} onChange={(e) => setFormData({ ...formData, nationality: e.target.value })} className={inputCls} />
         </div>
       </div>
 

@@ -175,6 +175,7 @@ export default function ApplyFormEditor({
           </div>
 
           <textarea
+            aria-label="모집 소개글"
             rows={6}
             value={introText}
             onChange={(e) => setIntroText(e.target.value)}

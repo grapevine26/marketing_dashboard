@@ -131,6 +131,7 @@ export default function AllEventsListClient({
           {/* 캠페인 선택 드롭다운 */}
           <div className="relative shrink-0 sm:w-64">
             <select
+              aria-label="캠페인으로 거르기"
               value={selectedCampaignId}
               onChange={(e) => setSelectedCampaignId(e.target.value)}
               className="w-full pl-8 pr-7 py-2 rounded-xl bg-bg border border-border text-xs text-text focus:outline-none focus:border-teal-500 transition font-medium appearance-none cursor-pointer"

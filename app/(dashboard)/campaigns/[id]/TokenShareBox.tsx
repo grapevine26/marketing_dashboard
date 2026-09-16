@@ -133,6 +133,7 @@ export default function TokenShareBox({ campaign }: { campaign: Campaign }) {
                 <input
                   type="text"
                   readOnly
+                  aria-label={`${item.title} 주소`}
                   value={url}
                   className="w-full bg-surface sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-lg text-[11px] text-text-sub font-mono focus:outline-none truncate border sm:border-0 border-border"
                 />

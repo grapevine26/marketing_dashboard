@@ -103,7 +103,7 @@ export default function SeedingSheetTable({
   const displayedRecords = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const dday = (deadline: string | null) => {
-    if (!deadline) return <span className="text-text-faint">-</span>;
+    if (!deadline) return <span className="text-text-muted">-</span>;
     const info = calculateDDay(deadline, todayKst);
     return (
       <span className={`font-mono tabular-nums ${ddayToneClass(info.dday ?? 99)}`}>{info.label}</span>
@@ -115,6 +115,7 @@ export default function SeedingSheetTable({
     const options = stages.includes(r.progress_stage) ? stages : [r.progress_stage, ...stages];
     return (
       <select
+        aria-label="진행 단계"
         value={r.progress_stage}
         disabled={savingId === r.id || isLocked(r)}
         onChange={(e) => handleUpdate(r.id, { progress_stage: e.target.value as ProgressStage })}
@@ -245,6 +246,7 @@ export default function SeedingSheetTable({
                     ) : (
                       <input
                         type="date"
+                        aria-label="업로드 기한"
                         defaultValue={r.upload_deadline || ""}
                         disabled={isLocked(r)}
                         onBlur={(e) => {
@@ -268,7 +270,7 @@ export default function SeedingSheetTable({
                         <ExternalLink className="w-3 h-3 shrink-0" />
                       </a>
                     ) : (
-                      <span className="text-text-faint">-</span>
+                      <span className="text-text-muted">-</span>
                     )
                   ) : (
                     <input
@@ -374,6 +376,7 @@ export default function SeedingSheetTable({
                     ) : (
                       <input
                         type="date"
+                        aria-label="업로드 기한"
                         defaultValue={r.upload_deadline || ""}
                         disabled={isLocked(r)}
                         onBlur={(e) => {

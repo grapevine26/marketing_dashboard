@@ -320,6 +320,7 @@ export default function PptTemplatesClient({
             className="px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-amber-500"
           />
           <select
+            aria-label="템플릿 종류"
             value={kind}
             onChange={(e) => setKind(e.target.value as PptTemplateKind)}
             className="px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-amber-500 font-semibold"
@@ -332,6 +333,7 @@ export default function PptTemplatesClient({
             key={fileKey}
             type="file"
             required
+            aria-label="올릴 pptx 파일"
             accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
             className="px-3.5 py-2 rounded-xl bg-bg border border-border text-text-sub text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:bg-surface2 file:text-text"

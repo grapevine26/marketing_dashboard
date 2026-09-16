@@ -146,7 +146,7 @@ export default async function ReportDetailPage({
                           <ExternalLink className="w-3 h-3 shrink-0" />
                         </a>
                       ) : (
-                        <span className="text-text-faint">-</span>
+                        <span className="text-text-muted">-</span>
                       )}
                     </td>
                     <td className="p-3 font-mono tabular-nums">{(app.seeding?.views || 0).toLocaleString()}회</td>

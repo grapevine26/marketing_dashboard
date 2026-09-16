@@ -87,14 +87,17 @@ html.light,
   --text-main: #0f172a;
   --text-2: #334155;
   --text-sub: #475569;
-  --text-muted: #94a3b8;
+  /* slate-400(#94a3b8) 이었는데 흰 배경에서 대비가 2.56:1 밖에 안 나왔다(필요 4.5:1).
+     10~12px 로 쓰는 자리가 많아 실제로 읽기 힘들었다. 한 단계 어둡게 내린다. */
+  --text-muted: #5b6878;
   --text-faint: #cbd5e1;
   --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05);
   /* 흰 배경에서 읽히도록 다크보다 어둡게 (대비 4.5:1 이상). */
   --accent-brand: #111827;
   --accent-on: #ffffff;
   --accent-link: #1d4ed8;
-  --accent-sns: #c2185b;
+  /* 자기 색의 옅은 배경(bg-accent2/15) 위에 글자로도 쓰여서 #c2185b 로는 4.37:1 이었다. */
+  --accent-sns: #ad1457;
   --accent-warn: #b45309;
   /* 흰 배경에서는 이보다 밝게 하면 읽히지 않아 같은 값을 쓴다. */
   --accent-warn-soft: #b45309;
@@ -109,6 +112,10 @@ html.light,
   /* 행사. -300 은 행사준비(연한 단계)에 쓰는데, 흰 배경에서는 더 밝게 하면 읽히지 않아 같은 값을 쓴다. */
   --color-teal-400: #0f766e;
   --color-teal-300: #0f766e;
+  /* 흰 글자를 얹는 **배경**으로 쓴다. 기본 teal-600(#009689)은 흰 글자와 3.66:1 뿐이다.
+     teal-500 은 건드리지 않는다 — bg-teal-500/15 로 배지 배경에도 쓰여서, 어둡게 하면
+     그 위에 얹힌 teal-400 글자의 대비가 오히려 떨어진다(실제로 그렇게 만들었다가 되돌렸다). */
+  --color-teal-600: #0f766e;
   --color-indigo-400: #4338ca;
   --color-indigo-300: #4338ca;
   --color-purple-400: #7e22ce;

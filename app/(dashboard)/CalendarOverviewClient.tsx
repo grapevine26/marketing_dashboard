@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useFocusTrap } from "@/components/useFocusTrap";
 import { useMounted } from "@/components/useMounted";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -190,9 +191,12 @@ export default function CalendarOverviewClient({
   failedSources: string[];
   renderUrgent?: boolean;
 }) {
+  /** 모달 상자. 열려 있는 동안 탭 포커스를 이 안에 가둔다. */
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"calendar" | "agenda">("calendar");
   const mounted = useMounted();
+  useFocusTrap(selectedDay !== null, dialogRef);
   const [year, month] = currentMonth.split("-").map(Number);
   const selectedDayItems = selectedDay ? monthItems.filter((i) => i.dateStr === selectedDay) : [];
 
@@ -479,7 +483,9 @@ export default function CalendarOverviewClient({
           <div
             className="w-full max-w-lg bg-surface border border-border rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4 shadow-2xl max-h-[88vh] sm:max-h-[85vh] flex flex-col font-sans"
             onClick={(e) => e.stopPropagation()}
-            role="dialog"
+            ref={dialogRef}
+                tabIndex={-1}
+                role="dialog"
             aria-modal="true"
           >
             <div className="flex items-start justify-between gap-3 pb-2 border-b border-border">

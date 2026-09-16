@@ -183,8 +183,11 @@ export default function SnsPlanEditorClient({
       {notice && <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">{notice}</div>}
 
       <div className="space-y-1">
-        <label className="text-xs font-semibold text-text-2">적용할 PPT 템플릿 (선택 안 함 = 웹 화면만 사용)</label>
+        <label htmlFor="sns-plan-template" className="text-xs font-semibold text-text-2">
+          적용할 PPT 템플릿 (선택 안 함 = 웹 화면만 사용)
+        </label>
         <select
+          id="sns-plan-template"
           value={selectedTemplateId || ""}
           onChange={(e) => { setSelectedTemplateId(e.target.value || null); setDirty(true); }}
           className="w-full sm:w-96 px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-accent2 font-semibold"
@@ -201,12 +204,15 @@ export default function SnsPlanEditorClient({
         {placeholders.map((ph) => (
           <div key={ph} className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-accent2 font-mono">{`{{${ph}}}`}</label>
+              <label htmlFor={`sns-plan-field-${ph}`} className="text-xs font-bold text-accent2 font-mono">
+                {`{{${ph}}}`}
+              </label>
               <button type="button" disabled={loadingAiField === ph} onClick={() => handleAiField(ph)} className="px-2 py-0.5 rounded-lg bg-accent2/10 hover:bg-accent2/20 text-accent2 border border-accent2/20 text-[10px] font-semibold inline-flex items-center gap-1 disabled:opacity-50">
                 {loadingAiField === ph ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} AI 초안
               </button>
             </div>
             <textarea
+              id={`sns-plan-field-${ph}`}
               rows={LONG_FIELDS.has(ph) ? 4 : 2}
               value={fieldValues[ph] || ""}
               onChange={(e) => setField(ph, e.target.value)}

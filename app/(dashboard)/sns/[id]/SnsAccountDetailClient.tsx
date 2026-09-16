@@ -924,7 +924,7 @@ export default function SnsAccountDetailClient({
             <h2 className="text-sm font-bold text-text">월별 게시 성과 (게시완료 전환 월 기준)</h2>
           </div>
           <div className="flex items-center gap-2 text-xs">
-            <select value={perfMonth} onChange={(e) => setPerfMonth(e.target.value)} className="px-2.5 py-1.5 rounded-lg bg-bg border border-border text-text text-xs font-mono focus:outline-none focus:border-accent2">
+            <select aria-label="성과를 볼 월" value={perfMonth} onChange={(e) => setPerfMonth(e.target.value)} className="px-2.5 py-1.5 rounded-lg bg-bg border border-border text-text text-xs font-mono focus:outline-none focus:border-accent2">
               {availableMonths.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
             <span className="text-text-muted">전체 누적 {postedContents.length}건 · 조회 {sum(postedContents, "view_count").toLocaleString()}</span>
@@ -991,9 +991,9 @@ export default function SnsAccountDetailClient({
               <Calendar className="w-5 h-5 text-accent2" /> {calYear}년 {calMonth}월 SNS 콘텐츠 발행 스케줄
             </h2>
             <div className="flex items-center gap-1 bg-bg p-1 rounded-xl border border-border">
-              <button type="button" onClick={() => setCalendarMonth(shiftMonth(calendarMonth, -1))} className="p-1.5 rounded-lg text-text-sub hover:text-text hover:bg-surface2 transition"><ChevronLeft className="w-4 h-4" /></button>
+              <button type="button" onClick={() => setCalendarMonth(shiftMonth(calendarMonth, -1))} aria-label="이전 달" className="p-1.5 rounded-lg text-text-sub hover:text-text hover:bg-surface2 transition"><ChevronLeft className="w-4 h-4" /></button>
               <span className="text-xs font-bold text-text px-2 font-mono">{calendarMonth}</span>
-              <button type="button" onClick={() => setCalendarMonth(shiftMonth(calendarMonth, 1))} className="p-1.5 rounded-lg text-text-sub hover:text-text hover:bg-surface2 transition"><ChevronRight className="w-4 h-4" /></button>
+              <button type="button" onClick={() => setCalendarMonth(shiftMonth(calendarMonth, 1))} aria-label="다음 달" className="p-1.5 rounded-lg text-text-sub hover:text-text hover:bg-surface2 transition"><ChevronRight className="w-4 h-4" /></button>
             </div>
           </div>
 
@@ -1433,7 +1433,7 @@ export default function SnsAccountDetailClient({
                     <div key={q.id} className={idx > 0 ? "pt-4 space-y-1.5" : "space-y-1.5"}>
                       <div className="text-xs font-bold text-accent2">{idx + 1}. {q.question}</div>
                       <div className="p-3.5 rounded-xl bg-bg border border-border text-xs text-text leading-relaxed whitespace-pre-line">
-                        {intakeResponse.answers[q.id] || <span className="text-text-faint">(답변 없음)</span>}
+                        {intakeResponse.answers[q.id] || <span className="text-text-muted">(답변 없음)</span>}
                       </div>
                     </div>
                   ))}
