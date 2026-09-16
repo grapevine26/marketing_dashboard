@@ -118,6 +118,17 @@ function requireProdFlag(what) {
   process.exit(1);
 }
 
+/**
+ * 잡은 값에서 사람이 읽을 메시지를 꺼낸다.
+ * JS 는 Error 가 아닌 것도 throw 할 수 있어서(문자열, 객체 …) `err.message` 가 undefined 가
+ * 되면 화면에 "undefined" 만 찍힌다. 되돌리기 어려운 작업의 실패 사유라 그러면 안 된다.
+ * @param {unknown} err
+ * @returns {string}
+ */
+function errMessage(err) {
+  return err instanceof Error ? err.message : String(err);
+}
+
 const backupDir = path.join(process.cwd(), ".data", "backups");
 
 /** 크론이 Blob 에 쓰는 갈래. lib/db/storage.ts 의 BACKUP_PREFIX 와 같아야 한다. */
@@ -248,14 +259,21 @@ if (wantPull) {
     key = all[0].key;
     console.log(`최신 백업: ${key} (${fmtKst(all[0].uploadedAt)})`);
   }
-  if (!/^supabase-\d{8}-\d{6}\.json$/.test(key)) {
-    console.error(`백업 이름 형식이 아닙니다: ${key}  (예: supabase-20260915-180000.json)`);
+  // 위 분기에서 반드시 채워지지만, let 재할당이라 타입이 string|null 로 남는다.
+  // 한 번 더 확인해 확정한다 — 여기 걸릴 일은 없고, 걸린다면 위 분기가 깨진 것이다.
+  const resolvedKey = key;
+  if (!resolvedKey) {
+    console.error("받아올 백업 이름을 정하지 못했습니다.");
+    process.exit(1);
+  }
+  if (!/^supabase-\d{8}-\d{6}\.json$/.test(resolvedKey)) {
+    console.error(`백업 이름 형식이 아닙니다: ${resolvedKey}  (예: supabase-20260915-180000.json)`);
     process.exit(1);
   }
 
-  const res = await get(`${REMOTE_PREFIX}${key}`, { access: "private" });
+  const res = await get(`${REMOTE_PREFIX}${resolvedKey}`, { access: "private" });
   if (!res || res.statusCode !== 200 || !res.stream) {
-    console.error(`Blob 에서 찾지 못했습니다: ${REMOTE_PREFIX}${key}\n목록: npm run db:backup -- --list-remote`);
+    console.error(`Blob 에서 찾지 못했습니다: ${REMOTE_PREFIX}${resolvedKey}\n목록: npm run db:backup -- --list-remote`);
     process.exit(1);
   }
   const text = Buffer.from(await new Response(res.stream).arrayBuffer()).toString("utf-8");
@@ -265,7 +283,7 @@ if (wantPull) {
   try {
     dump = JSON.parse(text);
   } catch (err) {
-    console.error(`JSON 으로 읽을 수 없습니다: ${err.message}`);
+    console.error(`JSON 으로 읽을 수 없습니다: ${errMessage(err)}`);
     process.exit(1);
   }
   if (!dump || typeof dump !== "object" || !dump.tables || typeof dump.tables !== "object") {
@@ -276,7 +294,7 @@ if (wantPull) {
   // 크론이 만든 파일은 이미 --restore 가 읽는 형식(created_at, source, tables)이라 그대로 둔다.
   // 다만 압축돼 있어 사람이 보기 어려우니 로컬 백업과 같이 들여쓰기해서 저장한다.
   fs.mkdirSync(backupDir, { recursive: true });
-  const dest = path.join(backupDir, key);
+  const dest = path.join(backupDir, resolvedKey);
   fs.writeFileSync(dest, JSON.stringify(dump, null, 2), "utf-8");
 
   const total = Object.values(dump.tables).reduce((a, r) => a + (Array.isArray(r) ? r.length : 0), 0);
@@ -297,11 +315,15 @@ if (wantPull) {
 // ---------- 여기부터는 DB 연결이 필요하다 ----------
 
 const envName = isTest ? "SUPABASE_TEST_DB_URL" : "SUPABASE_DB_URL";
-const url = process.env[envName];
-if (!url) {
+const rawUrl = process.env[envName];
+if (!rawUrl) {
   console.error(`${envName} 이 .env.local 에 없습니다.`);
   process.exit(1);
 }
+// 위에서 없으면 종료하므로 여기서는 반드시 있다. 아래 함수들이 이 값을 쓰는데,
+// 함수 선언은 호이스팅되어 "언제 불리는지" 를 알 수 없어 위 가드만으로는 타입이 좁혀지지 않는다.
+// 확정된 값을 새 상수에 담아 그 사실을 코드로 남긴다.
+const url = rawUrl;
 
 // 데이터를 바꾸는 작업이면 대상이 운영인지 여기서 먼저 확인한다.
 // 미리보기(--yes 없이)는 읽기만 하므로 막지 않는다. 실행 직전에만 빗장을 건다.
@@ -334,7 +356,7 @@ async function insertRow(table, row) {
     `insert into public.${table} (${cols.map((c) => `"${c}"`).join(", ")}) values (${params}) on conflict do nothing`,
     values
   );
-  return res.rowCount > 0;
+  return (res.rowCount ?? 0) > 0;
 }
 
 const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
@@ -367,7 +389,7 @@ async function restoreOne({ label, name, id, plan, warn, from, at }) {
     console.log("다른 데이터는 건드리지 않았습니다.");
   } catch (err) {
     await client.query("rollback");
-    console.error(`\n복구 실패, 아무것도 바뀌지 않았습니다:\n${err.message}`);
+    console.error(`\n복구 실패, 아무것도 바뀌지 않았습니다:\n${errMessage(err)}`);
     process.exit(1);
   }
 }
@@ -426,7 +448,7 @@ try {
     );
 
     const exists = await client.query("select 1 from public.sns_accounts where id = $1", [acc.id]);
-    if (exists.rowCount > 0) {
+    if ((exists.rowCount ?? 0) > 0) {
       console.error(`이 계정은 이미 DB 에 있습니다: ${acc.company_name} (@${acc.handle})`);
       console.error("지워진 계정만 되살릴 수 있습니다. 덮어쓰지 않습니다.");
       process.exit(1);
@@ -436,7 +458,7 @@ try {
       "select company_name, handle from public.sns_accounts where intake_token = $1 or approval_token = $2",
       [acc.intake_token, acc.approval_token]
     );
-    if (tokenClash.rowCount > 0) {
+    if ((tokenClash.rowCount ?? 0) > 0) {
       const other = tokenClash.rows[0];
       console.error(`공유 링크 토큰이 다른 계정과 겹칩니다: ${other.company_name} (@${other.handle})`);
       console.error("그 계정의 토큰을 재발급한 뒤 다시 시도하세요.");
@@ -500,7 +522,7 @@ try {
       "--campaigns"
     );
     const exists = await client.query("select 1 from public.campaigns where id = $1", [camp.id]);
-    if (exists.rowCount > 0) {
+    if ((exists.rowCount ?? 0) > 0) {
       console.error(`이 캠페인은 이미 DB 에 있습니다: ${camp.name} (${camp.id})`);
       console.error("지워진 캠페인만 되살릴 수 있습니다. 덮어쓰지 않습니다.");
       process.exit(1);
@@ -595,7 +617,7 @@ try {
       console.log("\n복원 완료.");
     } catch (err) {
       await client.query("rollback");
-      console.error(`\n복원 실패, 아무것도 바뀌지 않았습니다:\n${err.message}`);
+      console.error(`\n복원 실패, 아무것도 바뀌지 않았습니다:\n${errMessage(err)}`);
       process.exit(1);
     }
   } else {

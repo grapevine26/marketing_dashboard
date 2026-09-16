@@ -19,7 +19,8 @@
     "db:backup": "node scripts/db-backup.mjs",
     "db:make-admin": "node scripts/make-admin.mjs",
     "db:hide-user": "node scripts/hide-user.mjs",
-    "doc:pdf": "node scripts/make-doc-pdf.mjs"
+    "doc:pdf": "node scripts/make-doc-pdf.mjs",
+    "typecheck:scripts": "tsc -p tsconfig.scripts.json"
   },
   "dependencies": {
     "@google/genai": "^2.19.0",

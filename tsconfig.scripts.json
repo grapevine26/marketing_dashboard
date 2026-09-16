@@ -1,0 +1,19 @@
+{
+  "_설명": [
+    "scripts/*.mjs 는 기본 tsconfig 의 include(.ts/.tsx)에 안 들어가 타입 검사를 전혀 안 받았다.",
+    "마이그레이션·백업처럼 되돌리기 어려운 일을 하는 코드가 여기 모여 있어 그대로 두기 아깝다.",
+    "noImplicitAny 만 끈다 — 켜면 '매개변수에 타입이 없다' 가 55건 나오는데 그건 버그가 아니라",
+    "주석 다는 일이고, 정작 값이 있는 검사(null 가능성, 인자 타입 불일치)는 13건뿐이었다.",
+    "그 13건을 고치고 나서 0건이 됐다. `npm run typecheck:scripts` 로 돌린다."
+  ],
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "checkJs": true,
+    "noEmit": true,
+    "incremental": false,
+    "noImplicitAny": false
+  },
+  "include": [
+    "scripts/**/*.mjs"
+  ]
+}

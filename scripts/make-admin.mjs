@@ -47,7 +47,7 @@ try {
     console.error(`"${username}" 계정을 찾을 수 없습니다.`);
     console.error("먼저 /signup 에서 가입한 뒤 다시 실행하세요.");
     const all = await client.query("select username, status, role from public.profiles order by created_at");
-    if (all.rowCount > 0) {
+    if ((all.rowCount ?? 0) > 0) {
       console.error("\n등록된 계정:");
       for (const r of all.rows) console.error(`  ${r.username}  (${r.status}, ${r.role})`);
     } else {

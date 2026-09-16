@@ -71,6 +71,38 @@ function infoFormOf(e: MarketingEvent) {
   };
 }
 
+/**
+ * 내가 손댄 메모 칸의 서버 값이 그 사이 바뀌었을 때 그 행에만 뜨는 안내.
+ *
+ * **아무것도 자동으로 덮어쓰지 않는다.** 치던 글자를 잃는 것이 못 보는 것보다 나쁘기 때문이다.
+ * 어느 쪽을 쓸지는 사람이 고른다.
+ */
+function MemoConflictNotice({
+  serverMemo,
+  onAccept,
+  onKeepMine,
+}: {
+  serverMemo: string;
+  onAccept: () => void;
+  onKeepMine: () => void;
+}) {
+  return (
+    <div className="mt-1 p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-warn-soft text-[10px] leading-snug space-y-1">
+      <p>
+        다른 곳에서 <strong className="font-semibold break-all">{serverMemo || "(빈 메모)"}</strong> 로 바뀌었습니다.
+      </p>
+      <div className="flex items-center gap-1.5">
+        <button type="button" onClick={onAccept} className="px-1.5 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 font-semibold transition">
+          서버 값 쓰기
+        </button>
+        <button type="button" onClick={onKeepMine} className="px-1.5 py-0.5 rounded bg-surface2 hover:bg-surface3 text-text-sub transition">
+          내 것 유지
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function EventDetailClient({
   campaign,
   event: initialEvent,
@@ -121,11 +153,64 @@ export default function EventDetailClient({
   const [invitees, setInvitees] = useState<EventInvitee[]>(initialInvitees);
   const [checklists, setChecklists] = useState<EventChecklistItem[]>(initialChecklists);
 
+  /**
+   * 초대자 메모 칸은 **비제어 입력**이다(defaultValue). 그래서 사용자가 한 번 타이핑한 칸은
+   * 브라우저가 그 값을 붙들고 있어, 서버에서 새 값이 내려와도 화면이 안 바뀐다.
+   *
+   * 제어 입력으로 바꾸면 그 문제는 사라지지만 더 나쁜 것이 생긴다 — 이 화면은 탭 복귀 뒤
+   * 자동 갱신(RefreshOnFocus)이 돌기 때문에, **옆 행에 메모를 치던 중 갱신이 걸리면 치던
+   * 글자가 서버 값으로 덮여 사라진다.** 데이터를 잃는 쪽이 못 보는 쪽보다 나쁘다.
+   *
+   * 그래서 **아무것도 덮어쓰지 않고 알리기만 한다.** 내가 손댄 칸의 서버 값이 그 사이 바뀌면
+   * 그 행에만 안내를 띄우고, 사람이 [서버 값 반영] 을 누를 때만 바꾼다.
+   * 운영안·제안서의 낙관적 잠금("다른 사람이 먼저 저장했습니다")과 같은 사고방식이다.
+   */
+  // 사용자가 타이핑해서 화면 값과 서버 값이 갈릴 수 있는 칸.
+  const [memoDirty, setMemoDirty] = useState<ReadonlySet<string>>(new Set());
+  // 덮어쓰지 않고 남겨 둔 서버 값. 초대자 id -> 서버의 메모.
+  const [memoConflicts, setMemoConflicts] = useState<Record<string, string>>({});
+  // 입력칸을 새 defaultValue 로 다시 그리기 위한 번호. 올리면 그 칸만 remount 된다.
+  const [memoVersion, setMemoVersion] = useState<Record<string, number>>({});
+
   const [inviteesFrom, setInviteesFrom] = useState(initialInvitees);
   if (inviteesFrom !== initialInvitees) {
+    // 직전에 받은 서버 스냅샷이 곧 기준값이다. 그것과 달라졌으면 남이 고친 것이다.
+    const before = new Map(inviteesFrom.map((i) => [i.id, i.memo || ""]));
+    const found: Record<string, string> = {};
+    for (const inv of initialInvitees) {
+      const prevMemo = before.get(inv.id);
+      const nextMemo = inv.memo || "";
+      // 손대지 않은 칸은 브라우저가 알아서 새 값으로 바꿔 준다(비제어 입력의 성질). 알릴 것이 없다.
+      if (prevMemo !== undefined && prevMemo !== nextMemo && memoDirty.has(inv.id)) {
+        found[inv.id] = nextMemo;
+      }
+    }
     setInviteesFrom(initialInvitees);
     setInvitees(initialInvitees);
+    if (Object.keys(found).length > 0) setMemoConflicts((prev) => ({ ...prev, ...found }));
   }
+
+  /** 이 행의 메모를 더 이상 "갈릴 수 있는 상태" 로 보지 않는다. 저장에 성공했거나 서버 값을 받아들였을 때. */
+  const settleMemo = (inviteeId: string) => {
+    setMemoDirty((prev) => {
+      if (!prev.has(inviteeId)) return prev;
+      const next = new Set(prev);
+      next.delete(inviteeId);
+      return next;
+    });
+    setMemoConflicts((prev) => {
+      if (!(inviteeId in prev)) return prev;
+      const next = { ...prev };
+      delete next[inviteeId];
+      return next;
+    });
+  };
+
+  /** 서버 값을 받아들인다. 입력칸을 다시 그려(remount) 새 defaultValue 가 보이게 한다. */
+  const acceptServerMemo = (inviteeId: string) => {
+    setMemoVersion((prev) => ({ ...prev, [inviteeId]: (prev[inviteeId] ?? 0) + 1 }));
+    settleMemo(inviteeId);
+  };
 
   const [checklistsFrom, setChecklistsFrom] = useState(initialChecklists);
   if (checklistsFrom !== initialChecklists) {
@@ -300,8 +385,14 @@ export default function EventDetailClient({
     const next = memo.trim() || null;
     if (next === inv.memo) return;
     const res = await safeCall(updateInviteeAction(inv.id, campaign.id, event.id, { memo: next }));
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) {
+      setError(res.error);
+      toast.error(res.error || "메모를 저장하지 못했습니다.");
+      return;
+    }
     setInvitees((prev) => prev.map((i) => (i.id === inv.id ? res.data : i)));
+    // 내가 저장한 값이 곧 서버 값이 됐다. 더 이상 갈릴 것이 없다.
+    settleMemo(inv.id);
   };
 
   const handleDeleteInvitee = async (inviteeId: string) => {
@@ -725,12 +816,22 @@ export default function EventDetailClient({
                       </td>
                       <td className="p-3.5">
                         <input
+                          key={`memo-d-${inv.id}-${memoVersion[inv.id] ?? 0}`}
                           type="text"
                           defaultValue={inv.memo || ""}
                           placeholder="메모"
+                          // 타이핑한 칸은 서버 값과 갈릴 수 있다. 그 사실만 기억해 둔다(값은 건드리지 않는다).
+                          onChange={() => setMemoDirty((prev) => (prev.has(inv.id) ? prev : new Set(prev).add(inv.id)))}
                           onBlur={(e) => handleMemoBlur(inv, e.target.value)}
                           className="w-36 px-2 py-1 rounded-lg bg-bg border border-border text-text-2 text-xs focus:outline-none focus:border-teal-500"
                         />
+                        {memoConflicts[inv.id] !== undefined && (
+                          <MemoConflictNotice
+                            serverMemo={memoConflicts[inv.id]}
+                            onAccept={() => acceptServerMemo(inv.id)}
+                            onKeepMine={() => settleMemo(inv.id)}
+                          />
+                        )}
                       </td>
                       <td className="p-3.5 text-right">
                         <button type="button" onClick={() => handleDeleteInvitee(inv.id)} className="p-1 rounded text-text-muted hover:text-red-400 transition">
@@ -789,12 +890,21 @@ export default function EventDetailClient({
                   <div className="space-y-1.5">
                     <label className="text-[11px] text-text-muted">메모</label>
                     <input
+                      key={`memo-m-${inv.id}-${memoVersion[inv.id] ?? 0}`}
                       type="text"
                       defaultValue={inv.memo || ""}
                       placeholder="메모"
+                      onChange={() => setMemoDirty((prev) => (prev.has(inv.id) ? prev : new Set(prev).add(inv.id)))}
                       onBlur={(e) => handleMemoBlur(inv, e.target.value)}
                       className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border text-text-2 text-xs focus:outline-none focus:border-teal-500"
                     />
+                    {memoConflicts[inv.id] !== undefined && (
+                      <MemoConflictNotice
+                        serverMemo={memoConflicts[inv.id]}
+                        onAccept={() => acceptServerMemo(inv.id)}
+                        onKeepMine={() => settleMemo(inv.id)}
+                      />
+                    )}
                   </div>
                 </div>
               ))

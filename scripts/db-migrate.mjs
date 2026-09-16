@@ -52,7 +52,7 @@ try {
       count++;
     } catch (err) {
       await client.query("rollback");
-      console.error(`실패: ${f}\n${err.message}`);
+      console.error(`실패: ${f}\n${err instanceof Error ? err.message : String(err)}`);
       process.exit(1);
     }
   }
