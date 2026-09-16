@@ -5,34 +5,28 @@ import { useMounted } from "@/components/useMounted";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { HomeCampaignSummary } from "@/lib/overview/collect";
-import {
-  FolderKanban,
-  X,
-  ChevronRight,
-  ExternalLink,
-  Building2,
-  Plus,
-  BookOpen,
-} from "lucide-react";
+import type { HomePreparingEventSummary } from "@/lib/overview/collect";
+import { formatKstDateTime } from "@/lib/seeding/dday";
+import { PartyPopper, X, ChevronRight, ExternalLink, Calendar, MapPin, Plus, BookOpen } from "lucide-react";
+
+/** D-day 라벨. 지난 것은 D+n 으로 보여 준다(준비중인데 날짜가 지났다는 뜻이라 눈에 띄어야 한다). */
+function ddayLabel(days: number): string {
+  if (days === 0) return "D-DAY";
+  return days > 0 ? `D-${days}` : `D+${Math.abs(days)}`;
+}
 
 /**
- * "진행중 캠페인" KPI 카드. 누르면 목록이 모달로 뜬다.
+ * "준비중인 행사" KPI 카드. 누르면 목록이 모달로 뜬다.
  *
- * 전에는 오버뷰 **맨 아래**에 진행중인 캠페인 카드 박스가 따로 있었다. 그런데 그 자리가
- * 캘린더 아래라 스크롤해야 보였다. 첫 화면에 안 들어오면 "한눈에 본다" 는 이 화면의 목적에
- * 기여하지 못한다. 그래서 박스를 없애고, 이미 위에 있는 KPI 카드를 누르면 열리게 했다.
- * 승인 대기 콘텐츠·이번주 발행 예정 카드가 쓰는 방식과 같다.
- *
- * 카드에 적힌 수와 모달에 뜨는 줄 수는 **반드시 같아야 한다.** 다르면 사람이 "빠진 게 있나" 를
- * 의심하게 된다. 그래서 `collectHomeSummary` 에서 목록을 자르지 않는다.
+ * 진행중 캠페인·승인 대기 콘텐츠·이번주 발행 예정과 같은 방식이다. 네 카드가 전부
+ * 같게 동작해야 "숫자를 누르면 내역이 보인다" 를 한 번만 배우면 된다.
  */
-export default function ActiveCampaignsCard({
+export default function PreparingEventsCard({
   count,
   items,
 }: {
   count: number;
-  items: HomeCampaignSummary[];
+  items: HomePreparingEventSummary[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const mounted = useMounted();
@@ -48,9 +42,9 @@ export default function ActiveCampaignsCard({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
 
-  const goTo = (campaignId: string) => {
+  const goTo = (campaignId: string, eventId: string) => {
     setIsOpen(false);
-    router.push(`/campaigns/${campaignId}`);
+    router.push(`/campaigns/${campaignId}/events/${eventId}`);
   };
 
   return (
@@ -60,23 +54,23 @@ export default function ActiveCampaignsCard({
         type="button"
         onClick={() => setIsOpen(true)}
         className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-surface border border-border hover:border-accent-link/40 hover:bg-surface2/30 transition duration-150 group flex flex-col justify-between space-y-2.5 sm:space-y-3 shadow-xs text-left w-full h-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent-link/30 min-h-[100px] sm:min-h-[116px] btn-press"
-        aria-label="진행중 캠페인 목록 확인"
+        aria-label="준비중인 행사 목록 확인"
       >
         <div className="flex items-center justify-between w-full">
           <span className="text-[11px] sm:text-xs font-semibold text-text-muted group-hover:text-text transition truncate">
-            진행중 캠페인
+            준비중인 행사
           </span>
-          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
-            <FolderKanban className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center shrink-0">
+            <PartyPopper className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
           </div>
         </div>
         <div>
           <div className="font-mono tabular-nums text-xl sm:text-3xl font-bold text-text">{count}</div>
-          <p className="text-[10px] sm:text-[11px] text-text-sub mt-0.5 truncate">시딩 및 초청 행사 관리</p>
+          <p className="text-[10px] sm:text-[11px] text-text-sub mt-0.5 truncate">오프라인 초청 및 팝업</p>
         </div>
       </button>
 
-      {/* 진행중인 캠페인 목록 모달 — document.body 포탈로 화면 정중앙에 띄운다 */}
+      {/* 준비중인 행사 목록 모달 — document.body 포탈로 화면 정중앙에 띄운다 */}
       {isOpen && mounted && typeof document !== "undefined"
         ? createPortal(
             <div
@@ -88,27 +82,27 @@ export default function ActiveCampaignsCard({
                 onClick={(e) => e.stopPropagation()}
                 role="dialog"
                 aria-modal="true"
-                aria-labelledby="active-campaigns-modal-title"
+                aria-labelledby="preparing-events-modal-title"
               >
                 {/* 헤더 */}
                 <div className="flex items-start justify-between gap-3 pb-3 border-b border-border">
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-400 flex items-center justify-center shrink-0">
-                        <FolderKanban className="w-3.5 h-3.5" />
+                      <div className="w-6 h-6 rounded-lg bg-teal-500/15 border border-teal-500/30 text-teal-400 flex items-center justify-center shrink-0">
+                        <PartyPopper className="w-3.5 h-3.5" />
                       </div>
                       <h3
-                        id="active-campaigns-modal-title"
+                        id="preparing-events-modal-title"
                         className="text-sm sm:text-base font-bold text-text truncate"
                       >
-                        진행중인 캠페인
+                        준비중인 행사
                       </h3>
-                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30 shrink-0">
+                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-400 border border-teal-500/30 shrink-0">
                         {items.length}건
                       </span>
                     </div>
                     <p className="text-xs text-text-sub leading-relaxed">
-                      기획 단계와 완료 보관함을 뺀, 지금 돌아가고 있는 캠페인입니다. 항목을 클릭하면 관리 허브로
+                      아직 열리지 않은 오프라인 행사입니다. 가까운 일시부터 보이며, 항목을 클릭하면 초대 명단·체크리스트·운영안으로
                       이동합니다.
                     </p>
                   </div>
@@ -125,24 +119,23 @@ export default function ActiveCampaignsCard({
                 {/* 본문 리스트 */}
                 <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 -mr-1">
                   {items.length === 0 ? (
-                    /* 처음 쓰는 사람이 보는 화면이다. "없다" 로 끝내지 말고 다음에 할 일을 준다. */
                     <div className="py-10 px-4 text-center space-y-3 bg-bg border border-dashed border-border rounded-2xl">
-                      <div className="w-10 h-10 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mx-auto">
-                        <FolderKanban className="w-5 h-5" />
+                      <div className="w-10 h-10 rounded-2xl bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center mx-auto">
+                        <PartyPopper className="w-5 h-5" />
                       </div>
                       <div className="space-y-1">
-                        <p className="text-sm font-bold text-text">진행 중인 캠페인이 없습니다</p>
+                        <p className="text-sm font-bold text-text">준비중인 행사가 없습니다</p>
                         <p className="text-xs text-text-muted">
-                          캠페인을 만들면 신청폼·지원자 심사·관리시트·결과보고서가 함께 열립니다.
+                          행사는 캠페인에 딸려 만듭니다. 초대 명단·체크리스트·운영안이 함께 열립니다.
                         </p>
                       </div>
                       <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
                         <Link
-                          href="/campaigns/new"
+                          href="/events"
                           onClick={() => setIsOpen(false)}
                           className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-accent text-accent-on text-xs font-bold hover:opacity-90 transition btn-press"
                         >
-                          <Plus className="w-3.5 h-3.5" />첫 캠페인 만들기
+                          <Plus className="w-3.5 h-3.5" />새 행사 개설
                         </Link>
                         <Link
                           href="/guide"
@@ -155,35 +148,56 @@ export default function ActiveCampaignsCard({
                       </div>
                     </div>
                   ) : (
-                    items.map((c) => (
+                    items.map((e) => (
                       <div
-                        key={c.id}
-                        onClick={() => goTo(c.id)}
+                        key={e.id}
+                        onClick={() => goTo(e.campaignId, e.id)}
                         className="p-4 rounded-2xl bg-bg border border-border hover:border-accent-link/50 hover:bg-surface2/60 transition duration-150 flex flex-col gap-2.5 group cursor-pointer"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold shrink-0">
-                            {c.campaignType === "shipping" ? "배송형" : "방문형"} · {c.statusLabel}
-                          </span>
-                          <span className="text-[11px] text-text-muted group-hover:text-accent-link transition flex items-center gap-0.5 shrink-0">
-                            관리 허브
-                            <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition" />
-                          </span>
+                          <div className="flex items-center gap-1 text-[11px] text-text-muted font-medium min-w-0">
+                            <span className="text-text-sub font-semibold truncate">{e.companyName}</span>
+                            <span className="shrink-0">·</span>
+                            <span className="truncate">{e.campaignName}</span>
+                          </div>
+                          {e.daysDiff !== null && (
+                            <span
+                              className={`text-xs font-mono font-bold shrink-0 ${
+                                e.daysDiff < 0
+                                  ? "text-red-400"
+                                  : e.daysDiff === 0
+                                  ? "text-warn"
+                                  : e.daysDiff <= 3
+                                  ? "text-amber-400"
+                                  : "text-text-muted"
+                              }`}
+                            >
+                              {ddayLabel(e.daysDiff)}
+                            </span>
+                          )}
                         </div>
 
-                        <div className="min-w-0">
-                          <div className="text-sm font-bold text-text group-hover:text-accent-link transition truncate">
-                            {c.name}
+                        <div className="text-sm font-bold text-text group-hover:text-accent-link transition">
+                          {e.name}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-text-muted">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-text-sub shrink-0" />
+                            <span className="font-mono">{formatKstDateTime(e.eventAt) || "일시 미정"}</span>
                           </div>
-                          <p className="text-xs text-text-sub mt-0.5 flex items-center gap-1 truncate">
-                            <Building2 className="w-3.5 h-3.5 text-text-muted shrink-0" />
-                            <span className="truncate">{c.companyName}</span>
-                          </p>
+                          <div className="flex items-center gap-1 min-w-0">
+                            <MapPin className="w-3 h-3 text-text-sub shrink-0" />
+                            <span className="truncate">{e.venue || "장소 미정"}</span>
+                          </div>
                         </div>
 
                         <div className="text-[11px] text-text-sub tabular-nums pt-2 border-t border-border/70 flex items-center justify-between">
-                          <span>지원자 {c.applicantCount}명</span>
-                          <span className="text-text font-semibold">최종선정 {c.selectedCount}명</span>
+                          <span>초청 {e.inviteeCount}명</span>
+                          <span className="flex items-center gap-2">
+                            <span className="text-blue-400 font-semibold">참석확정 {e.attendingCount}명</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-text-muted group-hover:text-accent-link group-hover:translate-x-0.5 transition" />
+                          </span>
                         </div>
                       </div>
                     ))
@@ -193,11 +207,11 @@ export default function ActiveCampaignsCard({
                 {/* 푸터 */}
                 <div className="pt-3 border-t border-border flex items-center justify-between text-xs">
                   <Link
-                    href="/campaigns"
+                    href="/events"
                     onClick={() => setIsOpen(false)}
                     className="text-text-sub hover:text-accent-link inline-flex items-center gap-1 font-medium transition"
                   >
-                    <span>캠페인 전체 보기 (완료 보관함 포함)</span>
+                    <span>행사 전체 보기 (완료·취소 포함)</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </Link>
                   <button

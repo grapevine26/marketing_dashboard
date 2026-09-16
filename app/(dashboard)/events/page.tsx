@@ -1,4 +1,4 @@
-import { getAllEvents, getCampaigns, getEventInvitees } from "@/lib/db";
+import { getAllEvents, getCampaigns, countEventInvitees } from "@/lib/db";
 import { PartyPopper } from "lucide-react";
 import NewGlobalEventModal from "./NewGlobalEventModal";
 import AllEventsListClient, {
@@ -9,12 +9,19 @@ import AllEventsListClient, {
 export const revalidate = 0;
 
 export default async function AllEventsOverviewPage() {
-  const [events, campaigns] = await Promise.all([getAllEvents(), getCampaigns()]);
+  // 초청 수는 행사마다 따로 부르지 않고 한 번에 센다. 행사가 늘수록 왕복이 그만큼 늘었고,
+  // 그때마다 초청자 이름·연락처가 전부 딸려 왔다 — 이 화면은 수만 쓴다.
+  // 오버뷰의 "준비중인 행사" 모달도 같은 함수를 쓴다. 각자 세면 언젠가 한쪽만 고쳐져 어긋난다.
+  const [events, campaigns, inviteeCounts] = await Promise.all([
+    getAllEvents(),
+    getCampaigns(),
+    countEventInvitees(),
+  ]);
   const campaignMap = new Map(campaigns.map((c) => [c.id, c]));
 
   const cards: EventOverviewCardItem[] = await Promise.all(
     events.map(async (ev) => {
-      const invitees = await getEventInvitees(ev.id);
+      const counts = inviteeCounts.get(ev.id);
       const camp = campaignMap.get(ev.campaign_id);
       return {
         id: ev.id,
@@ -26,9 +33,9 @@ export default async function AllEventsOverviewPage() {
         eventAt: ev.event_at,
         venue: ev.venue,
         memo: ev.memo,
-        inviteeCount: invitees.length,
-        attendingCount: invitees.filter((i) => i.rsvp_status === "attending").length,
-        attendedCount: invitees.filter((i) => i.attended).length,
+        inviteeCount: counts?.total ?? 0,
+        attendingCount: counts?.attending ?? 0,
+        attendedCount: counts?.attended ?? 0,
       };
     })
   );

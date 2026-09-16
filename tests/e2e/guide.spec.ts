@@ -18,22 +18,25 @@ async function guideText(page: Page, selector = "body"): Promise<string> {
 const LINK_CARD_TITLE = /^\d+\.\s.+링크$/;
 
 /**
- * 공유 링크 카드가 화면에 나올 때까지 기다린다.
+ * 이 화면에 있는 공유 링크 카드의 제목을 모아 온다. `least` 장이 **보일 때까지** 기다린다.
  *
- * `page.goto` 는 load 에서 풀리는데, 이 앱은 `app/(dashboard)/loading.tsx` 로 **골격을 먼저
- * 흘려보낸다.** 그래서 goto 직후의 `body.innerText()` 가 아직 골격일 수 있고, 그러면 본문에서
- * 아무것도 못 찾아 "카드가 0개" 로 실패한다. 화면은 멀쩡한데 테스트만 가끔 깨지는 모양이라
- * 원인을 찾기 어렵다(실제로 한 번 겪었다).
+ * 처음에는 `body.innerText()` 를 통째로 읽어 정규식을 돌렸다. 그런데 `page.goto` 는 load 에서
+ * 풀리고, 이 앱은 `app/(dashboard)/loading.tsx` 로 **골격을 먼저 흘려보낸다.** 그 순간의 본문은
+ * 아직 골격이라 아무것도 안 잡혀 "카드가 0개" 로 깨졌다. 화면은 멀쩡한데 테스트만 가끔
+ * 깨지는 모양이라 원인을 찾기 어렵다.
  *
- * 한 장만 기다리면 모자란다. 카드가 한꺼번에 그려진다는 보장이 없어서, 첫 장이 뜬 순간
- * 읽으면 나머지를 놓칠 수 있다. 필요한 장수가 찰 때까지 기다린다.
+ * **`count()` 로 기다리는 것으로는 부족하다** — DOM 에 있기만 하면 화면에 안 보여도 세기 때문에,
+ * 아직 안 그려진 상태에서 그냥 통과한다(그렇게 고쳤다가 다시 깨졌다). `visible: true` 로 거른다.
+ *
+ * 본문 전체를 읽는 대신 카드 요소에서 직접 읽는다. 그러면 "무엇을 세었는가" 와
+ * "무엇을 읽었는가" 가 같은 것이 되어 둘이 어긋날 자리가 없다.
  */
-async function waitForLinkCards(page: Page, least: number): Promise<void> {
+async function linkCardTitles(page: Page, least: number): Promise<string[]> {
+  const cards = page.getByText(LINK_CARD_TITLE).filter({ visible: true });
   await expect
-    .poll(() => page.getByText(LINK_CARD_TITLE).count(), {
-      message: `공유 링크 카드가 ${least}장 이상 나오지 않았다`,
-    })
+    .poll(() => cards.count(), { message: `공유 링크 카드가 ${least}장 이상 보이지 않았다` })
     .toBeGreaterThanOrEqual(least);
+  return (await cards.allInnerTexts()).map((t) => t.replace(/\s+/g, " ").trim());
 }
 
 test.describe("사용법 페이지", () => {
@@ -68,14 +71,12 @@ test.describe("사용법 페이지", () => {
 
   test("공유 링크 표의 링크 이름이 실제 화면의 카드 제목과 같다", async ({ page }) => {
     await page.goto(`/campaigns/${SAMPLE.campaignId}`);
-    await waitForLinkCards(page, 4);
-    const campaignTitles = (await guideText(page)).match(/\d\. (광고주|인플루언서)[^\n]{2,30}?링크/g) || [];
-    expect(campaignTitles.length).toBeGreaterThanOrEqual(4);
+    const campaignTitles = (await linkCardTitles(page, 4)).filter((t) => /^\d+\. (광고주|인플루언서)/.test(t));
+    expect(campaignTitles.length, "캠페인 관리 허브의 공유 링크 카드").toBeGreaterThanOrEqual(4);
 
     await page.goto(`/sns/${SAMPLE.snsAccountId}`);
-    await waitForLinkCards(page, 2);
-    const snsTitles = (await guideText(page)).match(/\d\. 광고주[^\n]{2,30}?링크/g) || [];
-    expect(snsTitles.length).toBeGreaterThanOrEqual(2);
+    const snsTitles = (await linkCardTitles(page, 2)).filter((t) => /^\d+\. 광고주/.test(t));
+    expect(snsTitles.length, "SNS 계정 화면의 공유 링크 카드").toBeGreaterThanOrEqual(2);
 
     await page.goto("/guide");
     const table = await guideText(page, "#links");

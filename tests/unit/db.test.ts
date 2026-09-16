@@ -7,6 +7,8 @@ import {
   getCampaigns,
   getApplicantsByCampaignId,
   countApplicantsByCampaign,
+  countEventInvitees,
+  updateEventInvitee,
   getFormConfig,
   getEventsByCampaignId,
   getEventInvitees,
@@ -63,6 +65,32 @@ async function seedCampaign() {
   });
   return { camp, app };
 }
+
+describeDb("행사별 초대 명단 수", () => {
+  it("한 번의 조회로 행사마다 초청·참석확정·입장 수를 센다", async () => {
+    const { camp } = await seedCampaign();
+    const ev = await createEvent({ campaign_id: camp.id, name: "런칭 파티", event_at: null, venue: null, memo: null });
+
+    const a = await addDirectEventInvitee({ event_id: ev.id, name: "가", sns_url: null, contact: null, memo: null });
+    const b = await addDirectEventInvitee({ event_id: ev.id, name: "나", sns_url: null, contact: null, memo: null });
+    await addDirectEventInvitee({ event_id: ev.id, name: "다", sns_url: null, contact: null, memo: null });
+
+    // 둘은 참석하겠다고 했고, 그중 하나만 실제로 입장했다.
+    await updateEventInvitee(a.id, { rsvp_status: "attending" });
+    await updateEventInvitee(b.id, { rsvp_status: "attending" });
+    await updateEventInvitee(a.id, { attended: true });
+
+    const counts = await countEventInvitees();
+    expect(counts.get(ev.id)).toEqual({ total: 3, attending: 2, attended: 1 });
+  });
+
+  it("초청자가 없는 행사는 아예 담기지 않는다", async () => {
+    const { camp } = await seedCampaign();
+    const ev = await createEvent({ campaign_id: camp.id, name: "빈 행사", event_at: null, venue: null, memo: null });
+    const counts = await countEventInvitees();
+    expect(counts.has(ev.id)).toBe(false);
+  });
+});
 
 describeDb("캠페인별 지원자 수", () => {
   it("한 번의 조회로 캠페인마다 전체·최종선정 수를 센다", async () => {

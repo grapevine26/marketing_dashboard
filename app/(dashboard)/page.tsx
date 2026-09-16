@@ -7,8 +7,9 @@ import CalendarOverviewClient, { UrgentItemsWidget } from "./CalendarOverviewCli
 import PendingApprovalSnsCard from "./PendingApprovalSnsCard";
 import ScheduledSnsThisWeekCard from "./ScheduledSnsThisWeekCard";
 import ActiveCampaignsCard from "./ActiveCampaignsCard";
+import PreparingEventsCard from "./PreparingEventsCard";
 import BackupStatusBanner, { getBackupStatus } from "./BackupStatusBanner";
-import { ArrowUpRight, PartyPopper, UserPlus } from "lucide-react";
+import { ArrowUpRight, UserPlus } from "lucide-react";
 
 export const revalidate = 0;
 
@@ -97,26 +98,10 @@ export default async function DashboardOverviewPage({
           <ActiveCampaignsCard count={summary.activeCampaignCount} items={summary.activeCampaigns} />
         </div>
 
-        {/* 준비중인 행사 */}
-        <Link
-          href="/events"
-          className="p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-surface border border-border hover:border-accent-link/40 hover:bg-surface2/30 transition duration-150 group flex flex-col justify-between space-y-2.5 sm:space-y-3 shadow-xs min-h-[100px] sm:min-h-[116px] btn-press stagger-item"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] sm:text-xs font-semibold text-text-muted group-hover:text-text transition truncate">
-              준비중인 행사
-            </span>
-            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center shrink-0">
-              <PartyPopper className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-            </div>
-          </div>
-          <div>
-            <div className="font-mono tabular-nums text-xl sm:text-3xl font-bold text-text">
-              {summary.preparingEventCount}
-            </div>
-            <p className="text-[10px] sm:text-[11px] text-text-sub mt-0.5 truncate">오프라인 초청 및 팝업</p>
-          </div>
-        </Link>
+        {/* 준비중인 행사 (클릭 시 모달 팝업) */}
+        <div className="stagger-item h-full">
+          <PreparingEventsCard count={summary.preparingEventCount} items={summary.preparingEvents} />
+        </div>
 
         {/* 승인 대기 콘텐츠 (클릭 시 모달 팝업) */}
         <div className="stagger-item h-full">

@@ -6,6 +6,7 @@ import {
   getSnsAccounts,
   getAllSnsContents,
   getApplicantsByCampaignId,
+  countEventInvitees,
 } from "@/lib/db";
 import {
   CAMPAIGN_STATUS_LABELS,
@@ -171,6 +172,23 @@ export interface HomeCampaignSummary {
   selectedCount: number;
 }
 
+/** "준비중인 행사" KPI 모달 한 줄. */
+export interface HomePreparingEventSummary {
+  id: string;
+  campaignId: string;
+  name: string;
+  /** 브랜드(광고주) 이름 */
+  companyName: string;
+  campaignName: string;
+  /** 행사 일시 ISO(UTC). 미정이면 null. */
+  eventAt: string | null;
+  venue: string | null;
+  /** 오늘부터 행사일까지 남은 날수. 일시가 없으면 null. */
+  daysDiff: number | null;
+  inviteeCount: number;
+  attendingCount: number;
+}
+
 export interface PendingApprovalSnsItem {
   id: string;
   accountId: string;
@@ -214,6 +232,11 @@ export interface HomeSummary {
    * "진행중 캠페인" KPI 카드의 모달이 이걸 그대로 그린다. activeCampaignCount 와 길이가 같아야 한다.
    */
   activeCampaigns: HomeCampaignSummary[];
+  /**
+   * 준비중인 행사 전부, 가까운 일시 순(일시 미정은 뒤).
+   * "준비중인 행사" KPI 카드의 모달이 이걸 그대로 그린다. preparingEventCount 와 길이가 같아야 한다.
+   */
+  preparingEvents: HomePreparingEventSummary[];
 }
 
 /**
@@ -221,11 +244,13 @@ export interface HomeSummary {
  * 캠페인이 삭제되어도 조용히 제외되며, 지원자 조회 실패는 해당 캠페인만 0으로 집계한다.
  */
 export async function collectHomeSummary(todayKst: string): Promise<HomeSummary> {
-  const [campaigns, events, snsContents, snsAccounts] = await Promise.all([
+  const [campaigns, events, snsContents, snsAccounts, inviteeCounts] = await Promise.all([
     getCampaigns(),
     getAllEvents().catch(() => []),
     getAllSnsContents().catch(() => []),
     getSnsAccounts().catch(() => []),
+    // 한 번의 조회로 행사별 초청·참석확정 수를 센다. 실패해도 목록은 0 으로 그린다.
+    countEventInvitees().catch(() => new Map()),
   ]);
   const currentYm = todayKst.slice(0, 7);
 
@@ -266,7 +291,31 @@ export async function collectHomeSummary(todayKst: string): Promise<HomeSummary>
       selectedCount: applicants.filter((a) => a.status === "selected").length,
     }));
 
-  const preparingEventCount = events.filter((e) => e.status === "preparing").length;
+  const preparingEventsRaw = events.filter((e) => e.status === "preparing");
+  const preparingEventCount = preparingEventsRaw.length;
+
+  const campaignById = new Map(campaigns.map((c) => [c.id, c]));
+  // 자르지 않는다. 카드에 적힌 수(preparingEventCount)와 모달 줄 수가 달라지면 안 된다.
+  const preparingEvents: HomePreparingEventSummary[] = preparingEventsRaw
+    .map((e) => {
+      const camp = campaignById.get(e.campaign_id);
+      const dateStr = isoToKstDateString(e.event_at);
+      const counts = inviteeCounts.get(e.id);
+      return {
+        id: e.id,
+        campaignId: e.campaign_id,
+        name: e.name,
+        companyName: camp?.company_name || "캠페인",
+        campaignName: camp?.name || "미지정 캠페인",
+        eventAt: e.event_at,
+        venue: e.venue,
+        daysDiff: dateStr ? daysUntilDeadline(dateStr, todayKst) : null,
+        inviteeCount: counts?.total ?? 0,
+        attendingCount: counts?.attending ?? 0,
+      };
+    })
+    // 가까운 행사가 위로. 일시가 없는 것은 뒤로 민다(정렬 기준이 없으니 마지막이 제자리다).
+    .sort((a, b) => (a.eventAt || "9999").localeCompare(b.eventAt || "9999"));
 
   const accountMap = new Map(snsAccounts.map((a) => [a.id, a]));
   const pendingApprovalSnsContents: PendingApprovalSnsItem[] = snsContents
@@ -322,6 +371,7 @@ export async function collectHomeSummary(todayKst: string): Promise<HomeSummary>
 
   return {
     activeCampaignCount: campaigns.filter((c) => isActive(c.status)).length,
+    preparingEvents,
     newApplicantsThisMonth,
     totalSelectedCount,
     preparingEventCount,

@@ -258,6 +258,46 @@ export async function getEventInvitees(eventId: string): Promise<EventInvitee[]>
   return rows.map(rowToEventInvitee);
 }
 
+/** 행사 하나의 초대 명단 수 요약. */
+export interface EventInviteeCounts {
+  /** 초청한 사람 수 */
+  total: number;
+  /** 참석하겠다고 답한 수 */
+  attending: number;
+  /** 당일 입장 확인된 수 */
+  attended: number;
+}
+
+/**
+ * 행사별 초대 명단 수를 **한 번의 조회로** 센다. 행사 id -> 수.
+ *
+ * 행사 목록과 오버뷰의 "준비중인 행사" 모달이 같은 숫자를 보여준다. 각자 세면 언젠가
+ * 한쪽만 고쳐져 어긋난다(이 저장소에서 실제로 겪은 적이 있다 — 업로드 완료 판정이
+ * 세 군데로 갈렸었다). 그래서 세는 자리를 여기 하나로 둔다.
+ *
+ * 행사마다 `getEventInvitees` 를 부르면 행사 수만큼 왕복하고, 그때마다 초청자 이름·연락처가
+ * 전부 딸려 온다. 두 화면 모두 수만 쓰므로 필요한 세 칸만 받는다.
+ *
+ * 초청자가 없는 행사는 결과에 담기지 않는다. 읽는 쪽에서 0 으로 다루면 된다.
+ */
+export async function countEventInvitees(): Promise<Map<string, EventInviteeCounts>> {
+  const rows = unwrap(
+    await db()
+      .from("event_invitees")
+      .select("event_id, rsvp_status, attended")
+      .returns<{ event_id: string; rsvp_status: string; attended: boolean }[]>()
+  );
+  const counts = new Map<string, EventInviteeCounts>();
+  for (const row of rows) {
+    const current = counts.get(row.event_id) ?? { total: 0, attending: 0, attended: 0 };
+    current.total += 1;
+    if (row.rsvp_status === "attending") current.attending += 1;
+    if (row.attended) current.attended += 1;
+    counts.set(row.event_id, current);
+  }
+  return counts;
+}
+
 /**
  * 캠페인 지원자를 초대 명단으로 가져온다.
  * - 행사가 없으면 ValidationError.

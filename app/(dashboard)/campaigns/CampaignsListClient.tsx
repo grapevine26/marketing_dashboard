@@ -354,7 +354,7 @@ export default function CampaignsListClient({
               </div>
 
               <div className="pt-3 border-t border-border space-y-2">
-                <div className="flex items-center justify-between text-[11px] text-text-sub font-mono tabular-nums">
+                <div className="flex items-center justify-between text-[11px] text-text-sub tabular-nums">
                   <span>지원자 {applicantCounts[camp.id]?.total ?? 0}명</span>
                   <span className="text-text font-semibold">
                     최종선정 {applicantCounts[camp.id]?.selected ?? 0}명
