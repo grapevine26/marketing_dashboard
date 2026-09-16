@@ -35,6 +35,7 @@ import fs from "fs";
 import path from "path";
 import pg from "pg";
 import { isLegacyPathname, LEGACY_DOC_PREFIX } from "./legacy-blob.mjs";
+import { dbSsl } from "./db-ssl.mjs";
 
 const HELP = `사용법:
   npm run db:backup                                   지금 DB 를 .data/backups/ 에 받는다
@@ -481,7 +482,7 @@ async function insertRow(table, row) {
   return (res.rowCount ?? 0) > 0;
 }
 
-const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const client = new pg.Client({ connectionString: url, ssl: dbSsl() });
 await client.connect();
 
 /** 백업에서 하나를 골라 딸린 행과 함께 다시 넣는다. 기존 데이터는 건드리지 않는다. */

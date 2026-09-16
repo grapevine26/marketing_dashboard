@@ -131,45 +131,7 @@ describe("프록시가 실제로 걸리는 범위", () => {
   });
 });
 
-/**
- * 운영 DB·저장소를 바꾸는 스크립트는 대상을 손으로 적게 한다.
- *
- * 이 스크립트들은 **대상이 기본값으로 운영**이다. 테스트에 돌리려던 명령에서 `--test`
- * 한 단어만 빠지면 그대로 운영을 맞춘다. 읽기는 운영이 기본이어야 편하니 그대로 두고,
- * 쓰기만 `--prod` 를 요구한다.
- */
-describe("운영 스크립트 빗장", () => {
-  it("계정을 바꾸는 스크립트는 쓰기 직전에 --prod 를 확인한다", () => {
-    for (const [파일, 쓰기] of [
-      ["scripts/make-admin.mjs", "update public.profiles set role = 'owner'"],
-      ["scripts/hide-user.mjs", "update public.profiles set hidden"],
-    ] as const) {
-      const src = readFileSync(파일, "utf8");
-      // 정의(`function requireProdFlag(what)`)가 아니라 **호출**을 찾는다. 호출만 백틱을 쓴다.
-      const 호출 = src.indexOf("requireProdFlag(`");
-      const 바꾸는곳 = src.indexOf(쓰기);
-      expect(호출, `${파일} 에 빗장 호출이 없다`).toBeGreaterThan(-1);
-      expect(바꾸는곳, `${파일} 에서 쓰기 지점을 못 찾았다`).toBeGreaterThan(-1);
-      expect(호출, `${파일} 은 운영 여부를 확인하기 전에 이미 바꾼다`).toBeLessThan(바꾸는곳);
-    }
-  });
-
-  it("옛 Blob 정리는 --test 로 면제되지 않는다", () => {
-    // Blob 은 토큰이 하나뿐이라 **--test 를 붙여도 대상이 운영 Blob** 이다.
-    // 그래서 여기만은 isTest 로 통과시키는 requireProdFlag 를 쓰면 안 된다.
-    const src = readFileSync("scripts/db-backup.mjs", "utf8");
-    const 시작 = src.indexOf("if (wantPurgeLegacy) {");
-    expect(시작, "purge-legacy 블록을 못 찾았다").toBeGreaterThan(-1);
-    const 빗장 = src.indexOf("!allowProd", 시작);
-    const 지움 = src.indexOf("await del(", 시작);
-    expect(빗장, "purge-legacy 에 --prod 확인이 없다").toBeGreaterThan(-1);
-    expect(지움, "purge-legacy 에서 삭제 호출을 못 찾았다").toBeGreaterThan(-1);
-    expect(빗장, "확인하기 전에 이미 지운다").toBeLessThan(지움);
-    // requireProdFlag 를 쓰면 --test 로 빠져나갈 수 있다. 그 실수를 막는다.
-    const 블록 = src.slice(시작, 지움);
-    expect(블록, "purge-legacy 는 --test 로 면제되면 안 된다").not.toContain("requireProdFlag(");
-  });
-});
+// 운영 스크립트(--prod 빗장, TLS 검증)는 tests/unit/ops_scripts.test.ts 에 모아 두었다.
 
 describe("파일이 함께 사라지는 조작", () => {
   it("템플릿 삭제는 관리자만 할 수 있다", () => {

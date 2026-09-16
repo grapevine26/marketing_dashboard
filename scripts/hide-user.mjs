@@ -19,6 +19,7 @@
  */
 import path from "path";
 import pg from "pg";
+import { dbSsl } from "./db-ssl.mjs";
 
 try {
   process.loadEnvFile(path.join(process.cwd(), ".env.local"));
@@ -56,7 +57,7 @@ if (!url) {
   process.exit(1);
 }
 
-const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const client = new pg.Client({ connectionString: url, ssl: dbSsl() });
 await client.connect();
 try {
   if (wantList) {

@@ -11,6 +11,7 @@
 import fs from "fs";
 import path from "path";
 import pg from "pg";
+import { dbSsl } from "./db-ssl.mjs";
 
 try {
   process.loadEnvFile(path.join(process.cwd(), ".env.local"));
@@ -29,7 +30,7 @@ if (!url) {
 const dir = path.join(process.cwd(), "supabase", "migrations");
 const files = fs.readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 
-const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
+const client = new pg.Client({ connectionString: url, ssl: dbSsl() });
 await client.connect();
 try {
   await client.query(`create table if not exists public.schema_migrations (
