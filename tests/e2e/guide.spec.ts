@@ -14,6 +14,28 @@ async function guideText(page: Page, selector = "body"): Promise<string> {
   return (await page.locator(selector).innerText()).replace(/\s+/g, " ");
 }
 
+/** 공유 링크 카드의 제목. "1. 광고주 시안 승인(컨펌) 링크" 처럼 번호로 시작해 "링크" 로 끝난다. */
+const LINK_CARD_TITLE = /^\d+\.\s.+링크$/;
+
+/**
+ * 공유 링크 카드가 화면에 나올 때까지 기다린다.
+ *
+ * `page.goto` 는 load 에서 풀리는데, 이 앱은 `app/(dashboard)/loading.tsx` 로 **골격을 먼저
+ * 흘려보낸다.** 그래서 goto 직후의 `body.innerText()` 가 아직 골격일 수 있고, 그러면 본문에서
+ * 아무것도 못 찾아 "카드가 0개" 로 실패한다. 화면은 멀쩡한데 테스트만 가끔 깨지는 모양이라
+ * 원인을 찾기 어렵다(실제로 한 번 겪었다).
+ *
+ * 한 장만 기다리면 모자란다. 카드가 한꺼번에 그려진다는 보장이 없어서, 첫 장이 뜬 순간
+ * 읽으면 나머지를 놓칠 수 있다. 필요한 장수가 찰 때까지 기다린다.
+ */
+async function waitForLinkCards(page: Page, least: number): Promise<void> {
+  await expect
+    .poll(() => page.getByText(LINK_CARD_TITLE).count(), {
+      message: `공유 링크 카드가 ${least}장 이상 나오지 않았다`,
+    })
+    .toBeGreaterThanOrEqual(least);
+}
+
 test.describe("사용법 페이지", () => {
   test("목차 버튼이 가리키는 섹션이 모두 존재한다", async ({ page }) => {
     await page.goto("/guide");
@@ -45,20 +67,20 @@ test.describe("사용법 페이지", () => {
   });
 
   test("공유 링크 표의 링크 이름이 실제 화면의 카드 제목과 같다", async ({ page }) => {
-    const linkTitlePattern = /^\d\.\s.+링크$/;
-
     await page.goto(`/campaigns/${SAMPLE.campaignId}`);
+    await waitForLinkCards(page, 4);
     const campaignTitles = (await guideText(page)).match(/\d\. (광고주|인플루언서)[^\n]{2,30}?링크/g) || [];
     expect(campaignTitles.length).toBeGreaterThanOrEqual(4);
 
     await page.goto(`/sns/${SAMPLE.snsAccountId}`);
+    await waitForLinkCards(page, 2);
     const snsTitles = (await guideText(page)).match(/\d\. 광고주[^\n]{2,30}?링크/g) || [];
     expect(snsTitles.length).toBeGreaterThanOrEqual(2);
 
     await page.goto("/guide");
     const table = await guideText(page, "#links");
     for (const title of [...new Set([...campaignTitles, ...snsTitles])]) {
-      expect(linkTitlePattern.test(title)).toBe(true);
+      expect(LINK_CARD_TITLE.test(title)).toBe(true);
       expect(table, `공유 링크 표에 "${title}"이 없다`).toContain(title);
     }
   });

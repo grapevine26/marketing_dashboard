@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { toKstDateString, parseMonthParam, buildMonthGrid, shiftMonth } from "@/lib/seeding/dday";
 import { collectOverviewItems, collectHomeSummary } from "@/lib/overview/collect";
-import { getAuditLogs, getCampaigns, getSnsAccounts } from "@/lib/db";
 import { getCurrentUser, isManager, isOwner } from "@/lib/auth/session";
 import { countPendingUsers } from "@/lib/auth/users";
 import CalendarOverviewClient, { UrgentItemsWidget } from "./CalendarOverviewClient";
@@ -12,7 +11,6 @@ import {
   ArrowUpRight,
   FolderKanban,
   PartyPopper,
-  Activity,
   BookOpen,
   Plus,
   UserPlus,
@@ -21,12 +19,22 @@ import {
 export const revalidate = 0;
 
 /**
- * 오버뷰 홈 화면.
- * - 상단: 4대 핵심 지표 인터랙티브 카드 (클릭 시 해당 관리 탭으로 이동)
- * - 데스크톱 2단 스플릿 레이아웃:
- *   - 좌측 메인 (8/12): 마케팅 통합 캘린더 (달력/목록 토글) + 진행중인 캠페인 그리드
- *   - 우측 사이드 (4/12): 긴급 조치 일정 (D-3 ~ 지연) + 최근 플랫폼 활동 타임라인
- * - 모바일(sm): 긴급 일정 우선 노출 후 캘린더 및 캠페인이 깔끔하게 스택
+ * 오버뷰 홈 화면. 위에서 아래로 한 줄이다 — 화면 너비와 등급에 상관없이 같은 순서다.
+ *
+ *   지표 4개 → 임박 및 지연 일정 → 캘린더 → 진행중인 캠페인
+ *
+ * 전에는 넓은 화면에서 8/12 + 4/12 두 단이었고, 오른쪽 단에 임박 일정과 최근 활동이
+ * 들어갔다. **그런데 최근 활동은 대표 관리자만 본다.** 관리자도 못 본다. 그래서 그 한 명을
+ * 뺀 전원에게는 오른쪽 단에 위젯이 하나뿐이었고, 왼쪽(캘린더+캠페인)이 훨씬 길어서
+ * 화면 오른쪽 아래가 크게 비었다.
+ *
+ * 빈 자리를 채울 위젯을 새로 만드는 대신 단을 없앴다. 그 위젯은 필요해서가 아니라
+ * 레이아웃 때문에 생긴 것이 되고, 쓸모없다고 드러나도 지우기 어려워진다.
+ * 단을 없애니 이 화면의 주인공인 캘린더가 가로를 다 쓰게 되어 날짜 칸마다 일정이 더 보인다.
+ *
+ * 최근 활동은 여기서 빼고 전용 페이지(`설정 → 활동 기록`)에만 둔다. 로그는 문제가 있을 때
+ * 찾아보는 것이지 매일 훑는 것이 아니다. 덕분에 이 페이지가 캠페인·SNS 계정 목록을
+ * 통째로 읽던 것도 없어졌다 — 그 둘은 로그에 이름을 붙이려고만 읽고 있었다.
  */
 export default async function DashboardOverviewPage({
   searchParams,
@@ -34,7 +42,6 @@ export default async function DashboardOverviewPage({
   searchParams: Promise<{ month?: string }>;
 }) {
   const role = (await getCurrentUser())?.role ?? "staff";
-  const canSeeLogs = isOwner(role);
   // 백업이 끊긴 걸 보고 실제로 손쓸 수 있는 사람은 대표 관리자뿐이라, 경고도 거기까지만 보인다.
   const canSeeBackupStatus = isOwner(role);
   // 승인 대기자는 승인할 수 있는 사람(관리자 이상)에게만 알린다.
@@ -44,21 +51,9 @@ export default async function DashboardOverviewPage({
   const todayKst = toKstDateString();
   const currentMonth = parseMonthParam(month, todayKst);
 
-  const [
-    { items, failedSources },
-    summary,
-    recentLogs,
-    campaigns,
-    snsAccounts,
-    pendingUserCount,
-    backupStatus,
-  ] = await Promise.all([
+  const [{ items, failedSources }, summary, pendingUserCount, backupStatus] = await Promise.all([
     collectOverviewItems(todayKst),
     collectHomeSummary(todayKst),
-    // 활동 기록은 대표 관리자만 본다. 나머지에게는 아예 내려보내지 않는다(화면에서 숨기는 것으로는 부족하다).
-    canSeeLogs ? getAuditLogs({ limit: 5 }) : Promise.resolve([]),
-    getCampaigns(),
-    getSnsAccounts(),
     canApproveUsers ? countPendingUsers() : Promise.resolve(0),
     // 대표 관리자가 아니면 저장소 조회 자체를 하지 않는다. 볼 수 없는 값을 굳이 읽어 올 이유가 없다.
     canSeeBackupStatus ? getBackupStatus() : Promise.resolve(null),
@@ -67,9 +62,6 @@ export default async function DashboardOverviewPage({
   const urgentItems = items.filter((item) => item.daysDiff <= 3);
   const monthItems = items.filter((item) => item.dateStr.startsWith(currentMonth));
   const grid = buildMonthGrid(currentMonth, todayKst);
-
-  const campaignNameById = new Map(campaigns.map((c) => [c.id, c.name]));
-  const accountNameById = new Map(snsAccounts.map((a) => [a.id, `${a.company_name} · @${a.handle}`]));
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto font-sans">
@@ -160,154 +152,90 @@ export default async function DashboardOverviewPage({
         </div>
       </div>
 
-      {/* 모바일 전용: 긴급 조치 일정 피드 (xl:hidden) - 마감 임박 또는 지연이 있을 때 캘린더 위에 우선 배치 */}
-      {urgentItems.length > 0 && (
-        <div className="xl:hidden">
-          <UrgentItemsWidget urgentItems={urgentItems} failedSources={failedSources} />
+      {/* 2. 임박 및 지연 일정. 화면 너비와 등급에 상관없이 캘린더 위다.
+          지금 당장 손대야 하는 것이라 제일 먼저 눈에 들어와야 한다.
+          건수가 0일 때도 그린다 — "모든 일정이 정상 진행 중입니다" 가 그 자체로 답이라,
+          칸이 사라지면 확인한 것인지 아직 안 본 것인지 구분할 수 없다. */}
+      <UrgentItemsWidget urgentItems={urgentItems} failedSources={failedSources} />
+
+      {/* 3. 마케팅 통합 캘린더(달력/목록 토글). 이 화면의 주인공이라 가로를 다 쓴다. */}
+      <CalendarOverviewClient
+        currentMonth={currentMonth}
+        prevMonth={shiftMonth(currentMonth, -1)}
+        nextMonth={shiftMonth(currentMonth, 1)}
+        todayMonth={todayKst.slice(0, 7)}
+        leadingBlanks={grid.leadingBlanks}
+        cells={grid.cells}
+        urgentItems={urgentItems}
+        monthItems={monthItems}
+        failedSources={failedSources}
+        renderUrgent={false}
+      />
+
+      {/* 진행중인 캠페인 카드 섹션 */}
+      <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-3.5 sm:space-y-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FolderKanban className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+            <h2 className="text-sm sm:text-base font-bold text-text">진행중인 캠페인</h2>
+          </div>
+          <Link
+            href="/campaigns"
+            className="text-xs font-semibold text-accent-link inline-flex items-center gap-1 hover:underline"
+          >
+            전체보기 <ArrowUpRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
-      )}
 
-      {/* 2. 데스크톱 2단 스플릿 / 모바일 자연스러운 순서 레이아웃 */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 items-start">
-        {/* 메인 워크스페이스 (xl: 8/12 컬럼) */}
-        <div className="xl:col-span-8 space-y-4 sm:space-y-6">
-          {/* 마케팅 통합 캘린더 (달력/목록 뷰 토글 지원) */}
-          <CalendarOverviewClient
-            currentMonth={currentMonth}
-            prevMonth={shiftMonth(currentMonth, -1)}
-            nextMonth={shiftMonth(currentMonth, 1)}
-            todayMonth={todayKst.slice(0, 7)}
-            leadingBlanks={grid.leadingBlanks}
-            cells={grid.cells}
-            urgentItems={urgentItems}
-            monthItems={monthItems}
-            failedSources={failedSources}
-            renderUrgent={false}
-          />
-
-          {/* 진행중인 캠페인 카드 섹션 */}
-          <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-3.5 sm:space-y-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FolderKanban className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
-                <h2 className="text-sm sm:text-base font-bold text-text">진행중인 캠페인</h2>
-              </div>
+        {summary.activeCampaigns.length === 0 ? (
+          <div className="p-6 sm:p-8 text-center text-xs text-text-muted border border-dashed border-border rounded-xl sm:rounded-2xl bg-bg space-y-3">
+            <p>현재 진행중인 캠페인이 없습니다.</p>
+            {/* 처음 들어온 사람이 다음에 뭘 할지 바로 알 수 있게 길을 둘 열어 둔다. */}
+            <div className="flex flex-wrap items-center justify-center gap-2">
               <Link
-                href="/campaigns"
-                className="text-xs font-semibold text-accent-link inline-flex items-center gap-1 hover:underline"
+                href="/campaigns/new"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-accent text-accent-on text-xs font-bold hover:opacity-90 transition btn-press"
               >
-                전체보기 <ArrowUpRight className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5" />
+                첫 캠페인 만들기
+              </Link>
+              <Link
+                href="/guide"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface2 border border-border text-xs font-semibold text-text-sub hover:text-text transition btn-press"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                사용 가이드
               </Link>
             </div>
-
-            {summary.activeCampaigns.length === 0 ? (
-              <div className="p-6 sm:p-8 text-center text-xs text-text-muted border border-dashed border-border rounded-xl sm:rounded-2xl bg-bg space-y-3">
-                <p>현재 진행중인 캠페인이 없습니다.</p>
-                {/* 처음 들어온 사람이 다음에 뭘 할지 바로 알 수 있게 길을 둘 열어 둔다. */}
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  <Link
-                    href="/campaigns/new"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-accent text-accent-on text-xs font-bold hover:opacity-90 transition btn-press"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    첫 캠페인 만들기
-                  </Link>
-                  <Link
-                    href="/guide"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface2 border border-border text-xs font-semibold text-text-sub hover:text-text transition btn-press"
-                  >
-                    <BookOpen className="w-3.5 h-3.5" />
-                    사용 가이드
-                  </Link>
+          </div>
+        ) : (
+          /* 2단을 걷어내 가로가 넓어졌다. 2열 그대로 두면 카드가 지나치게 길쭉해진다. */
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5 sm:gap-3">
+            {summary.activeCampaigns.map((c) => (
+              <Link
+                key={c.id}
+                href={`/campaigns/${c.id}`}
+                className="flex flex-col justify-between gap-2.5 sm:gap-3 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-bg border border-border hover:border-accent-link/40 transition group btn-press stagger-item"
+              >
+                <div className="space-y-1.5 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold">
+                      {c.campaignType === "shipping" ? "배송형" : "방문형"} · {c.statusLabel}
+                    </span>
+                    <ArrowUpRight className="w-3.5 h-3.5 text-text-muted group-hover:text-accent-link shrink-0 transition" />
+                  </div>
+                  <div className="text-xs sm:text-sm font-bold text-text group-hover:text-accent-link transition truncate">
+                    {c.name}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
-                {summary.activeCampaigns.map((c) => (
-                  <Link
-                    key={c.id}
-                    href={`/campaigns/${c.id}`}
-                    className="flex flex-col justify-between gap-2.5 sm:gap-3 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-bg border border-border hover:border-accent-link/40 transition group btn-press stagger-item"
-                  >
-                    <div className="space-y-1.5 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold">
-                          {c.campaignType === "shipping" ? "배송형" : "방문형"} · {c.statusLabel}
-                        </span>
-                        <ArrowUpRight className="w-3.5 h-3.5 text-text-muted group-hover:text-accent-link shrink-0 transition" />
-                      </div>
-                      <div className="text-xs sm:text-sm font-bold text-text group-hover:text-accent-link transition truncate">
-                        {c.name}
-                      </div>
-                    </div>
-                    <div className="text-[11px] text-text-sub font-mono tabular-nums pt-2 border-t border-border/70 flex items-center justify-between">
-                      <span>지원자 {c.applicantCount}명</span>
-                      <span className="text-text font-semibold">최종선정 {c.selectedCount}명</span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
+                <div className="text-[11px] text-text-sub font-mono tabular-nums pt-2 border-t border-border/70 flex items-center justify-between">
+                  <span>지원자 {c.applicantCount}명</span>
+                  <span className="text-text font-semibold">최종선정 {c.selectedCount}명</span>
+                </div>
+              </Link>
+            ))}
           </div>
-        </div>
-
-        {/* 액션 사이드 패널 (xl: 4/12 컬럼) */}
-        <div className="xl:col-span-4 space-y-4 sm:space-y-6">
-          {/* 데스크톱 전용: 긴급 조치 일정 피드 (hidden xl:block) */}
-          <div className="hidden xl:block">
-            <UrgentItemsWidget urgentItems={urgentItems} failedSources={failedSources} />
-          </div>
-
-          {/* 최근 플랫폼 활동 로그. 대표 관리자만 본다.
-              볼 수 없는 사람에게 빈 칸으로 보이면 "활동이 없다"는 뜻으로 오해하므로 칸 자체를 숨긴다. */}
-          {canSeeLogs && (
-          <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-3.5 sm:space-y-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-text-sub shrink-0" />
-                <h2 className="text-sm sm:text-base font-bold text-text">최근 활동</h2>
-              </div>
-            </div>
-
-            {recentLogs.length === 0 ? (
-              <div className="p-6 sm:p-7 text-center text-xs text-text-muted border border-dashed border-border rounded-xl sm:rounded-2xl bg-bg">
-                아직 기록된 최근 활동이 없습니다.
-              </div>
-            ) : (
-              <div className="rounded-xl sm:rounded-2xl bg-bg border border-border divide-y divide-border overflow-hidden">
-                {recentLogs.map((log) => {
-                  const context = log.campaign_id
-                    ? campaignNameById.get(log.campaign_id)
-                    : log.account_id
-                    ? accountNameById.get(log.account_id)
-                    : undefined;
-                  return (
-                    <div key={log.id} className="p-3 sm:p-3.5 space-y-1">
-                      <div className="text-xs text-text leading-snug">{log.summary}</div>
-                      <div className="text-[10px] text-text-muted font-mono tabular-nums flex items-center justify-between">
-                        <span>
-                          {new Date(log.created_at).toLocaleString("ko-KR", {
-                            timeZone: "Asia/Seoul",
-                            month: "numeric",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                        <span className="flex items-center gap-1 truncate max-w-[200px] text-text-sub">
-                          {/* 누가 했는지. 로그인 전 기록과 공개 링크 경로에는 이름이 없다. */}
-                          {log.actor_name && <span className="truncate">{log.actor_name}</span>}
-                          {context && <span className="truncate">· {context}</span>}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

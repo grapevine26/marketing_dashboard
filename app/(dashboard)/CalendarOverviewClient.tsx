@@ -111,7 +111,10 @@ export function UrgentItemsWidget({
           <p className="text-[11px] text-text-sub">마감 3일 이내의 임박이나 지연된 항목이 없습니다.</p>
         </div>
       ) : (
-        <div className="space-y-2 max-h-[340px] sm:max-h-[540px] overflow-y-auto pr-0.5">
+        // 좁은 단(4/12)에 세로로 쌓으려고 만든 칸이었다. 오버뷰가 1단이 되면서 가로가 넓어져,
+        // 한 줄에 하나씩 두면 제목만 왼쪽에 붙고 오른쪽이 텅 빈 채 첫 화면을 다 먹었다.
+        // 넓어질수록 열을 늘려 높이를 줄인다 — 급한 일이 몇 건인지 한눈에 들어와야 한다.
+        <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-2 max-h-[340px] sm:max-h-[540px] overflow-y-auto pr-0.5">
           {urgentItems.map((item) => (
             <Link
               key={item.id}
