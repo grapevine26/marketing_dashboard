@@ -24,13 +24,13 @@ export function findDuplicates(
     url.trim().toLowerCase().replace(/\/$/, "").replace(/^https?:\/\/(www\.)?/, "");
   const normalizePhone = (phone: string) => phone.replace(/[^0-9]/g, "");
 
-  for (let i = 0; i < applicants.length; i++) {
-    const a = applicants[i];
+  // 인덱스(`applicants[i]`) 대신 entries() 를 쓴다. 값이 반드시 있다는 사실이
+  // 코드에 드러나서 "없을 수도 있는데?" 를 매번 방어할 필요가 없다.
+  for (const [i, a] of applicants.entries()) {
     const reasons: string[] = [];
 
-    for (let j = 0; j < applicants.length; j++) {
+    for (const [j, b] of applicants.entries()) {
       if (i === j) continue;
-      const b = applicants[j];
 
       if (a.sns_link && b.sns_link && normalizeUrl(a.sns_link) === normalizeUrl(b.sns_link)) {
         reasons.push(`동일 SNS 계정 (${b.name})`);

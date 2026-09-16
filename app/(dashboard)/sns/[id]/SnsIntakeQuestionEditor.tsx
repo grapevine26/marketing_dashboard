@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
 import { toast } from "@/components/Toast";
+import { swapItems } from "@/lib/ui/reorder";
 
 interface SnsIntakeQuestionEditorProps {
   accountId: string;
@@ -48,13 +49,7 @@ export default function SnsIntakeQuestionEditor({
   };
 
   const move = (idx: number, dir: -1 | 1) =>
-    setQuestions((prev) => {
-      const next = [...prev];
-      const target = idx + dir;
-      if (target < 0 || target >= next.length) return prev;
-      [next[idx], next[target]] = [next[target], next[idx]];
-      return next;
-    });
+    setQuestions((prev) => swapItems(prev, idx, idx + dir));
 
   const handleAdd = () => {
     setQuestions((prev) => [

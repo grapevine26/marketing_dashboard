@@ -42,7 +42,8 @@ export async function POST(request: Request) {
         if (!match) {
           throw new Error("허용되지 않은 업로드 경로입니다.");
         }
-        const ext = match[2].toLowerCase();
+        // 정규식이 통과했으므로 확장자 그룹은 반드시 있다.
+        const ext = (match[2] ?? "").toLowerCase();
 
         let contentId = "";
         let mime = "";

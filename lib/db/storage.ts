@@ -193,9 +193,13 @@ export async function readFile(
   let end = fileSize - 1;
   if (range) {
     const parts = range.replace(/bytes=/, "").split("-");
-    start = parseInt(parts[0], 10);
+    // split 은 최소 한 조각을 돌려주므로 [0] 은 반드시 있다. 숫자가 아니면 아래에서 걸린다.
+    start = parseInt(parts[0] ?? "", 10);
     end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-    if (Number.isNaN(start) || start >= fileSize || end >= fileSize || start > end) return null;
+    // end 의 NaN 도 본다. "bytes=0-abc" 는 start 검사만으로는 통과해서
+    // 끝 위치가 NaN 인 채로 파일을 읽으러 갔다.
+    if (Number.isNaN(start) || Number.isNaN(end)) return null;
+    if (start >= fileSize || end >= fileSize || start > end) return null;
   }
 
   const nodeStream = fs.createReadStream(/*turbopackIgnore: true*/ filePath, { start, end });
@@ -234,14 +238,14 @@ export async function findFileKeyByPrefix(prefix: string, scope: FileScope = "up
     const keys = res.blobs
       .map((b) => b.pathname.slice(prefixOf(scope).length))
       .filter((k) => oneExtensionOnly(k, prefix));
-    return keys.length === 1 ? keys[0] : null;
+    return keys.length === 1 ? (keys[0] ?? null) : null;
   }
   const dir = dirOf(scope);
   if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) return null;
   const matches = fs
     .readdirSync(/*turbopackIgnore: true*/ dir)
     .filter((f) => f.startsWith(prefix) && oneExtensionOnly(f, prefix));
-  return matches.length === 1 ? matches[0] : null;
+  return matches.length === 1 ? (matches[0] ?? null) : null;
 }
 
 export interface StoredFile {

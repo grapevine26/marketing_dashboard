@@ -195,8 +195,11 @@ export default function CalendarOverviewClient({
   // 아젠다 목록 뷰를 위해 날짜별 정렬 및 그룹핑
   const sortedMonthItems = [...monthItems].sort((a, b) => a.dateStr.localeCompare(b.dateStr));
   const groupedByDate = sortedMonthItems.reduce<Record<string, UnifiedCalendarItem[]>>((acc, item) => {
-    if (!acc[item.dateStr]) acc[item.dateStr] = [];
-    acc[item.dateStr].push(item);
+    // 꺼낸 값을 그대로 쓴다. 넣어 두고 다시 꺼내면 "방금 넣었으니 있다" 는 사실이
+    // 코드에 남지 않아, 읽는 쪽에서 매번 없을 수도 있다고 의심해야 한다.
+    const bucket = acc[item.dateStr];
+    if (bucket) bucket.push(item);
+    else acc[item.dateStr] = [item];
     return acc;
   }, {});
 
@@ -394,7 +397,7 @@ export default function CalendarOverviewClient({
             ) : (
               <div className="divide-y divide-border border border-border rounded-2xl bg-bg overflow-hidden">
                 {datesWithItems.map((dateStr) => {
-                  const dayItems = groupedByDate[dateStr];
+                  const dayItems = groupedByDate[dateStr] ?? [];
                   const [, mStr, dStr] = dateStr.split("-");
                   const diff = dayItems[0]?.daysDiff;
                   return (

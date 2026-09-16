@@ -232,7 +232,7 @@ describe("공개 경로 목록", () => {
     // 접두사 목록의 모든 항목은 `/` 로 끝나야 한다. `/apply` 로 적으면 `/applicants-secret` 까지 열린다.
     const prefixBlock = proxy.slice(proxy.indexOf("const PUBLIC_PREFIXES"), proxy.indexOf("function isPublic"));
     for (const m of prefixBlock.matchAll(/"([^"]+)"/g)) {
-      expect(m[1].endsWith("/")).toBe(true);
+      expect(m[1]!.endsWith("/")).toBe(true);
     }
 
     // 열어둔 대신 라우트가 직접 막아야 한다. 둘 중 하나만 있으면 구멍이 된다.
@@ -731,7 +731,7 @@ describe("화면 select 의 값이 타입과 맞는가", () => {
       const src = readFileSync(f, "utf8");
       // 문자열 리터럴로 적힌 option 값만 본다. {변수} 로 그리는 것은 이미 타입이 지켜준다.
       for (const m of src.matchAll(/<option\s+value="([^"]*)"/g)) {
-        if (!known.has(m[1])) unknown.push(`${f}: value="${m[1]}"`);
+        if (!known.has(m[1] ?? "")) unknown.push(`${f}: value="${m[1]}"`);
       }
     }
     expect(unknown).toEqual([]);
@@ -780,5 +780,19 @@ describe("안내 메시지 템플릿에 개인정보가 박히지 않는가", ()
     const tokens = ["이름", "SNS", "연락처", "국적", "브랜드명", "캠페인명", "배송주소", "방문일정"];
     const missing = tokens.filter((t) => populate.includes(t) && !depopulate.includes(t));
     expect(missing).toEqual([]);
+  });
+});
+
+describe("Range 헤더 파싱", () => {
+  // `bytes=0-abc` 는 parseInt 가 NaN 을 돌려주는데, 검사가 start 만 보면
+  // `end >= size` 도 `start > end` 도 false 라 그대로 통과했다.
+  // 저장소(`lib/db/storage.ts`) 쪽은 `storage.test.ts` 가 실제로 돌려서 확인한다.
+  // 미디어 라우트는 요청·파일시스템을 다 세워야 해서, 같은 검사가 있는지만 대조한다.
+  it("미디어 라우트도 start 와 end 의 NaN 을 모두 거른다", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("app/api/media/[id]/route.ts", "utf8");
+    expect(src.includes('range.replace(/bytes=/, "").split("-")')).toBe(true);
+    expect(src.includes("Number.isNaN(start)")).toBe(true);
+    expect(src.includes("Number.isNaN(end)")).toBe(true);
   });
 });

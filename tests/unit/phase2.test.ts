@@ -37,8 +37,8 @@ describeDb("Phase 2: 감사 로그 (Audit Log)", () => {
 
     const logs = await getAuditLogs({ campaign_id: camp.id });
     expect(logs.length).toBeGreaterThanOrEqual(1);
-    expect(logs[0].summary).toBe("테스트 활동 기록입니다.");
-    expect(logs[0].actor_type).toBe("agency");
+    expect(logs[0]!.summary).toBe("테스트 활동 기록입니다.");
+    expect(logs[0]!.actor_type).toBe("agency");
   });
 
   it("지원자 선정, 메모 변경 시 감사 로그가 자동 생성된다", async () => {

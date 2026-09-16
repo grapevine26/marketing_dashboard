@@ -52,9 +52,10 @@ export function projectRef(raw: string | undefined): string | null {
   try {
     const u = new URL(raw);
     const fromUser = /^postgres\.([a-z0-9]+)$/i.exec(u.username);
-    if (fromUser) return fromUser[1];
+    // 캡처 못 했으면 ref 를 모른다는 뜻이다. null 로 떨어뜨려 검사가 막히는 쪽으로 둔다.
+    if (fromUser) return fromUser[1] ?? null;
     const fromHost = /^(?:db\.)?([a-z0-9]+)\.supabase\.(?:co|com)$/i.exec(u.hostname);
-    if (fromHost && fromHost[1] !== "pooler") return fromHost[1];
+    if (fromHost?.[1] && fromHost[1] !== "pooler") return fromHost[1];
     return null;
   } catch {
     return null;

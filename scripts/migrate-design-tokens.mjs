@@ -11,6 +11,7 @@ const ROOTS = ["app", "components"];
 const DRY = process.argv.includes("--dry");
 
 // 순서 중요: 긴 패턴 먼저
+/** @type {[string, string][]} 찾을 문자열과 바꿀 문자열의 쌍. */
 const SIMPLE = [
   ["bg-[#090A0C]", "bg-bg"],
   ["bg-[#121316]", "bg-bg"],

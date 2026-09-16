@@ -990,11 +990,12 @@ export async function deleteSnsMediaAttachment(
   const content = await readSnsContentRow(contentId);
   if (!content || !content.media_attachments) return false;
 
-  const idx = content.media_attachments.findIndex((m) => m.id === attachmentId);
-  if (idx < 0) return false;
+  // find 로 "있는지" 와 "무엇인지" 를 한 번에 얻는다. 인덱스를 들고 다니면
+  // 뒤에서 다시 꺼낼 때 없을 수도 있다는 사실이 코드에서 사라진다.
+  const deleted = content.media_attachments.find((m) => m.id === attachmentId);
+  if (!deleted) return false;
 
   const remaining = content.media_attachments.filter((m) => m.id !== attachmentId);
-  const deleted = content.media_attachments[idx];
 
   unwrap(
     await db().from("sns_contents").update({ media_attachments: remaining }).eq("id", contentId)

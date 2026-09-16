@@ -16,7 +16,7 @@ export function generateCSV(headers: string[], rows: (string | number)[][]): str
   const escapeCell = (val: string | number | null | undefined) => {
     if (val === null || val === undefined) return '""';
     let str = String(val);
-    if (str.length > 0 && RISKY_FIRST_CHARS.includes(str[0])) str = `'${str}`;
+    if (str.length > 0 && RISKY_FIRST_CHARS.includes(str.charAt(0))) str = `'${str}`;
     return `"${str.replace(/"/g, '""')}"`;
   };
 

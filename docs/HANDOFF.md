@@ -371,11 +371,22 @@ e2e 는 `tests/e2e/global-setup.ts` 가 매번 테스트 DB를 비우고, 전용
 | **2. `useState(초기값)` 후 재동기화 없음** | `RefreshOnFocus` 가 탭 복귀 15초 뒤 `router.refresh()` 를 부르는데, refresh 는 `useState` 를 **보존**합니다. 그래서 목록이 옛 데이터 그대로입니다 | `UsersClient.tsx` 의 `syncedFrom` 패턴(주석에 이유까지 적혀 있습니다) |
 | **3. 타입 단언이 컴파일러 확인을 끈다** | `as SomeUnion[]` 이 오타를 통과시킵니다. 실제로 탭 두 개가 빈 버튼이 된 채 한참 있었습니다 | `lib/db/types.ts` 의 `as const satisfies readonly ...[]` |
 
-남은 항목 — **하나뿐입니다.** 사용자가 겪는 고장이 아니라 개발 편의입니다.
+남은 항목 — **없습니다.**
 
-| 항목 | 겪는 일 | 왜 남겼나 |
-|---|---|---|
-| **`noUncheckedIndexedAccess` 가 꺼져 있음** | 켜면 `LABELS[값]` 이 `undefined` 일 수 있다고 컴파일러가 알려줍니다. 지금은 조용히 빈칸이 됩니다 | 켜면 **76곳**이 걸립니다. 대부분 길이 확인 뒤의 배열 접근이라 실제 버그가 아닌데, 76곳을 고치다 진짜 버그를 넣을 위험이 더 큽니다. 대신 `tests/unit/security_fixes.test.ts` 가 화면의 `<option value>` 를 타입과 대조합니다 |
+`noUncheckedIndexedAccess` 는 2026-09-16 에 켰습니다(`tsconfig.json`). 배열이나 사전에서
+값을 꺼낼 때 "없을 수도 있다" 를 컴파일러가 따집니다. 79곳이 걸렸고, 그중 다음 넷은
+조용히 잘못 도는 **진짜 문제**였습니다.
+
+| 고친 것 | 그냥 뒀으면 |
+|---|---|
+| `lib/seeding/dday.ts` — 날짜 문자열을 한 곳(`parseYmd`)에서만 읽는다 | 날짜가 깨져 있으면 화면에 **"D-NaN"** 이 찍혔습니다. 날짜가 없는 것과 구분되지 않았습니다 |
+| `lib/ui/reorder.ts` — 질문 순서 바꾸기를 한 함수로 모았다 | 화면 네 곳이 같은 코드를 각자 갖고 있었고, 전부 **출발 자리의 범위를 확인하지 않아** 배열에 `undefined` 가 박힐 수 있었습니다 |
+| `lib/db/storage.ts`, `app/api/media/[id]/route.ts` — Range 의 끝 위치도 NaN 검사 | `bytes=0-abc` 가 검사를 통과해 끝 위치가 NaN 인 채로 파일을 읽으러 갔습니다 |
+| `lib/reports/pdf.ts` — 칸과 너비를 한 배열에 적는다 | 지표를 하나 더 넣으면 라벨과 너비가 조용히 어긋났습니다 |
+
+나머지는 길이를 확인한 뒤의 접근이나 정규식 캡처 그룹이라 실제 버그는 아니었지만,
+`entries()` 나 `find()` 처럼 "값이 있다" 가 코드에 드러나는 방식으로 바꿔 두었습니다.
+`tsconfig.scripts.json` 이 이 설정을 물려받으므로 `scripts/*.mjs` 에도 함께 적용됩니다.
 
 `npm audit` 은 취약점 0건, `npm run lint` 는 오류·경고 0건입니다. **둘 다 0 을 유지하세요.** 하나둘 쌓이기 시작하면 진짜 문제가 그 사이에 묻힙니다.
 

@@ -104,11 +104,11 @@ describeDb("지원자 선정", () => {
     const { camp, app } = await seedCampaign();
     await updateApplicantStatus(app.id, "selected", "agency");
     const [rec] = await getSeedingRecordsByCampaignId(camp.id);
-    await updateSeedingRecord(rec.id, { progress_stage: "발송완료", views: 100 });
+    await updateSeedingRecord(rec!.id, { progress_stage: "발송완료", views: 100 });
     await updateApplicantStatus(app.id, "applied", "agency");
     const after = await getSeedingRecordsByCampaignId(camp.id);
     expect(after).toHaveLength(1);
-    expect(after[0].progress_stage).toBe("발송완료");
+    expect(after[0]!.progress_stage).toBe("발송완료");
     await updateApplicantStatus(app.id, "selected", "agency");
     expect(await getSeedingRecordsByCampaignId(camp.id)).toHaveLength(1);
   });
@@ -117,9 +117,9 @@ describeDb("지원자 선정", () => {
     const { camp, app } = await seedCampaign();
     await updateApplicantStatus(app.id, "selected", "agency");
     const [rec] = await getSeedingRecordsByCampaignId(camp.id);
-    await expect(updateSeedingRecord(rec.id, { views: -1 })).rejects.toBeInstanceOf(ValidationError);
-    await expect(updateSeedingRecord(rec.id, { upload_link: "not a url" })).rejects.toBeInstanceOf(ValidationError);
-    await expect(updateSeedingRecord(rec.id, { upload_deadline: "2026/09/01" })).rejects.toBeInstanceOf(ValidationError);
+    await expect(updateSeedingRecord(rec!.id, { views: -1 })).rejects.toBeInstanceOf(ValidationError);
+    await expect(updateSeedingRecord(rec!.id, { upload_link: "not a url" })).rejects.toBeInstanceOf(ValidationError);
+    await expect(updateSeedingRecord(rec!.id, { upload_deadline: "2026/09/01" })).rejects.toBeInstanceOf(ValidationError);
   });
 });
 
@@ -160,14 +160,14 @@ describeDb("결과보고서 스냅샷", () => {
     const { camp, app } = await seedCampaign();
     await updateApplicantStatus(app.id, "selected", "agency");
     const [rec] = await getSeedingRecordsByCampaignId(camp.id);
-    await updateSeedingRecord(rec.id, { progress_stage: "업로드완료", upload_link: "https://instagram.com/p/1", views: 1000, engagement: 50 });
+    await updateSeedingRecord(rec!.id, { progress_stage: "업로드완료", upload_link: "https://instagram.com/p/1", views: 1000, engagement: 50 });
 
     const report = await createReport(camp.id);
     expect(report.snapshot_data).toBeDefined();
     expect(report.generated_at).toBeTruthy();
     const m = report.snapshot_data!.metrics;
     expect(m).toMatchObject({ totalApplicants: 1, selectedCount: 1, completedUploads: 1, totalViews: 1000, totalEngagement: 50, avgEngagementRate: 5 });
-    expect(report.snapshot_data!.applicants[0].seeding?.upload_link).toBe("https://instagram.com/p/1");
+    expect(report.snapshot_data!.applicants[0]!.seeding?.upload_link).toBe("https://instagram.com/p/1");
   });
 
   it("buildReportSnapshot은 순수 함수다", () => {

@@ -77,15 +77,17 @@ function infoFormOf(e: MarketingEvent) {
  * **아무것도 자동으로 덮어쓰지 않는다.** 치던 글자를 잃는 것이 못 보는 것보다 나쁘기 때문이다.
  * 어느 쪽을 쓸지는 사람이 고른다.
  */
+/** 충돌이 없으면(serverMemo 가 undefined) 아무것도 그리지 않는다. 판단은 여기 한 곳에서만 한다. */
 function MemoConflictNotice({
   serverMemo,
   onAccept,
   onKeepMine,
 }: {
-  serverMemo: string;
+  serverMemo: string | undefined;
   onAccept: () => void;
   onKeepMine: () => void;
 }) {
+  if (serverMemo === undefined) return null;
   return (
     <div className="mt-1 p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-warn-soft text-[10px] leading-snug space-y-1">
       <p>
@@ -825,13 +827,11 @@ export default function EventDetailClient({
                           onBlur={(e) => handleMemoBlur(inv, e.target.value)}
                           className="w-36 px-2 py-1 rounded-lg bg-bg border border-border text-text-2 text-xs focus:outline-none focus:border-teal-500"
                         />
-                        {memoConflicts[inv.id] !== undefined && (
-                          <MemoConflictNotice
-                            serverMemo={memoConflicts[inv.id]}
-                            onAccept={() => acceptServerMemo(inv.id)}
-                            onKeepMine={() => settleMemo(inv.id)}
-                          />
-                        )}
+                        <MemoConflictNotice
+                          serverMemo={memoConflicts[inv.id]}
+                          onAccept={() => acceptServerMemo(inv.id)}
+                          onKeepMine={() => settleMemo(inv.id)}
+                        />
                       </td>
                       <td className="p-3.5 text-right">
                         <button type="button" onClick={() => handleDeleteInvitee(inv.id)} className="p-1 rounded text-text-muted hover:text-red-400 transition">
@@ -898,13 +898,11 @@ export default function EventDetailClient({
                       onBlur={(e) => handleMemoBlur(inv, e.target.value)}
                       className="w-full px-3 py-2.5 rounded-xl bg-surface border border-border text-text-2 text-xs focus:outline-none focus:border-teal-500"
                     />
-                    {memoConflicts[inv.id] !== undefined && (
-                      <MemoConflictNotice
-                        serverMemo={memoConflicts[inv.id]}
-                        onAccept={() => acceptServerMemo(inv.id)}
-                        onKeepMine={() => settleMemo(inv.id)}
-                      />
-                    )}
+                    <MemoConflictNotice
+                      serverMemo={memoConflicts[inv.id]}
+                      onAccept={() => acceptServerMemo(inv.id)}
+                      onKeepMine={() => settleMemo(inv.id)}
+                    />
                   </div>
                 </div>
               ))

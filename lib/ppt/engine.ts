@@ -55,7 +55,7 @@ function shapeText(shapeXml: string): string {
   const paragraphRegex = /<a:p\b[^>]*>([\s\S]*?)<\/a:p>/g;
   const parts: string[] = [];
   let m: RegExpExecArray | null;
-  while ((m = paragraphRegex.exec(shapeXml)) !== null) parts.push(paragraphText(m[1]));
+  while ((m = paragraphRegex.exec(shapeXml)) !== null) parts.push(paragraphText(m[1] ?? ""));
   return parts.join("\n");
 }
 
@@ -74,11 +74,11 @@ export async function extractPlaceholders(buffer: Buffer): Promise<string[]> {
     const paragraphRegex = /<a:p\b[^>]*>([\s\S]*?)<\/a:p>/g;
     let pMatch: RegExpExecArray | null;
     while ((pMatch = paragraphRegex.exec(xml)) !== null) {
-      const text = paragraphText(pMatch[1]);
+      const text = paragraphText(pMatch[1] ?? "");
       let phMatch: RegExpExecArray | null;
       PLACEHOLDER_RE.lastIndex = 0;
       while ((phMatch = PLACEHOLDER_RE.exec(text)) !== null) {
-        const phName = phMatch[1].trim();
+        const phName = (phMatch[1] ?? "").trim();
         if (phName) placeholders.add(phName);
       }
     }
@@ -260,14 +260,14 @@ export async function fillTemplate(
     const relsPath = `ppt/slides/_rels/slide${slideNum}.xml.rels`;
     let rels = (await zip.file(relsPath)?.async("text")) || null;
     let nextId = nextShapeId(xml);
-    const pendingCharts: { key: string; box: Box; relId: string }[] = [];
+    const pendingCharts: { spec: ChartSpec; box: Box; relId: string }[] = [];
 
     // 1) 표/차트 도형 교체
     xml = xml.replace(/<p:sp\b[\s\S]*?<\/p:sp>/g, (shapeXml) => {
       const text = shapeText(shapeXml);
       const marker = text.match(/\{\{\s*((?:표|차트):[^}]+?)\s*\}\}/);
       if (!marker) return shapeXml;
-      const key = marker[1].trim();
+      const key = (marker[1] ?? "").trim();
       const box = shapeBox(shapeXml);
       const id = nextId++;
       if (key.startsWith(TABLE_PREFIX)) {
@@ -280,15 +280,14 @@ export async function fillTemplate(
       if (!spec || spec.categories.length === 0) return buildTextFrame("표시할 데이터가 없습니다.", box, id);
       chartCounter += 1;
       const relId = `rIdChartMm${chartCounter}`;
-      pendingCharts.push({ key, box, relId });
+      pendingCharts.push({ spec, box, relId });
       return buildChartFrame(box, id, relId);
     });
 
     // 2) 차트 파트 이식
-    for (let i = 0; i < pendingCharts.length; i++) {
-      const { key, box, relId } = pendingCharts[i];
+    for (const [i, { spec, box, relId }] of pendingCharts.entries()) {
       const n = chartCounter - pendingCharts.length + 1 + i;
-      const parts = await buildChartParts(charts[key], box.cx, box.cy);
+      const parts = await buildChartParts(spec, box.cx, box.cy);
       const chartPart = `ppt/charts/chartMm${n}.xml`;
       const embeddingPart = `ppt/embeddings/Microsoft_Excel_Worksheet_Mm${n}.xlsx`;
       zip.file(chartPart, parts.chartXml);

@@ -436,9 +436,10 @@ export async function deletePptTemplate(id: string): Promise<boolean> {
   const removed = unwrap(
     await db().from(TABLE).delete().eq("id", id).select("*").returns<PptTemplateRow[]>()
   );
-  if (removed.length === 0) return false;
+  const [removedRow] = removed;
+  if (!removedRow) return false;
 
-  await logTemplate(id, "ppt_template.deleted", `[${removed[0].name}] 템플릿을 삭제했습니다. 이 템플릿을 쓰던 운영안은 PPT 를 받을 수 없습니다.`);
+  await logTemplate(id, "ppt_template.deleted", `[${removedRow.name}] 템플릿을 삭제했습니다. 이 템플릿을 쓰던 운영안은 PPT 를 받을 수 없습니다.`);
 
   // 행이 지워진 다음에 파일을 지운다. id 접두사라 교체본(`<id>-<버전>.pptx`)까지 함께 치운다.
   await purgeTemplateFile(id);

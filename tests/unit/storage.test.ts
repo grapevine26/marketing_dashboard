@@ -56,6 +56,19 @@ describe("저장소 추상화", () => {
       expect(await readFile(key, "bytes=99-200")).toBeNull();
     });
 
+    it("숫자가 아닌 Range 는 null 이다", async () => {
+      await putFile(key, bytes, "image/png");
+      // 끝 위치가 NaN 이면 `end >= size` 도 `start > end` 도 false 라
+      // 시작 위치만 검사하던 예전 코드는 이것을 통과시켰다.
+      expect(await readFile(key, "bytes=0-abc")).toBeNull();
+      expect(await readFile(key, "bytes=abc-5")).toBeNull();
+      expect(await readFile(key, "bytes=abc")).toBeNull();
+      // 끝을 비우면 파일 끝까지라는 뜻이다. 이것은 막지 않는다.
+      const rest = await readFile(key, "bytes=8-");
+      expect(rest).not.toBeNull();
+      expect((await drain(rest!.stream)).toString()).toBe("89");
+    });
+
     it("없는 키는 null 이다", async () => {
       expect(await statFile("존재하지-않음.png")).toBeNull();
       expect(await readFile("존재하지-않음.png")).toBeNull();

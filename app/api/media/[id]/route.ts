@@ -73,9 +73,11 @@ export async function GET(
   const range = request.headers.get("range");
   if (range) {
     const parts = range.replace(/bytes=/, "").split("-");
-    const start = parseInt(parts[0], 10);
+    // split 은 최소 한 조각을 돌려주므로 [0] 은 반드시 있다.
+    const start = parseInt(parts[0] ?? "", 10);
     const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
-    if (Number.isNaN(start) || start >= stat.size || end >= stat.size || start > end) {
+    // end 의 NaN 도 본다. "bytes=0-abc" 는 start 검사만으로는 통과했다.
+    if (Number.isNaN(start) || Number.isNaN(end) || start >= stat.size || end >= stat.size || start > end) {
       return new NextResponse(null, { status: 416, headers: { "Content-Range": `bytes */${stat.size}` } });
     }
   }

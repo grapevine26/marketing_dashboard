@@ -202,7 +202,7 @@ export default function SnsIntakeFormClient({
 
             {suggestions[q.id]?.length ? (
               <div className="flex flex-wrap gap-1.5 pt-1">
-                {suggestions[q.id].map((s) => (
+                {(suggestions[q.id] ?? []).map((s) => (
                   <span key={s} className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20 text-[10px] font-medium">💡 {s}</span>
                 ))}
               </div>

@@ -70,7 +70,7 @@ test.describe("정보 노출 및 접근 제어", () => {
     await expect(img).toBeVisible({ timeout: 20000 });
     const src = await img.getAttribute("src");
     expect(src).toContain("token=");
-    const bare = src!.split("?")[0];
+    const bare = src!.split("?")[0]!;
 
     // **로그인하지 않은 쪽**에서 확인해야 한다. 직원은 자기 시안이라 토큰 없이도 봐야 맞다.
     // 쿠키가 있는 요청으로 확인하면 "밖에서도 열리는가" 를 검증하지 못한다.

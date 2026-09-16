@@ -7,6 +7,7 @@ import { updateSnsIntakeTemplateAction } from "../../sns/actions";
 import { Plus, Trash2, Save, CheckCircle2, Loader2, HelpCircle, MessageSquareText, FileQuestion, ArrowUp, ArrowDown } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
 import { toast } from "@/components/Toast";
+import { swapItems } from "@/lib/ui/reorder";
 
 export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTemplate: SnsIntakeTemplate }) {
   const router = useRouter();
@@ -24,13 +25,7 @@ export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTe
     setQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)));
 
   const move = (idx: number, dir: -1 | 1) =>
-    setQuestions((prev) => {
-      const next = [...prev];
-      const target = idx + dir;
-      if (target < 0 || target >= next.length) return prev;
-      [next[idx], next[target]] = [next[target], next[idx]];
-      return next;
-    });
+    setQuestions((prev) => swapItems(prev, idx, idx + dir));
 
   const handleAdd = () => {
     setQuestions((prev) => [...prev, { id: `sq_${Date.now()}`, question: "", required: true, placeholder: "" }]);

@@ -48,7 +48,8 @@ export default function DownloadFileButton({
       const plain = disposition.match(/filename="?([^";]+)"?/i);
       let filename = fallbackFilename;
       try {
-        filename = star ? decodeURIComponent(star[1]) : plain ? plain[1] : fallbackFilename;
+        // 정규식이 일치했으면 캡처 그룹은 반드시 있다. 그래도 없으면 기본 이름으로 떨어진다.
+        filename = star?.[1] ? decodeURIComponent(star[1]) : plain?.[1] ? plain[1] : fallbackFilename;
       } catch {
         filename = fallbackFilename;
       }

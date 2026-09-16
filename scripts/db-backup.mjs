@@ -239,7 +239,7 @@ if (wantListRemote) {
   } else {
     console.log(`Blob 백업 ${all.length}개 (${REMOTE_PREFIX}, 시각은 KST):`);
     for (const b of all) console.log(`  ${b.key}  ${(b.size / 1024).toFixed(0).padStart(6)} KB  ${fmtKst(b.uploadedAt)}`);
-    console.log(`\n내려받기: npm run db:backup -- --pull ${all[0].key}   (이름을 빼면 최신 것)`);
+    console.log(`\n내려받기: npm run db:backup -- --pull ${all[0]?.key ?? ""}   (이름을 빼면 최신 것)`);
   }
   process.exit(0);
 }
@@ -251,13 +251,15 @@ if (wantPull) {
   // 이름은 "supabase-….json" 이든 "backups/supabase-….json" 이든 받는다.
   let key = pullTarget && !pullTarget.startsWith("--") ? pullTarget.replace(/^backups\//, "") : null;
   if (!key) {
-    const all = await listRemoteBackups();
-    if (all.length === 0) {
+    // 값을 꺼내 보는 것이 곧 "비어 있는가" 검사다. length 를 따로 보면
+    // 아래에서 꺼낸 값이 또 없을 수도 있는 것처럼 읽힌다.
+    const [latest] = await listRemoteBackups();
+    if (!latest) {
       console.error(`Blob(${REMOTE_PREFIX})에 백업이 없습니다.`);
       process.exit(1);
     }
-    key = all[0].key;
-    console.log(`최신 백업: ${key} (${fmtKst(all[0].uploadedAt)})`);
+    key = latest.key;
+    console.log(`최신 백업: ${key} (${fmtKst(latest.uploadedAt)})`);
   }
   // 위 분기에서 반드시 채워지지만, let 재할당이라 타입이 string|null 로 남는다.
   // 한 번 더 확인해 확정한다 — 여기 걸릴 일은 없고, 걸린다면 위 분기가 깨진 것이다.

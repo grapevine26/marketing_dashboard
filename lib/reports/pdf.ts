@@ -61,21 +61,26 @@ export async function generateReportPDF(report: Report): Promise<Buffer> {
     const boxTop = doc.y + 14;
     const boxH = 62;
     doc.rect(PAGE_LEFT, boxTop, PAGE_WIDTH, boxH).fillAndStroke("#F3F4F6", "#E5E7EB");
-    const cells = [
-      ["총 지원자", `${metrics.totalApplicants}명`],
-      ["최종 선정", `${metrics.selectedCount}명`],
-      ["업로드 완료", `${metrics.completedUploads}건`],
-      ["총 조회수", `${metrics.totalViews.toLocaleString()}회`],
-      ["인게이지먼트", `${metrics.totalEngagement.toLocaleString()} (${metrics.avgEngagementRate}%)`],
+    // 너비를 칸과 같은 자리에 적는다. 따로 둔 배열은 지표를 하나 더 넣는 순간
+    // 조용히 어긋나서, 라벨은 3번 칸인데 너비는 4번 칸 것을 쓰게 된다.
+    // 마지막 칸(인게이지먼트 + 비율)이 가장 길어서 너비를 더 준다.
+    const cells: { label: string; value: string; width: number }[] = [
+      { label: "총 지원자", value: `${metrics.totalApplicants}명`, width: 80 },
+      { label: "최종 선정", value: `${metrics.selectedCount}명`, width: 80 },
+      { label: "업로드 완료", value: `${metrics.completedUploads}건`, width: 85 },
+      { label: "총 조회수", value: `${metrics.totalViews.toLocaleString()}회`, width: 110 },
+      {
+        label: "인게이지먼트",
+        value: `${metrics.totalEngagement.toLocaleString()} (${metrics.avgEngagementRate}%)`,
+        width: 140,
+      },
     ];
-    // 마지막 칸(인게이지먼트 + 비율)이 가장 길어서 너비를 더 준다
-    const cellWidths = [80, 80, 85, 110, 140];
     let cx = PAGE_LEFT;
-    cells.forEach(([label, value], i) => {
+    cells.forEach(({ label, value, width }) => {
       const x = cx + 10;
-      doc.font(regular).fontSize(9).fillColor("#6B7280").text(label, x, boxTop + 12, { width: cellWidths[i] - 12, lineBreak: false });
-      doc.font(bold).fontSize(14).fillColor("#111827").text(value, x, boxTop + 29, { width: cellWidths[i] - 12, lineBreak: false });
-      cx += cellWidths[i];
+      doc.font(regular).fontSize(9).fillColor("#6B7280").text(label, x, boxTop + 12, { width: width - 12, lineBreak: false });
+      doc.font(bold).fontSize(14).fillColor("#111827").text(value, x, boxTop + 29, { width: width - 12, lineBreak: false });
+      cx += width;
     });
     let y = boxTop + boxH + 22;
 

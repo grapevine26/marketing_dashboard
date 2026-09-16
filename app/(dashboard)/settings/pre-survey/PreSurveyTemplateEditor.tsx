@@ -8,6 +8,7 @@ import { Plus, Trash2, Save, CheckCircle2, Loader2, HelpCircle, MessageSquareTex
 import { safeCall } from "@/lib/actions/safeCall";
 import { toast } from "@/components/Toast";
 import { useFlipList } from "@/lib/hooks/useFlipList";
+import { swapItems } from "@/lib/ui/reorder";
 
 export default function PreSurveyTemplateEditor({
   initialTemplate,
@@ -39,12 +40,7 @@ export default function PreSurveyTemplateEditor({
       setRecentlyMovedId(movedItem.id);
       setTimeout(() => setRecentlyMovedId(null), 500);
     }
-    setQuestions((prev) => {
-      const next = [...prev];
-      if (target < 0 || target >= next.length) return prev;
-      [next[idx], next[target]] = [next[target], next[idx]];
-      return next;
-    });
+    setQuestions((prev) => swapItems(prev, idx, target));
   };
 
   const handleAdd = () => {

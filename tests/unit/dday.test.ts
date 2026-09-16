@@ -41,6 +41,26 @@ describe("KST 날짜 유틸", () => {
     expect(calculateDDay("2026-09-01T00:00:00Z", "2026-09-02")).toMatchObject({ dday: -1, isOverdue: true });
   });
 
+  it("날짜가 깨져 있으면 D-NaN 이 아니라 '-' 로 떨어진다", () => {
+    // 예전에는 `split("-").map(Number)` 결과를 그대로 Date.UTC 에 넣어서,
+    // 값이 모자라면 화면에 "D-NaN" 이 찍혔다. 날짜가 없는 것과 구분이 안 됐다.
+    const empty = { dday: null, label: "-", isOverdue: false };
+    expect(calculateDDay("2026-09")).toEqual(empty);
+    expect(calculateDDay("아무거나")).toEqual(empty);
+    expect(calculateDDay("")).toEqual(empty);
+    expect(calculateDDay("2026-09-02", "망가진오늘")).toEqual(empty);
+    // 제대로 된 날짜는 그대로 동작한다.
+    expect(calculateDDay("2026-09-05", "2026-09-02").label).toBe("D-3");
+    expect(Number.isNaN(daysUntilDeadline("2026-09", "2026-09-02"))).toBe(true);
+  });
+
+  it("달력은 월 형식이 깨져도 무언가는 그린다", () => {
+    // 달력 화면은 null 을 돌려줄 자리가 없다. 오늘이 속한 달로 물러선다.
+    const grid = buildMonthGrid("깨진값", "2026-09-06");
+    expect(grid.cells.length).toBeGreaterThan(27);
+    expect(shiftMonth("깨진값", 0)).toMatch(/^\d{4}-\d{2}$/);
+  });
+
   it("month 파라미터는 형식이 틀리면 오늘 달로 폴백한다", () => {
     expect(parseMonthParam("2026-08", "2026-09-06")).toBe("2026-08");
     expect(parseMonthParam("abc", "2026-09-06")).toBe("2026-09");

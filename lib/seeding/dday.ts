@@ -59,13 +59,31 @@ export function kstLocalInputToIso(value: string | null | undefined): string | n
   return Number.isNaN(t) ? null : new Date(t).toISOString();
 }
 
-export function daysUntilDeadline(deadlineStr: string, todayKstStr?: string): number {
-  const today = todayKstStr || toKstDateString();
-  const [ty, tm, td] = today.split("-").map(Number);
-  const [dy, dm, dd] = deadlineStr.split("-").map(Number);
+/**
+ * "YYYY-MM-DD" 를 연·월·일로 쪼갠다. 형식이 어긋나면 null.
+ *
+ * 예전에는 `split("-").map(Number)` 결과를 그대로 `Date.UTC` 에 넣었다. 값이 모자라면
+ * NaN 이 되어 화면에 **"D-NaN"** 이 찍혔는데, 그게 날짜가 없다는 뜻인지 깨졌다는 뜻인지
+ * 알 수 없었다. 판단을 여기 한 곳으로 모아서 호출자가 "못 읽었다" 를 구분할 수 있게 한다.
+ */
+function parseYmd(value: string): { y: number; m: number; d: number } | null {
+  const matched = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(value);
+  if (!matched) return null;
+  // 정규식이 통과했으므로 세 자리 모두 숫자다.
+  return { y: Number(matched[1]), m: Number(matched[2]), d: Number(matched[3]) };
+}
 
-  const tDate = Date.UTC(ty, tm - 1, td);
-  const dDate = Date.UTC(dy, dm - 1, dd);
+/**
+ * 오늘로부터 마감까지 남은 날수. 둘 중 하나라도 "YYYY-MM-DD" 가 아니면 NaN.
+ * (NaN 을 돌려주는 것은 예전 그대로다. 화면에 쓰는 쪽은 {@link calculateDDay} 를 쓸 것.)
+ */
+export function daysUntilDeadline(deadlineStr: string, todayKstStr?: string): number {
+  const today = parseYmd(todayKstStr || toKstDateString());
+  const deadline = parseYmd(deadlineStr);
+  if (!today || !deadline) return NaN;
+
+  const tDate = Date.UTC(today.y, today.m - 1, today.d);
+  const dDate = Date.UTC(deadline.y, deadline.m - 1, deadline.d);
 
   return Math.round((dDate - tDate) / 86400000);
 }
@@ -94,7 +112,12 @@ export function calculateDDay(
   if (!deadlineStr) {
     return { dday: null, label: "-", isOverdue: false };
   }
-  const days = daysUntilDeadline(deadlineStr.split("T")[0], todayKstStr);
+  // split 은 최소 한 조각을 돌려주므로 [0] 은 반드시 있다.
+  const days = daysUntilDeadline(deadlineStr.split("T")[0] ?? "", todayKstStr);
+  // 날짜를 못 읽었으면 "없음" 과 같게 다룬다. 화면에 "D-NaN" 이 뜨는 것보다 낫다.
+  if (Number.isNaN(days)) {
+    return { dday: null, label: "-", isOverdue: false };
+  }
   return {
     dday: days,
     label: formatDday(days),
@@ -111,9 +134,22 @@ export function parseMonthParam(value: string | undefined | null, fallbackKstTod
   return fallbackKstToday.slice(0, 7);
 }
 
+/**
+ * "YYYY-MM" 을 연·월로 쪼갠다. 형식이 어긋나면 **오늘이 속한 달**로 물러선다.
+ * 달력은 어떤 값이 와도 무언가는 그려야 하는 화면이라 null 을 돌려줄 자리가 없다.
+ */
+function parseMonth(month: string): { y: number; m: number } {
+  const matched = /^(\d{4})-(\d{1,2})$/.exec(month);
+  if (!matched) {
+    const today = toKstDateString();
+    return { y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) };
+  }
+  return { y: Number(matched[1]), m: Number(matched[2]) };
+}
+
 /** "YYYY-MM"에 delta개월을 더한 "YYYY-MM" */
 export function shiftMonth(month: string, delta: number): string {
-  const [y, m] = month.split("-").map(Number);
+  const { y, m } = parseMonth(month);
   const d = new Date(Date.UTC(y, m - 1 + delta, 1));
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
@@ -126,7 +162,7 @@ export interface MonthGridCell {
 
 /** 해당 월의 날짜 셀 목록과 1일의 요일(0=일)을 돌려준다. */
 export function buildMonthGrid(month: string, todayKst: string): { leadingBlanks: number; cells: MonthGridCell[] } {
-  const [y, m] = month.split("-").map(Number);
+  const { y, m } = parseMonth(month);
   const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const leadingBlanks = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
   const cells: MonthGridCell[] = [];
