@@ -275,7 +275,7 @@ export default function CampaignsListClient({
               </button>
             )}
           </div>
-          <span className="text-[11px] text-text-muted whitespace-nowrap font-mono shrink-0 hidden lg:inline">
+          <span className="text-[11px] text-text-muted whitespace-nowrap tabular-nums shrink-0 hidden lg:inline">
             총 {filteredCampaigns.length}건
           </span>
         </div>

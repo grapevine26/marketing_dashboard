@@ -697,7 +697,7 @@ export default function EventDetailClient({
         ].map((k) => (
           <div key={k.label} className="p-3 sm:p-4 rounded-2xl bg-surface border border-border text-center sm:text-left">
             <div className="text-[10px] sm:text-[11px] text-text-muted font-medium truncate">{k.label}</div>
-            <div className={`text-base sm:text-2xl font-bold mt-0.5 font-mono tabular-nums ${k.cls}`}>{k.value}명</div>
+            <div className={`text-base sm:text-2xl font-bold mt-0.5 tabular-nums ${k.cls}`}>{k.value}명</div>
           </div>
         ))}
       </div>

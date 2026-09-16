@@ -494,7 +494,7 @@ export default function PptTemplatesClient({
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-border text-[11px] text-text-muted font-mono">
+              <div className="pt-3 border-t border-border text-[11px] text-text-muted tabular-nums">
                 등록일: {new Date(t.uploaded_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}
               </div>
             </div>

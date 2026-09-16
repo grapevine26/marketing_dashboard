@@ -361,7 +361,7 @@ export default function ActivityClient({
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-xs text-text leading-snug break-words">{log.summary}</p>
-                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-text-muted font-mono tabular-nums">
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-text-muted tabular-nums">
                           <span>
                             {new Date(log.created_at).toLocaleTimeString("ko-KR", {
                               timeZone: "Asia/Seoul",

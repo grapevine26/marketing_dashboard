@@ -219,7 +219,7 @@ export default function CampaignIntegrationsCard({
                       )}
                       <span className="font-semibold text-text">{log.summary}</span>
                     </div>
-                    <span className="text-[10px] text-text-muted font-mono">
+                    <span className="text-[10px] text-text-muted tabular-nums">
                       {new Date(log.created_at).toLocaleString("ko-KR", {
                         timeZone: "Asia/Seoul",
                         month: "numeric",

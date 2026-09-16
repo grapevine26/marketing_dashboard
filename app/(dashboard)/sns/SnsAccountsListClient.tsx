@@ -197,7 +197,7 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
               </button>
             )}
           </div>
-          <span className="text-[11px] text-text-muted whitespace-nowrap font-mono shrink-0 hidden lg:inline">
+          <span className="text-[11px] text-text-muted whitespace-nowrap tabular-nums shrink-0 hidden lg:inline">
             총 {filteredAccounts.length}건
           </span>
         </div>
@@ -274,7 +274,7 @@ export default function SnsAccountsListClient({ initialAccounts }: SnsAccountsLi
                   </p>
                 </Link>
 
-                <div className="text-[11px] text-text-muted font-mono">
+                <div className="text-[11px] text-text-muted tabular-nums">
                   계약: {acc.starts_on || "시작일 미정"} ~ {acc.ends_on || "종료일 미정"}
                 </div>
               </div>

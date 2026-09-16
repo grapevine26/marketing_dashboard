@@ -757,7 +757,7 @@ export default function SnsAccountDetailClient({
               </div>
               <h1 className="text-xl sm:text-2xl font-extrabold text-text">{account.company_name}</h1>
               <p className="text-xs text-accent2 font-mono">
-                @{account.handle} <span className="text-text-muted">· 계약 {account.starts_on || "미정"} ~ {account.ends_on || "미정"}</span>
+                @{account.handle} <span className="text-text-muted font-sans tabular-nums">· 계약 {account.starts_on || "미정"} ~ {account.ends_on || "미정"}</span>
               </p>
             </div>
 
@@ -910,7 +910,7 @@ export default function SnsAccountDetailClient({
             <span className="text-text-muted">전체 누적 {postedContents.length}건 · 조회 {sum(postedContents, "view_count").toLocaleString()}</span>
           </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono tabular-nums">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 tabular-nums">
           {[
             { label: "게시 건수", value: `${monthPosted.length}건`, cls: "text-text" },
             { label: "조회수", value: `${sum(monthPosted, "view_count").toLocaleString()}회`, cls: "text-text" },
@@ -1184,7 +1184,7 @@ export default function SnsAccountDetailClient({
                   </button>
                 )}
               </div>
-              <span className="text-[11px] text-text-muted whitespace-nowrap font-mono shrink-0 hidden md:inline">
+              <span className="text-[11px] text-text-muted whitespace-nowrap tabular-nums shrink-0 hidden md:inline">
                 {filteredContents.length} / {contents.length}건
               </span>
             </div>

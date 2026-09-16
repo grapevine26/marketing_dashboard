@@ -287,7 +287,7 @@ export default function AllEventsListClient({
               </div>
 
               <div className="pt-3 border-t border-border flex items-center justify-between text-xs text-text-sub">
-                <div className="flex items-center gap-3 font-mono tabular-nums">
+                <div className="flex items-center gap-3 tabular-nums">
                   <span>
                     초청 <strong className="text-text">{card.inviteeCount}</strong>
                   </span>

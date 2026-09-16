@@ -562,7 +562,7 @@ export default function ApplicantTable({
                       {(a.follower_count !== undefined || a.category) && (
                         <div className="flex items-center justify-end gap-1.5 mt-0.5 text-[10px]">
                           {a.follower_count !== undefined && (
-                            <span className="px-1.5 py-0.5 rounded bg-surface2 border border-border text-text-2 font-mono">
+                            <span className="px-1.5 py-0.5 rounded bg-surface2 border border-border text-text-2 tabular-nums">
                               {formatFollowers(a.follower_count)}
                             </span>
                           )}
@@ -692,7 +692,7 @@ export default function ApplicantTable({
                         {(a.follower_count !== undefined || a.category) && (
                           <div className="flex items-center gap-1.5 mt-1 text-[11px] text-text-sub flex-wrap">
                             {a.follower_count !== undefined && (
-                              <span className="px-1.5 py-0.5 rounded bg-surface2 border border-border text-text-2 font-mono text-[10px]">
+                              <span className="px-1.5 py-0.5 rounded bg-surface2 border border-border text-text-2 tabular-nums text-[10px]">
                                 {formatFollowers(a.follower_count)}
                               </span>
                             )}

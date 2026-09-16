@@ -525,7 +525,7 @@ export default function UsersClient({ initialUsers, currentUserId, myRole, invit
                         </span>
                       </div>
 
-                      <div className="text-[11px] text-text-muted font-mono flex flex-wrap gap-x-3 gap-y-0.5">
+                      <div className="text-[11px] text-text-muted tabular-nums flex flex-wrap gap-x-3 gap-y-0.5">
                         <span>가입 {formatDate(u.created_at)}</span>
                         {u.status !== "pending" && (
                           <span>

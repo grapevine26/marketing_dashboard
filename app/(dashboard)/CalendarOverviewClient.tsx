@@ -90,7 +90,7 @@ export function UrgentItemsWidget({
           <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-warn shrink-0" />
           <h2 className="text-sm sm:text-base font-bold text-text">임박 및 지연 일정 (D-3 ~ 지연)</h2>
         </div>
-        <span className="text-xs text-text-muted font-medium font-mono tabular-nums">
+        <span className="text-xs text-text-muted font-medium tabular-nums">
           총 {urgentItems.length}건
         </span>
       </div>
@@ -131,7 +131,7 @@ export function UrgentItemsWidget({
                 <div className="flex items-center justify-between gap-2">
                   <SourceBadge source={item.source} />
                   <span
-                    className={`text-xs font-bold font-mono tabular-nums ${
+                    className={`text-xs font-bold tabular-nums ${
                       item.daysDiff < 0
                         ? "text-red-400"
                         : item.daysDiff === 0
@@ -149,8 +149,9 @@ export function UrgentItemsWidget({
                   {item.brandName} {item.extraInfo && `• ${item.extraInfo}`}
                 </div>
               </div>
-              <div className="text-[10px] text-text-muted font-mono flex items-center justify-between pt-1.5 border-t border-border/80">
-                <span>{item.dateStr}</span>
+              {/* 고정폭은 날짜에만 준다. 줄 전체에 주면 옆의 "상세보기 →" 까지 글꼴이 바뀐다. */}
+              <div className="text-[10px] text-text-muted flex items-center justify-between pt-1.5 border-t border-border/80">
+                <span className="font-mono tabular-nums">{item.dateStr}</span>
                 <span className="text-text-sub group-hover:text-accent-link group-hover:underline">
                   상세보기 →
                 </span>
@@ -225,7 +226,7 @@ export default function CalendarOverviewClient({
               <span className="sm:hidden">{month}월 마케팅 일정</span>
               <span className="hidden sm:inline">{year}년 {month}월 전체 마케팅 통합 일정</span>
             </h2>
-            <span className="text-[11px] sm:text-xs text-text-muted font-mono tabular-nums">
+            <span className="text-[11px] sm:text-xs text-text-muted tabular-nums">
               ({monthItems.length}건)
             </span>
           </div>
@@ -416,7 +417,7 @@ export default function CalendarOverviewClient({
                         </div>
                         {diff !== undefined && (
                           <span
-                            className={`text-xs font-mono font-bold ${
+                            className={`text-xs font-bold tabular-nums ${
                               diff < 0
                                 ? "text-red-400"
                                 : diff === 0

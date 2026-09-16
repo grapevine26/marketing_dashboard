@@ -82,7 +82,7 @@ export default async function DashboardOverviewPage({
             </div>
             <span className="text-xs sm:text-sm text-text truncate">
               가입 승인을 기다리는 사용자가{" "}
-              <strong className="font-bold text-accent2 font-mono tabular-nums">{pendingUserCount}명</strong> 있습니다
+              <strong className="font-bold text-accent2 tabular-nums">{pendingUserCount}명</strong> 있습니다
             </span>
           </div>
           <span className="text-xs font-semibold text-accent-link inline-flex items-center gap-1 shrink-0 group-hover:underline">
