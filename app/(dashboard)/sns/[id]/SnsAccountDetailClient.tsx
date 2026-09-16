@@ -373,7 +373,24 @@ export default function SnsAccountDetailClient({
   /** 미디어 URL에는 계정 승인 토큰을 붙여야 서버가 응답한다 (/api/media 는 토큰 필수). */
   const mediaSrc = (m: SnsMediaAttachment) => `${m.url}?token=${encodeURIComponent(account.approval_token)}`;
 
-  type UploadOutcome = { ok: true; data: SnsMediaAttachment } | { ok: false; error: string };
+  /**
+   * 첨부 결과에는 **콘텐츠의 새 기준 시각**이 함께 온다.
+   *
+   * 첨부는 콘텐츠 행을 직접 고치므로 DB 트리거가 `updated_at` 을 올린다. 수정 모달은 열 때
+   * 잡아 둔 기준 시각으로 충돌을 판정하니, 갱신해 주지 않으면 **자기가 붙인 첨부 때문에
+   * 자기 저장이 "다른 사람이 먼저 저장했습니다" 로 거부된다.**
+   */
+  type UploadOutcome =
+    | { ok: true; data: { attachment: SnsMediaAttachment; contentUpdatedAt: string | null } }
+    | { ok: false; error: string };
+
+  /** 첨부 조작이 돌려준 새 기준 시각을 목록과 열려 있는 모달에 반영한다. */
+  const 기준시각갱신 = (contentId: string, updatedAt: string | null) => {
+    if (!updatedAt) return;
+    setContents((prev) => prev.map((c) => (c.id === contentId ? { ...c, updated_at: updatedAt } : c)));
+    // 지금 그 콘텐츠를 열어 놓고 있다면 모달이 들고 있는 기준도 같이 옮긴다.
+    if (editingId === contentId) setEditingBaseline(updatedAt);
+  };
 
   /** 파일을 브라우저에서 Blob 으로 바로 보낸 뒤, 서버에는 기록만 요청한다. */
   const uploadDirect = async (contentId: string, file: File): Promise<UploadOutcome> => {
@@ -468,10 +485,11 @@ export default function SnsAccountDetailClient({
         setContents((prev) =>
           prev.map((c) =>
             c.id === editingId
-              ? { ...c, media_attachments: [...(c.media_attachments || []), res.data] }
+              ? { ...c, media_attachments: [...(c.media_attachments || []), res.data.attachment] }
               : c
           )
         );
+        기준시각갱신(editingId, res.data.contentUpdatedAt);
       }
     }
     } finally {
@@ -497,6 +515,7 @@ export default function SnsAccountDetailClient({
       toast.error(res.error || "첨부 삭제에 실패했습니다.");
       return;
     }
+    기준시각갱신(contentId, res.data.contentUpdatedAt);
     setContents((prev) =>
       prev.map((c) =>
         c.id === contentId
@@ -608,7 +627,10 @@ export default function SnsAccountDetailClient({
           } else {
             createdContent = {
               ...createdContent,
-              media_attachments: [...(createdContent.media_attachments || []), upRes.data],
+              media_attachments: [...(createdContent.media_attachments || []), upRes.data.attachment],
+              // 새로 만든 콘텐츠도 첨부를 붙이는 순간 기준 시각이 바뀐다. 목록에 넣을 때
+              // 옛 값을 넣어 두면 나중에 그 콘텐츠를 열어 고칠 때 바로 가짜 충돌이 난다.
+              updated_at: upRes.data.contentUpdatedAt ?? createdContent.updated_at,
             };
           }
         }

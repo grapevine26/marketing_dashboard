@@ -4,6 +4,7 @@
 
 import { revalidatePath } from "next/cache";
 import { resolveMediaMime } from "@/lib/db/types";
+import { readRowUpdatedAt } from "@/lib/db/row-lock";
 import {
   createSnsAccount,
   updateSnsAccount,
@@ -183,7 +184,20 @@ export async function deleteSnsContentAction(contentId: string, accountId: strin
   });
 }
 
-export async function uploadSnsMediaAction(formData: FormData): Promise<ActionResult<SnsMediaAttachment>> {
+/**
+ * 첨부 조작은 **콘텐츠 행을 직접 고친다**. 그러면 DB 트리거가 `updated_at` 을 올린다(마이그레이션 0008).
+ *
+ * 그런데 수정 모달은 **열 때 잡아 둔 기준 시각**으로 저장 충돌을 판정한다. 그래서 같은 모달 안에서
+ * 첨부를 하나 붙이면, 그 순간 기준 시각이 낡아 **혼자 작업하는데도 "다른 사람이 먼저 저장했습니다"**
+ * 가 뜬다. 거기서 "최신 내용 불러오기" 를 고르면 방금 쓴 캡션이 사라진다.
+ *
+ * 그래서 첨부 액션은 바뀐 기준 시각을 함께 돌려준다. 화면은 이 값으로 기준을 갱신한다.
+ * (DB 함수의 반환값을 바꾸지 않고 여기서 한 번 더 읽는다 — 가벼운 조회 한 번이고,
+ *  이미 이 함수들을 쓰는 다른 곳들의 계약을 건드리지 않는다.)
+ */
+type MediaResult = { attachment: SnsMediaAttachment; contentUpdatedAt: string | null };
+
+export async function uploadSnsMediaAction(formData: FormData): Promise<ActionResult<MediaResult>> {
   return runAuthedAction(async () => {
     const contentId = formData.get("contentId") as string;
     const accountId = formData.get("accountId") as string;
@@ -201,7 +215,7 @@ export async function uploadSnsMediaAction(formData: FormData): Promise<ActionRe
       size: file.size,
     });
     revalidateAccount(accountId);
-    return attachment;
+    return { attachment, contentUpdatedAt: await readRowUpdatedAt("sns_contents", contentId) };
   });
 }
 
@@ -218,7 +232,7 @@ export async function confirmSnsMediaUploadAction(input: {
   storedFilename: string;
   name: string;
   mimeType: string;
-}): Promise<ActionResult<SnsMediaAttachment>> {
+}): Promise<ActionResult<MediaResult>> {
   return runAuthedAction(async () => {
     if (!input.contentId || !input.accountId || !input.attachmentId || !input.storedFilename) {
       throw new ValidationError("잘못된 요청입니다.");
@@ -230,7 +244,7 @@ export async function confirmSnsMediaUploadAction(input: {
       mime_type: input.mimeType,
     });
     revalidateAccount(input.accountId);
-    return attachment;
+    return { attachment, contentUpdatedAt: await readRowUpdatedAt("sns_contents", input.contentId) };
   });
 }
 
@@ -238,7 +252,7 @@ export async function deleteSnsMediaAction(
   contentId: string,
   attachmentId: string,
   accountId: string
-): Promise<ActionResult<boolean>> {
+): Promise<ActionResult<{ contentUpdatedAt: string | null }>> {
   return runAuthedAction(async (user) => {
     // 지우면 저장소의 파일까지 함께 사라지고 백업으로도 되살릴 수 없다.
     // 파일이 같이 없어지는 삭제는 관리자 이상으로 좁힌다.
@@ -247,7 +261,8 @@ export async function deleteSnsMediaAction(
     const deleted = await deleteSnsMediaAttachment(contentId, attachmentId);
     if (!deleted) throw new ValidationError("첨부 파일이 이미 삭제되었거나 찾을 수 없습니다. 화면을 새로고침해주세요.");
     revalidateAccount(accountId);
-    return true;
+    // 삭제도 콘텐츠 행을 고치므로 기준 시각이 바뀐다. 추가할 때와 같은 이유로 돌려준다.
+    return { contentUpdatedAt: await readRowUpdatedAt("sns_contents", contentId) };
   });
 }
 

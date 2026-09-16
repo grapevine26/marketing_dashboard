@@ -47,7 +47,15 @@ export async function buildChartParts(spec: ChartSpec, widthEmu: number, heightE
 
   const buf = (await pptx.write({ outputType: "nodebuffer" })) as Buffer;
   const zip = await JSZip.loadAsync(buf);
-  const chartXml = await zip.file("ppt/charts/chart1.xml")?.async("text");
+
+  // **파일명을 고정하면 안 된다.** pptxgenjs 는 차트 번호를 모듈 전역으로 센다
+  // (`let _chartCounter = 0` → `chart${++_chartCounter}.xml`). 프레젠테이션을 새로 만들어도
+  // 카운터는 0 으로 돌아가지 않으므로, 같은 프로세스의 두 번째 호출은 chart2.xml 을 만든다.
+  // chart1.xml 을 찾도록 두면 **서버가 살아 있는 동안 첫 다운로드만 되고 그 뒤로는 전부
+  // 실패한다.** 배포나 재시작 전까지 낫지 않고, 사용자에게는 이유가 보이지 않는다.
+  // 그래서 이름을 찾아서 쓴다. 이 임시 pptx 에는 차트가 하나뿐이므로 첫 번째가 그것이다.
+  const chartName = Object.keys(zip.files).find((n) => /^ppt\/charts\/chart\d+\.xml$/.test(n));
+  const chartXml = chartName ? await zip.file(chartName)!.async("text") : undefined;
   if (!chartXml) throw new Error("chart part not generated");
   const embeddingName = Object.keys(zip.files).find((n) => n.startsWith("ppt/embeddings/") && n.endsWith(".xlsx"));
   const embeddingData = embeddingName ? await zip.file(embeddingName)!.async("nodebuffer") : null;

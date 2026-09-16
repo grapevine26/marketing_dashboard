@@ -56,6 +56,30 @@ describe("PPT 표/차트 삽입", () => {
     expect(ct).toContain('Extension="xlsx"');
   }, 20000);
 
+  /**
+   * 한 프로세스에서 차트를 두 번 만들어도 둘 다 나와야 한다.
+   *
+   * pptxgenjs 는 차트 번호를 **모듈 전역**으로 센다(`let _chartCounter = 0`). 그래서 두 번째
+   * 호출은 `chart1.xml` 이 아니라 `chart2.xml` 을 만든다. 우리가 파일명을 고정해 두면
+   * **서버가 살아 있는 동안 첫 번째 다운로드만 성공하고 그 뒤로는 전부 실패한다.**
+   * 다시 되려면 배포나 재시작을 기다려야 하는데, 사용자는 이유를 알 방법이 없다.
+   *
+   * 이 테스트는 그래서 **연속 두 번**을 본다. 한 번만 부르는 테스트로는 절대 잡히지 않는다.
+   */
+  it("차트를 잇달아 만들어도 매번 나온다 (프로세스 전역 카운터)", async () => {
+    for (const 회차 of [1, 2, 3]) {
+      const out = await fillTemplate(await buildFixture(), {}, {
+        charts: { "차트:성과": { categories: ["A", "B"], series: [{ name: "조회수", values: [10, 20] }] } },
+      });
+      const zip = await JSZip.loadAsync(out);
+      const 차트파일 = Object.keys(zip.files).filter((n) => /^ppt\/charts\/chart\w+\.xml$/.test(n));
+      expect(차트파일.length, `${회차}번째 생성에서 차트 파트가 없다`).toBeGreaterThan(0);
+      const xml = await zip.file("ppt/slides/slide1.xml")!.async("text");
+      expect(xml, `${회차}번째 생성에서 플레이스홀더가 남았다`).not.toContain("{{차트:성과}}");
+      expect(xml).toContain('uri="http://schemas.openxmlformats.org/drawingml/2006/chart"');
+    }
+  }, 40000);
+
   it("데이터가 없으면 안내 문구로 대체된다", async () => {
     const out = await fillTemplate(await buildFixture(), {}, {
       tables: { "표:목록": { headers: ["이름"], rows: [] } },

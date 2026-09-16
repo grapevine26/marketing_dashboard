@@ -203,3 +203,43 @@ test("같은 콘텐츠를 둘이 고치면 덮어쓰지 않고 선택지를 준�
     .maybeSingle();
   expect(data?.caption).toBe("B 가 먼저 쓴 카피");
 });
+
+/**
+ * 혼자 작업하는데 "다른 사람이 먼저 저장했습니다" 가 뜨면 안 된다.
+ *
+ * 첨부는 콘텐츠 행을 직접 고치고, DB 트리거가 그때마다 `updated_at` 을 올린다(마이그레이션 0008).
+ * 수정 모달은 **열 때** 잡아 둔 기준 시각으로 충돌을 판정하므로, 같은 모달 안에서 파일 하나만
+ * 붙여도 그 기준이 낡는다. 그대로 두면 자기가 붙인 첨부 때문에 자기 저장이 거부되고,
+ * 거기서 "최신 내용 불러오기" 를 고르면 방금 쓴 캡션이 사라진다.
+ *
+ * 앞의 테스트(진짜 충돌)와 짝이다. 하나는 "남이 고쳤으면 막아야 한다", 이건 "나만 고쳤으면
+ * 막으면 안 된다" — 둘 다 있어야 잠금이 제 역할만 한다.
+ */
+test("첨부를 붙인 뒤 저장해도 가짜 충돌이 나지 않는다", async ({ page }) => {
+  await page.goto(`/sns/${SAMPLE.snsAccountId}?tab=list`);
+  const card = contentCard(page, SAMPLE.pendingContentTitle);
+
+  await card.getByRole("button", { name: "수정", exact: true }).click();
+  const 제목칸 = page.getByPlaceholder("예: 3초 속건조 탈출! 하이드라 세럼 제형 릴스");
+  await expect(제목칸).toBeVisible();
+
+  // 같은 모달 안에서 첨부를 하나 올린다. 이것만으로 행의 updated_at 이 바뀐다.
+  const png = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    Buffer.alloc(1024, 7),
+  ]);
+  await page.locator("input[type='file']").first().setInputFiles({
+    name: "가짜충돌확인.png",
+    mimeType: "image/png",
+    buffer: png,
+  });
+  // 파일명은 목록 카드와 모달 양쪽에 나온다. 올라왔다는 사실만 확인하면 되므로 첫 번째를 본다.
+  await expect(page.getByText("가짜충돌확인.png").first()).toBeVisible({ timeout: 20000 });
+
+  // 그리고 본문을 고쳐 저장한다. 남은 아무도 건드리지 않았다.
+  await 제목칸.fill("첨부 후에도 저장되는 제목");
+  await page.getByRole("button", { name: "수정 저장" }).click();
+
+  await expect(page.getByText("다른 사람이 먼저 저장했습니다")).toBeHidden();
+  await expect(page.getByText("콘텐츠가 수정되었습니다.")).toBeVisible();
+});
