@@ -52,8 +52,9 @@ export async function changeApplicantStatusByTokenAction(params: {
     if (await isThrottled(제한키)) {
       throw new ValidationError("단시간에 너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.");
     }
-    await hitThrottle(제한키[0]!, PUBLIC_SUBMIT);
-    await hitThrottle(제한키[1]!, PUBLIC_BY_LINK);
+    // 둘은 서로 다른 행이라 순서가 없다. 줄줄이 기다리면 광고주가 버튼을 누르고 기다리는
+    // 시간만 왕복 한 번치 늘어난다. 같이 보낸다.
+    await Promise.all([hitThrottle(제한키[0]!, PUBLIC_SUBMIT), hitThrottle(제한키[1]!, PUBLIC_BY_LINK)]);
 
     const applicant = await getApplicantById(params.applicantId);
     if (!applicant || applicant.campaign_id !== campaign.id) throw new ValidationError(APPLICANT_NOT_FOUND);

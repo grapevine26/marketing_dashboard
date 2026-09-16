@@ -5,7 +5,9 @@
  *   npm run db:hide-user -- --list           숨긴 계정 목록
  *   npm run db:hide-user <아이디>             감춘다
  *   npm run db:hide-user <아이디> -- --show   다시 보이게 한다
- *   (뒤에 --test 를 붙이면 테스트 프로젝트)
+ *
+ * 목록 보기(--list)는 그냥 되지만, **바꾸는 것은 대상을 손으로 적어야 한다.**
+ *   --test 를 붙이면 테스트 프로젝트, --prod 를 붙이면 운영.
  *
  * 개발자가 점검용으로 쓰는 계정을 위한 것이다. 고객이 보는 목록에 섞이면 혼란스럽다.
  *
@@ -26,9 +28,26 @@ try {
 
 const args = process.argv.slice(2);
 const isTest = args.includes("--test");
+const allowProd = args.includes("--prod");
 const wantList = args.includes("--list");
 const unhide = args.includes("--show");
 const username = args.find((a) => !a.startsWith("--"));
+
+/**
+ * 운영 DB 를 바꾸는 것을 막는 빗장. db-backup.mjs 의 requireProdFlag 와 같은 규칙이다.
+ *
+ * 대상이 기본값으로 운영이라, `--test` 한 단어가 빠지면 그대로 운영 계정을 감춘다.
+ * 감춘 계정은 **사용자 관리 화면에 나오지 않으므로 화면에서는 되돌릴 수도 없다** —
+ * 다시 이 명령을 쳐야만 나온다. 읽기(--list)는 그대로 둔다.
+ */
+function requireProdFlag(what) {
+  if (isTest || allowProd) return;
+  console.error("");
+  console.error(`${what} 작업은 운영 데이터베이스를 바꿉니다.`);
+  console.error("테스트에 하려던 것이면 --test 를, 정말 운영에 할 것이면 --prod 를 붙이세요.");
+  console.error(`  예) npm run db:hide-user ${username ?? "<아이디>"} -- --prod`);
+  process.exit(1);
+}
 
 const envName = isTest ? "SUPABASE_TEST_DB_URL" : "SUPABASE_DB_URL";
 const url = process.env[envName];
@@ -76,6 +95,9 @@ try {
     console.log(`"${username}" 은(는) 이미 ${next ? "숨긴" : "보이는"} 상태입니다. 바꿀 것이 없습니다.`);
     process.exit(0);
   }
+
+  // 여기까지는 읽기만 했다. 실제로 바꾸기 직전에 빗장을 확인한다.
+  requireProdFlag(`"${username}" 을(를) ${next ? "감추는" : "다시 보이게 하는"}`);
 
   await client.query("update public.profiles set hidden = $2 where id = $1", [target.id, next]);
   console.log(`"${target.display_name}" (@${username}) 계정을 ${next ? "목록에서 감췄습니다" : "다시 보이게 했습니다"}.`);

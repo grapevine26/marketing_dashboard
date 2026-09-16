@@ -123,14 +123,26 @@ export async function updatePptTemplateMetaAction(input: {
   });
 }
 
-/** 파일 교체를 시작할 자리를 잡아준다. 브라우저가 이 경로로 저장소에 바로 올린다. */
+/**
+ * 파일 교체를 시작할 자리를 잡아준다. 브라우저가 이 경로로 저장소에 바로 올린다.
+ *
+ * **교체는 일부러 직원에게도 열어 둔다.** 아래 삭제(deletePptTemplateAction)는 관리자
+ * 전용인데, 교체도 옛 파일을 지우므로(recordReplacedPptTemplate → purgeTemplateKey)
+ * 기준이 어긋나 보인다. 실제로 보안 점검에서 "삭제를 막아두고 같은 결과를 내는 문을
+ * 열어 두었다"고 지적이 나왔고, 한 번 막았다가 **되돌린 것이다.**
+ *
+ * 되돌린 이유는 둘의 성격이 다르기 때문이다. 삭제는 템플릿이 목록에서 사라져 쓰던
+ * 사람이 곧바로 막히지만, 교체는 **자리는 그대로 두고 내용만 새 파일로 바꾸는 평상
+ * 업무**다. 디자인이 바뀔 때마다 관리자를 불러야 하면 쓰기 불편해지고, 그 불편이
+ * 얻는 안전보다 크다고 판단했다(2026-09-16, 사용자 결정).
+ *
+ * 다시 막자는 제안이 나오면 이 문단을 먼저 볼 것. 굳이 좁히고 싶다면 등급을 올리는
+ * 대신 옛 파일을 즉시 지우지 않고 유예를 두는 쪽이 낫다.
+ */
 export async function preparePptTemplateReplaceAction(
   templateId: string
 ): Promise<ActionResult<{ fileKey: string; pathname: string }>> {
-  return runAuthedAction(async (user) => {
-    // 교체는 옛 파일을 지운다(recordReplacedPptTemplate → purgeTemplateKey).
-    // 결과가 삭제와 같으므로 기준도 삭제와 같아야 한다. 한쪽만 좁히면 좁힌 쪽이 무의미해진다.
-    if (!isManager(user.role)) throw new ValidationError("템플릿 교체는 관리자만 할 수 있습니다.");
+  return runAuthedAction(async () => {
     if (!templateId) throw new ValidationError("잘못된 요청입니다.");
     return preparePptTemplateReplace(templateId);
   });
@@ -144,10 +156,7 @@ export async function confirmPptTemplateReplaceAction(input: {
   templateId: string;
   fileKey: string;
 }): Promise<ActionResult<{ template: PptTemplate; warning: string | null }>> {
-  return runAuthedAction(async (user) => {
-    // 교체는 옛 파일을 지운다(recordReplacedPptTemplate → purgeTemplateKey).
-    // 결과가 삭제와 같으므로 기준도 삭제와 같아야 한다. 한쪽만 좁히면 좁힌 쪽이 무의미해진다.
-    if (!isManager(user.role)) throw new ValidationError("템플릿 교체는 관리자만 할 수 있습니다.");
+  return runAuthedAction(async () => {
     if (!input.templateId || !input.fileKey) throw new ValidationError("잘못된 요청입니다.");
 
     const bytes = await readPptTemplateFileByKey(input.fileKey);
@@ -171,10 +180,7 @@ export async function confirmPptTemplateReplaceAction(input: {
 export async function uploadPptTemplateReplacementAction(
   formData: FormData
 ): Promise<ActionResult<null>> {
-  return runAuthedAction(async (user) => {
-    // 교체는 옛 파일을 지운다(recordReplacedPptTemplate → purgeTemplateKey).
-    // 결과가 삭제와 같으므로 기준도 삭제와 같아야 한다. 한쪽만 좁히면 좁힌 쪽이 무의미해진다.
-    if (!isManager(user.role)) throw new ValidationError("템플릿 교체는 관리자만 할 수 있습니다.");
+  return runAuthedAction(async () => {
     const file = formData.get("file");
     const fileKey = formData.get("fileKey");
     if (!(file instanceof File) || typeof fileKey !== "string") throw new ValidationError("필수 항목이 누락되었습니다.");

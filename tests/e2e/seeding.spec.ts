@@ -101,15 +101,28 @@ test.describe("A. 인플루언서 시딩 전체 흐름", () => {
     expect(html).not.toContain(SAMPLE.appliedApplicantContact);
 
     const row = guestPage.getByRole("row", { name: new RegExp(SAMPLE.appliedApplicantName) });
-    await row.getByRole("button", { name: "예비선정", exact: true }).click();
-    await expect(row).toContainText("예비선정");
+
+    // **저장이 끝날 때까지 기다린다.** 화면은 서버 응답을 기다리지 않고 먼저 바뀐다
+    // (ApplicantTable 의 낙관적 갱신). 그래서 버튼 모양만 보고 넘어가면 아직 저장 중인
+    // 상태로 대시보드를 열게 되고, 거기서는 옛 값이 보인다. 실제로 이것 때문에 이 테스트가
+    // 간헐적으로 실패했다 — 화면이 아니라 서버 액션 응답을 기다려야 한다.
+    const [저장응답] = await Promise.all([
+      guestPage.waitForResponse(
+        (r) => r.request().method() === "POST" && r.url().includes(SAMPLE.applicantsShareToken)
+      ),
+      row.getByRole("button", { name: "예비선정", exact: true }).click(),
+    ]);
+    expect(저장응답.ok(), "광고주 선정 저장이 실패했다").toBe(true);
     await expect(row.getByRole("button", { name: "최종선정 승격" })).toBeVisible();
     await guest.close();
 
-    // 대시보드에도 즉시 반영되고 실행 주체가 '광고주'로 기록된다
+    // 대시보드에도 반영되고 실행 주체가 '광고주'로 기록된다
     await page.goto(`/campaigns/${SAMPLE.campaignId}/applicants`);
+    // 상태 칩은 DB 값을 그대로 센다.
+    // 행 안의 "예비선정" 으로 확인하면 안 된다 — 그건 **버튼 이름**이라 상태가 무엇이든
+    // 늘 맞는다. 실제로 이 자리에 있던 확인이 그래서 아무것도 확인하지 못했다.
+    await expect(page.getByRole("button", { name: "예비선정 (1)" })).toBeVisible();
     const dashRow = page.getByRole("row", { name: new RegExp(SAMPLE.appliedApplicantName) });
-    await expect(dashRow).toContainText("예비선정");
     await dashRow.getByRole("button", { name: SAMPLE.appliedApplicantName }).click();
     await expect(page.getByRole("table").getByText(/선정 변경:\s*광고주/)).toBeVisible();
 

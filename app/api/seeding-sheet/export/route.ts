@@ -71,8 +71,8 @@ export async function GET(request: NextRequest) {
     if (await isThrottled(제한키)) {
       return new NextResponse("단시간에 너무 많이 내려받았습니다. 잠시 후 다시 시도해주세요.", { status: 429 });
     }
-    await hitThrottle(제한키[0]!, PUBLIC_SUBMIT);
-    await hitThrottle(제한키[1]!, PUBLIC_BY_LINK);
+    // 서로 다른 행이라 순서가 없다. 줄줄이 기다릴 이유가 없다.
+    await Promise.all([hitThrottle(제한키[0]!, PUBLIC_SUBMIT), hitThrottle(제한키[1]!, PUBLIC_BY_LINK)]);
   }
 
   const [rawApplicants, rawSeeding, formConfig] = await Promise.all([

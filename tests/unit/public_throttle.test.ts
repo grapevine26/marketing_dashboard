@@ -131,25 +131,58 @@ describe("프록시가 실제로 걸리는 범위", () => {
   });
 });
 
-describe("파일이 함께 사라지는 조작", () => {
-  it("PPT 템플릿 교체는 삭제와 같은 등급을 요구한다", () => {
-    // 삭제를 관리자로 좁힌 이유는 "저장소의 파일까지 사라지고 되살릴 수 없다" 였다.
-    // 교체도 옛 파일을 지운다(recordReplacedPptTemplate → purgeTemplateKey). 결과가 같으므로
-    // 기준도 같아야 한다. 한쪽만 좁히면 좁힌 쪽이 그대로 무의미해진다.
-    const src = readFileSync("app/(dashboard)/settings/ppt-templates/actions.ts", "utf8");
-    const 교체액션 = [
-      "preparePptTemplateReplaceAction",
-      "confirmPptTemplateReplaceAction",
-      "uploadPptTemplateReplacementAction",
-    ];
-    for (const 이름 of 교체액션) {
-      const 시작 = src.indexOf(`export async function ${이름}`);
-      expect(시작, `${이름} 를 못 찾았다`).toBeGreaterThan(-1);
-      const 다음 = src.indexOf("export async function ", 시작 + 1);
-      const 본문 = src.slice(시작, 다음 === -1 ? undefined : 다음);
-      expect(본문, `${이름} 에 등급 검사가 없다. 삭제만 막고 교체를 열어두면 삭제를 막은 의미가 없다`).toContain(
-        "isManager(user.role)"
-      );
+/**
+ * 운영 DB·저장소를 바꾸는 스크립트는 대상을 손으로 적게 한다.
+ *
+ * 이 스크립트들은 **대상이 기본값으로 운영**이다. 테스트에 돌리려던 명령에서 `--test`
+ * 한 단어만 빠지면 그대로 운영을 맞춘다. 읽기는 운영이 기본이어야 편하니 그대로 두고,
+ * 쓰기만 `--prod` 를 요구한다.
+ */
+describe("운영 스크립트 빗장", () => {
+  it("계정을 바꾸는 스크립트는 쓰기 직전에 --prod 를 확인한다", () => {
+    for (const [파일, 쓰기] of [
+      ["scripts/make-admin.mjs", "update public.profiles set role = 'owner'"],
+      ["scripts/hide-user.mjs", "update public.profiles set hidden"],
+    ] as const) {
+      const src = readFileSync(파일, "utf8");
+      // 정의(`function requireProdFlag(what)`)가 아니라 **호출**을 찾는다. 호출만 백틱을 쓴다.
+      const 호출 = src.indexOf("requireProdFlag(`");
+      const 바꾸는곳 = src.indexOf(쓰기);
+      expect(호출, `${파일} 에 빗장 호출이 없다`).toBeGreaterThan(-1);
+      expect(바꾸는곳, `${파일} 에서 쓰기 지점을 못 찾았다`).toBeGreaterThan(-1);
+      expect(호출, `${파일} 은 운영 여부를 확인하기 전에 이미 바꾼다`).toBeLessThan(바꾸는곳);
     }
+  });
+
+  it("옛 Blob 정리는 --test 로 면제되지 않는다", () => {
+    // Blob 은 토큰이 하나뿐이라 **--test 를 붙여도 대상이 운영 Blob** 이다.
+    // 그래서 여기만은 isTest 로 통과시키는 requireProdFlag 를 쓰면 안 된다.
+    const src = readFileSync("scripts/db-backup.mjs", "utf8");
+    const 시작 = src.indexOf("if (wantPurgeLegacy) {");
+    expect(시작, "purge-legacy 블록을 못 찾았다").toBeGreaterThan(-1);
+    const 빗장 = src.indexOf("!allowProd", 시작);
+    const 지움 = src.indexOf("await del(", 시작);
+    expect(빗장, "purge-legacy 에 --prod 확인이 없다").toBeGreaterThan(-1);
+    expect(지움, "purge-legacy 에서 삭제 호출을 못 찾았다").toBeGreaterThan(-1);
+    expect(빗장, "확인하기 전에 이미 지운다").toBeLessThan(지움);
+    // requireProdFlag 를 쓰면 --test 로 빠져나갈 수 있다. 그 실수를 막는다.
+    const 블록 = src.slice(시작, 지움);
+    expect(블록, "purge-legacy 는 --test 로 면제되면 안 된다").not.toContain("requireProdFlag(");
+  });
+});
+
+describe("파일이 함께 사라지는 조작", () => {
+  it("템플릿 삭제는 관리자만 할 수 있다", () => {
+    // 지우면 저장소의 파일까지 사라지고 백업으로도 되살릴 수 없다.
+    //
+    // **교체는 일부러 여기에 넣지 않는다.** 교체도 옛 파일을 지우지만 자리는 그대로
+    // 두고 내용만 바꾸는 평상 업무라, 등급을 올리면 쓰기가 불편해지는 쪽이 더 크다고
+    // 판단해 직원에게 열어 뒀다. 사정은 그 액션의 주석에 적혀 있다.
+    const src = readFileSync("app/(dashboard)/settings/ppt-templates/actions.ts", "utf8");
+    const 시작 = src.indexOf("export async function deletePptTemplateAction");
+    expect(시작, "deletePptTemplateAction 을 못 찾았다").toBeGreaterThan(-1);
+    const 다음 = src.indexOf("export async function ", 시작 + 1);
+    const 본문 = src.slice(시작, 다음 === -1 ? undefined : 다음);
+    expect(본문, "삭제에 등급 검사가 없다").toContain("isManager(user.role)");
   });
 });

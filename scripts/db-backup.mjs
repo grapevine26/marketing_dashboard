@@ -43,7 +43,8 @@ const HELP = `사용법:
   npm run db:backup -- --list-remote                  Vercel Blob(backups/)의 크론 백업 목록
   npm run db:backup -- --pull [이름]                   Blob 백업을 .data/backups/ 로 내려받는다 (생략 시 최신)
   npm run db:backup -- --purge-legacy                 Blob 에 남은 전환 전 데이터를 보여준다 (지우지 않음)
-  npm run db:backup -- --purge-legacy --yes           그것들을 .data/legacy-blob/ 로 내려받은 뒤 지운다
+  npm run db:backup -- --purge-legacy --yes --prod    그것들을 .data/legacy-blob/ 로 내려받은 뒤 지운다
+                                                      (Blob 은 토큰이 하나뿐이라 --test 대상이 없다. 언제나 운영이다)
   npm run db:backup -- --from <파일> --campaigns       백업에 담긴 캠페인 목록
   npm run db:backup -- --from <파일> --campaign <이름|id> --yes   그 캠페인만 복구
   npm run db:backup -- --from <파일> --sns-accounts    백업에 담긴 SNS 계정 목록
@@ -282,9 +283,21 @@ if (wantPurgeLegacy) {
   if (!confirmed) {
     console.log("");
     console.log("아무것도 지우지 않았습니다. 실제로 지우려면 --yes 를 붙이세요:");
-    console.log("  npm run db:backup -- --purge-legacy --yes              내려받아 보관한 뒤 지운다(권장)");
-    console.log("  npm run db:backup -- --purge-legacy --yes --no-archive 보관 없이 바로 지운다");
+    console.log("  npm run db:backup -- --purge-legacy --yes --prod              내려받아 보관한 뒤 지운다(권장)");
+    console.log("  npm run db:backup -- --purge-legacy --yes --prod --no-archive 보관 없이 바로 지운다");
     process.exit(0);
+  }
+
+  // **여기는 requireProdFlag 를 쓰지 않는다.** 그 함수는 --test 면 그냥 통과시키는데,
+  // Blob 저장소는 토큰이 하나뿐이라 **--test 를 붙여도 대상이 운영 Blob 이다.**
+  // 그래서 --test 로는 면제될 수 없고, --prod 를 반드시 손으로 적게 한다.
+  // --yes 는 "목록을 봤다", --prod 는 "운영인 줄 안다" 로 서로 다른 확인이다.
+  if (!allowProd) {
+    console.error("");
+    console.error("이 삭제는 **언제나 운영 Blob** 을 대상으로 합니다. Blob 토큰이 하나뿐이라 테스트 대상이 없습니다.");
+    console.error("정말 지울 것이면 --prod 를 함께 붙이세요.");
+    console.error("  예) npm run db:backup -- --purge-legacy --yes --prod");
+    process.exit(1);
   }
 
   // 지우기 전에 내려받는다. "정리" 는 자리를 비우는 것이지 없애는 것이 아니다.
