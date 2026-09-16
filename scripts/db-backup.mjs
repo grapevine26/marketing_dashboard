@@ -41,6 +41,8 @@ const HELP = `사용법:
   npm run db:backup -- --restore <파일> --prod --yes   그 백업으로 되돌린다 (현재 데이터를 전부 지운다)
   npm run db:backup -- --list-remote                  Vercel Blob(backups/)의 크론 백업 목록
   npm run db:backup -- --pull [이름]                   Blob 백업을 .data/backups/ 로 내려받는다 (생략 시 최신)
+  npm run db:backup -- --purge-legacy                 Blob 에 남은 옛 백업(db-*.json)을 보여준다 (지우지 않음)
+  npm run db:backup -- --purge-legacy --yes           그것들을 .data/legacy-blob/ 로 내려받은 뒤 지운다
   npm run db:backup -- --from <파일> --campaigns       백업에 담긴 캠페인 목록
   npm run db:backup -- --from <파일> --campaign <이름|id> --yes   그 캠페인만 복구
   npm run db:backup -- --from <파일> --sns-accounts    백업에 담긴 SNS 계정 목록
@@ -91,6 +93,8 @@ const wantHelp = args.includes("--help") || args.includes("-h");
 const wantListRemote = args.includes("--list-remote");
 const wantPull = args.includes("--pull");
 const pullTarget = argAfter("--pull");
+const wantPurgeLegacy = args.includes("--purge-legacy");
+const skipArchive = args.includes("--no-archive");
 
 if (wantHelp) {
   console.log(HELP);
@@ -229,7 +233,100 @@ async function listRemoteBackups() {
   return out.sort((a, b) => b.key.localeCompare(a.key));
 }
 
+/**
+ * Blob 의 backups/db-*.json 을 나열한다. 오래된 것이 앞.
+ *
+ * 이것들은 **Supabase 로 옮기기 전** 저장 계층(로컬 JSON 문서)이 남긴 백업이다.
+ * 2026-09-14 전환 때 옮기지 않기로 했지만 원본은 일부러 지우지 않았다.
+ * 지금 보관 정리(runBackup 의 keep)는 supabase-*.json 만 세므로 이것들은 영영 안 지워진다.
+ */
+async function listLegacyBackups() {
+  const { list } = await import("@vercel/blob");
+  const out = [];
+  let cursor;
+  do {
+    const res = await list({ prefix: REMOTE_PREFIX, cursor });
+    for (const b of res.blobs) {
+      const key = b.pathname.slice(REMOTE_PREFIX.length);
+      if (/^db-\d{8}-\d{6}\.json$/.test(key)) {
+        out.push({ key, pathname: b.pathname, url: b.url, size: b.size, uploadedAt: new Date(b.uploadedAt) });
+      }
+    }
+    cursor = res.hasMore ? res.cursor : undefined;
+  } while (cursor);
+  return out.sort((a, b) => a.key.localeCompare(b.key));
+}
+
 const fmtKst = (d) => d.toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false });
+
+if (wantPurgeLegacy) {
+  requireBlobToken();
+  const legacy = await listLegacyBackups();
+  if (legacy.length === 0) {
+    console.log(`Blob(${REMOTE_PREFIX})에 옛 백업(db-*.json)이 없습니다. 정리할 것이 없습니다.`);
+    process.exit(0);
+  }
+
+  const totalKb = (legacy.reduce((n, f) => n + f.size, 0) / 1024).toFixed(0);
+  console.log(`옛 백업 ${legacy.length}개 (${totalKb} KB, 시각은 KST):`);
+  for (const f of legacy) {
+    console.log(`  ${f.key}  ${(f.size / 1024).toFixed(0).padStart(5)} KB  ${fmtKst(f.uploadedAt)}`);
+  }
+  console.log("");
+  console.log("이 파일들은 Supabase 로 옮기기 전 데이터의 **마지막 사본**입니다.");
+  console.log("2026-09-14 에 옮기지 않기로 했지만(캠페인 1건, 행사 1건, 감사 로그 24건 등)");
+  console.log("원본은 일부러 남겨 두었습니다. 지우면 되돌릴 수 없습니다.");
+
+  if (!confirmed) {
+    console.log("");
+    console.log("아무것도 지우지 않았습니다. 실제로 지우려면 --yes 를 붙이세요:");
+    console.log("  npm run db:backup -- --purge-legacy --yes              내려받아 보관한 뒤 지운다(권장)");
+    console.log("  npm run db:backup -- --purge-legacy --yes --no-archive 보관 없이 바로 지운다");
+    process.exit(0);
+  }
+
+  // 지우기 전에 내려받는다. "정리" 는 자리를 비우는 것이지 없애는 것이 아니다.
+  // 한 개라도 못 받으면 **아무것도 지우지 않고** 멈춘다 — 반만 지우면 무엇이 남았는지 알 수 없다.
+  if (!skipArchive) {
+    const archiveDir = path.join(process.cwd(), ".data", "legacy-blob");
+    fs.mkdirSync(archiveDir, { recursive: true });
+    const { get } = await import("@vercel/blob");
+    console.log("");
+    console.log(`내려받는 중 → ${archiveDir}`);
+    for (const f of legacy) {
+      const dest = path.join(archiveDir, f.key);
+      if (fs.existsSync(dest) && fs.statSync(dest).size > 0) {
+        console.log(`  건너뜀(이미 있음) ${f.key}`);
+        continue;
+      }
+      const res = await get(f.pathname, { access: "private" });
+      if (!res || res.statusCode !== 200 || !res.stream) {
+        console.error(`  실패 ${f.key} — 아무것도 지우지 않고 멈춥니다.`);
+        process.exit(1);
+      }
+      const buf = Buffer.from(await new Response(res.stream).arrayBuffer());
+      if (buf.length === 0) {
+        console.error(`  빈 파일 ${f.key} — 아무것도 지우지 않고 멈춥니다.`);
+        process.exit(1);
+      }
+      fs.writeFileSync(dest, buf);
+      console.log(`  받음 ${f.key}  ${(buf.length / 1024).toFixed(0)} KB`);
+    }
+    console.log(`보관 완료. .data/ 는 git 에 올라가지 않으니 필요하면 다른 곳으로 옮기세요.`);
+  } else {
+    console.log("");
+    console.log("--no-archive: 내려받지 않고 바로 지웁니다.");
+  }
+
+  const { del } = await import("@vercel/blob");
+  console.log("");
+  for (const f of legacy) {
+    await del(f.url);
+    console.log(`  지움 ${f.key}`);
+  }
+  console.log(`\n옛 백업 ${legacy.length}개를 지웠습니다. 크론 백업(supabase-*.json)은 건드리지 않았습니다.`);
+  process.exit(0);
+}
 
 if (wantListRemote) {
   requireBlobToken();
