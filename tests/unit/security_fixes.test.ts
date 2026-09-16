@@ -844,3 +844,64 @@ describe("소스에 날 제어문자가 없는가", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe("목록 화면이 행마다 따로 조회하지 않는가", () => {
+  /**
+   * N+1 을 막는다. 캠페인·행사가 늘어날 때 **조회 수가 같이 늘면** 안 된다.
+   *
+   * 실제로 다섯 곳이 그랬다. 오버뷰는 캠페인마다 지원자 전체를 불렀고(한 곳은 **순차**라
+   * 캠페인이 10개면 10번을 줄줄이 기다렸다), 행사 목록은 행사마다 초대 명단과 체크리스트를
+   * 따로 불렀고, 공개 신청폼은 질문마다 AI 남은 횟수를 따로 물었다.
+   * 캠페인 20개·지원자 1000명으로 재니 오버뷰가 821ms 였고, 한 번에 받도록 고치니 543ms 가 됐다.
+   *
+   * 게다가 개수만 쓰는 화면이 **연락처·주소까지 딸려 오는 행 전체**를 읽고 있었다.
+   * 화면에 안 쓰는 개인정보는 서버 메모리에도 올리지 않는 편이 낫다.
+   *
+   * 여기서는 "행마다 부르는 함수를 목록 화면이 쓰고 있지 않은가" 만 본다.
+   * 실제 속도는 데이터와 기계에 따라 달라서 테스트로 고정할 값이 아니다.
+   */
+  const 금지: { 파일: string; 부르면안되는함수: string[]; 이유: string }[] = [
+    {
+      파일: "lib/overview/collect.ts",
+      부르면안되는함수: ["getApplicantsByCampaignId"],
+      이유: "캠페인마다 지원자를 부르면 캠페인 수만큼 왕복한다. listApplicantSummaries() 로 한 번에 받는다",
+    },
+    {
+      파일: "app/(dashboard)/events/page.tsx",
+      부르면안되는함수: ["getEventInvitees", "getEventChecklistItems"],
+      이유: "행사마다 부르면 행사 수만큼 왕복한다. countEventInvitees() / countEventChecklistItems() 를 쓴다",
+    },
+    {
+      파일: "app/(dashboard)/campaigns/[id]/events/page.tsx",
+      부르면안되는함수: ["getEventInvitees", "getEventChecklistItems"],
+      이유: "행사마다 부르면 행사 수만큼 왕복한다. countEventInvitees() / countEventChecklistItems() 를 쓴다",
+    },
+    {
+      파일: "app/(dashboard)/campaigns/page.tsx",
+      부르면안되는함수: ["getApplicantsByCampaignId"],
+      이유: "캠페인마다 부르면 캠페인 수만큼 왕복한다. countApplicantsByCampaign() 를 쓴다",
+    },
+    {
+      파일: "app/pre-survey/[token]/page.tsx",
+      부르면안되는함수: ["getThrottleCount("],
+      이유: "질문마다 물으면 질문 수만큼 왕복한다. getThrottleCounts() 로 한 번에 묻는다",
+    },
+    {
+      파일: "app/sns-intake/[token]/page.tsx",
+      부르면안되는함수: ["getThrottleCount("],
+      이유: "질문마다 물으면 질문 수만큼 왕복한다. getThrottleCounts() 로 한 번에 묻는다",
+    },
+  ];
+
+  it("행마다 부르는 함수를 목록 화면에서 쓰지 않는다", async () => {
+    const { readFileSync } = await import("node:fs");
+    const 걸린것: string[] = [];
+    for (const { 파일, 부르면안되는함수, 이유 } of 금지) {
+      const src = readFileSync(파일, "utf8");
+      for (const fn of 부르면안되는함수) {
+        if (src.includes(fn)) 걸린것.push(`${파일} 이 ${fn} 을 쓴다 — ${이유}`);
+      }
+    }
+    expect(걸린것).toEqual([]);
+  });
+});

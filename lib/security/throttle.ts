@@ -179,6 +179,41 @@ export async function getThrottleCount(key: string): Promise<number> {
 }
 
 /**
+ * 여러 키의 사용 횟수를 **한 번의 조회로** 가져온다. 키 -> 횟수.
+ *
+ * 공개 신청폼은 질문마다 "AI 추천 남은 횟수" 를 보여준다. 질문 수만큼 따로 물으면
+ * 그만큼 왕복하는데, **그 왕복이 순차라 질문이 8개면 8번을 줄줄이 기다린다.**
+ * 로그인 없이 열리는 화면이라 그 시간이 그대로 첫 화면 지연이 된다.
+ *
+ * 없는 키는 결과에 담기지 않는다. 읽는 쪽에서 0 으로 다루면 된다.
+ */
+export async function getThrottleCounts(keys: string[]): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (keys.length === 0) return counts;
+  return softly(
+    "사용 횟수 일괄 조회",
+    async () => {
+      const rows = unwrap(
+        await db()
+          .from("auth_throttle")
+          .select("key, failures, window_start")
+          .in("key", keys)
+          .returns<{ key: string; failures: number; window_start: string }[]>()
+      );
+      const now = Date.now();
+      for (const row of rows) {
+        // 창이 지났으면 0 부터 다시 센다. 화면 숫자도 그래야 맞다. (getThrottleCount 와 같은 규칙)
+        const started = Date.parse(row.window_start);
+        if (!Number.isFinite(started) || now - started >= AI_BY_QUESTION.windowMs) continue;
+        counts.set(row.key, row.failures);
+      }
+      return counts;
+    },
+    counts
+  );
+}
+
+/**
  * 한 번 센 것을 돌려준다. AI 호출이 실패했을 때만 쓴다.
  *
  * 호출 **전에** 세는 이유는 동시에 여러 번 눌러도 상한을 넘지 않게 하기 위해서다.

@@ -4,7 +4,7 @@ import { getCampaignByToken, getPreSurveyQuestionsForCampaign, getPreSurveyRespo
 import { toPublicCampaign } from "@/lib/db/types";
 import PreSurveyPublicForm from "./PreSurveyPublicForm";
 import { Building2 } from "lucide-react";
-import { aiQuestionKey, getThrottleCount } from "@/lib/security/throttle";
+import { aiQuestionKey, getThrottleCounts } from "@/lib/security/throttle";
 
 export const revalidate = 0;
 
@@ -27,9 +27,12 @@ export default async function PreSurveyPublicPage({
 
   const template = { id: 1, questions };
 
+  // 질문마다 따로 묻던 자리다. 그 왕복이 **순차**라 질문이 8개면 8번을 줄줄이 기다렸고,
+  // 로그인 없이 열리는 화면이라 그 시간이 그대로 첫 화면 지연이 됐다. 한 번에 묻는다.
+  const usageCounts = await getThrottleCounts(questions.map((q) => aiQuestionKey("pre", token, q.id)));
   const initialAiUsage: Record<string, number> = {};
   for (const q of questions) {
-    initialAiUsage[q.id] = await getThrottleCount(aiQuestionKey("pre", token, q.id));
+    initialAiUsage[q.id] = usageCounts.get(aiQuestionKey("pre", token, q.id)) ?? 0;
   }
 
   return (

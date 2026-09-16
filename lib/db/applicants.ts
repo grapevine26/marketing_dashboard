@@ -92,6 +92,36 @@ export async function countApplicantsByCampaign(): Promise<Map<string, Applicant
   return counts;
 }
 
+/** 오버뷰가 쓰는 지원자 요약. 화면에 필요한 칸만 담는다. */
+export interface ApplicantSummary {
+  id: string;
+  campaign_id: string;
+  /** 일정 라벨에 쓴다("김서연 업로드 마감"). */
+  name: string;
+  status: ApplicantStatus;
+  applied_at: string | null;
+}
+
+/**
+ * 모든 지원자의 요약을 **한 번의 조회로** 가져온다.
+ *
+ * 오버뷰는 캠페인마다 `getApplicantsByCampaignId` 를 불렀다. 캠페인이 늘수록 왕복이 그만큼
+ * 늘고(한 곳은 **순차**라 줄줄이 기다렸다), 그때마다 **연락처·배송주소·SNS 링크까지 딸려 왔다.**
+ * 오버뷰가 쓰는 것은 이름·상태·지원일뿐이다.
+ *
+ * 화면에 쓰지 않는 개인정보는 서버 메모리에도 올리지 않는 편이 낫다. 실수로 어딘가에
+ * 흘러 나갈 자리가 아예 없어진다.
+ */
+export async function listApplicantSummaries(): Promise<ApplicantSummary[]> {
+  const rows = unwrap(
+    await db()
+      .from("applicants")
+      .select("id, campaign_id, name, status, applied_at")
+      .returns<ApplicantSummary[]>()
+  );
+  return rows;
+}
+
 export async function getApplicantById(id: string): Promise<Applicant | null> {
   if (!isUuid(id)) return null;
   const row = unwrapMaybe(

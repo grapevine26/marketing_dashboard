@@ -298,6 +298,40 @@ export async function countEventInvitees(): Promise<Map<string, EventInviteeCoun
   return counts;
 }
 
+/** 행사 하나의 체크리스트 진행 상황. */
+export interface EventChecklistCounts {
+  /** 전체 항목 수 */
+  total: number;
+  /** 완료한 항목 수 */
+  done: number;
+}
+
+/**
+ * 행사별 체크리스트 진행 상황을 **한 번의 조회로** 센다. 행사 id -> 수.
+ *
+ * 캠페인의 행사 목록 화면이 행사마다 초대 명단과 체크리스트를 따로 불렀다. 행사가 5개면
+ * 왕복이 10번이다. 두 화면 모두 "몇 개 중 몇 개" 만 보여주므로 필요한 칸만 받아 센다.
+ * {@link countEventInvitees} 와 짝이다.
+ *
+ * 항목이 없는 행사는 결과에 담기지 않는다. 읽는 쪽에서 0 으로 다루면 된다.
+ */
+export async function countEventChecklistItems(): Promise<Map<string, EventChecklistCounts>> {
+  const rows = unwrap(
+    await db()
+      .from("event_checklist_items")
+      .select("event_id, done")
+      .returns<{ event_id: string; done: boolean }[]>()
+  );
+  const counts = new Map<string, EventChecklistCounts>();
+  for (const row of rows) {
+    const current = counts.get(row.event_id) ?? { total: 0, done: 0 };
+    current.total += 1;
+    if (row.done) current.done += 1;
+    counts.set(row.event_id, current);
+  }
+  return counts;
+}
+
 /**
  * 캠페인 지원자를 초대 명단으로 가져온다.
  * - 행사가 없으면 ValidationError.

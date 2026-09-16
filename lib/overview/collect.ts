@@ -5,8 +5,9 @@ import {
   getAllEventChecklistItems,
   getSnsAccounts,
   getAllSnsContents,
-  getApplicantsByCampaignId,
+  listApplicantSummaries,
   countEventInvitees,
+  type ApplicantSummary,
 } from "@/lib/db";
 import {
   CAMPAIGN_STATUS_LABELS,
@@ -72,14 +73,15 @@ export async function collectOverviewItems(todayKst: string): Promise<OverviewDa
 
   // A. 시딩 업로드 기한 (업로드완료가 아닌 최종선정 인플루언서)
   if (seedingRes.ok && campaignsRes.ok) {
+    // 캠페인마다 지원자 전체를 **순차로** 부르던 자리다. 캠페인이 10개면 왕복 10번을
+    // 줄줄이 기다렸고, 필요한 것은 이름뿐인데 연락처·주소까지 딸려 왔다.
     const applicantNames = new Map<string, string>();
-    for (const c of campaigns) {
-      try {
-        const apps = await getApplicantsByCampaignId(c.id);
-        for (const a of apps) if (a.status === "selected") applicantNames.set(a.id, a.name);
-      } catch {
-        /* 이름 조인 실패는 라벨만 빠진다 */
+    try {
+      for (const a of await listApplicantSummaries()) {
+        if (a.status === "selected") applicantNames.set(a.id, a.name);
       }
+    } catch {
+      /* 이름 조인 실패는 라벨만 빠진다 */
     }
     for (const s of seedingRes.rows) {
       if (!s.upload_deadline || isUploadDone(s)) continue;
@@ -254,16 +256,19 @@ export async function collectHomeSummary(todayKst: string): Promise<HomeSummary>
   ]);
   const currentYm = todayKst.slice(0, 7);
 
-  const perCampaign = await Promise.all(
-    campaigns.map(async (campaign) => {
-      try {
-        const applicants = await getApplicantsByCampaignId(campaign.id);
-        return { campaign, applicants };
-      } catch {
-        return { campaign, applicants: [] };
-      }
-    })
-  );
+  // 캠페인마다 지원자 전체를 부르던 자리다. 조회 한 번으로 받아 캠페인별로 나눈다.
+  // 조회가 실패하면 예전처럼 전부 0 으로 집계한다(화면은 뜨고 숫자만 비는 쪽).
+  const summaries: ApplicantSummary[] = await listApplicantSummaries().catch(() => []);
+  const byCampaign = new Map<string, ApplicantSummary[]>();
+  for (const a of summaries) {
+    const bucket = byCampaign.get(a.campaign_id);
+    if (bucket) bucket.push(a);
+    else byCampaign.set(a.campaign_id, [a]);
+  }
+  const perCampaign = campaigns.map((campaign) => ({
+    campaign,
+    applicants: byCampaign.get(campaign.id) ?? [],
+  }));
 
   let newApplicantsThisMonth = 0;
   let totalSelectedCount = 0;

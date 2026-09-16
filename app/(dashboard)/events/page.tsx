@@ -19,26 +19,24 @@ export default async function AllEventsOverviewPage() {
   ]);
   const campaignMap = new Map(campaigns.map((c) => [c.id, c]));
 
-  const cards: EventOverviewCardItem[] = await Promise.all(
-    events.map(async (ev) => {
-      const counts = inviteeCounts.get(ev.id);
-      const camp = campaignMap.get(ev.campaign_id);
-      return {
-        id: ev.id,
-        campaignId: ev.campaign_id,
-        campaignName: camp?.name || "미지정 캠페인",
-        companyName: camp?.company_name || "캠페인",
-        name: ev.name,
-        status: ev.status,
-        eventAt: ev.event_at,
-        venue: ev.venue,
-        memo: ev.memo,
-        inviteeCount: counts?.total ?? 0,
-        attendingCount: counts?.attending ?? 0,
-        attendedCount: counts?.attended ?? 0,
-      };
-    })
-  );
+  const cards: EventOverviewCardItem[] = events.map((ev) => {
+    const counts = inviteeCounts.get(ev.id);
+    const camp = campaignMap.get(ev.campaign_id);
+    return {
+      id: ev.id,
+      campaignId: ev.campaign_id,
+      campaignName: camp?.name || "미지정 캠페인",
+      companyName: camp?.company_name || "캠페인",
+      name: ev.name,
+      status: ev.status,
+      eventAt: ev.event_at,
+      venue: ev.venue,
+      memo: ev.memo,
+      inviteeCount: counts?.total ?? 0,
+      attendingCount: counts?.attending ?? 0,
+      attendedCount: counts?.attended ?? 0,
+    };
+  });
   cards.sort((a, b) => (a.eventAt || "9999").localeCompare(b.eventAt || "9999"));
 
   const eventCountByCampaign = new Map<string, number>();

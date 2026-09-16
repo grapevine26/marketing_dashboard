@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getCampaignById, getEventsByCampaignId, getEventInvitees, getEventChecklistItems } from "@/lib/db";
+import { getCampaignById, getEventsByCampaignId, countEventInvitees, countEventChecklistItems } from "@/lib/db";
 import { EVENT_STATUS_LABELS } from "@/lib/db/types";
 import { formatKstDateTime } from "@/lib/seeding/dday";
 import Link from "next/link";
@@ -17,20 +17,25 @@ export default async function CampaignEventsPage({
   const campaign = await getCampaignById(id);
   if (!campaign) notFound();
 
-  const events = await getEventsByCampaignId(campaign.id);
-  const cards = await Promise.all(
-    events.map(async (ev) => {
-      const [invitees, checklists] = await Promise.all([getEventInvitees(ev.id), getEventChecklistItems(ev.id)]);
-      return {
-        ev,
-        inviteeCount: invitees.length,
-        attendingCount: invitees.filter((i) => i.rsvp_status === "attending").length,
-        attendedCount: invitees.filter((i) => i.attended).length,
-        doneChecklists: checklists.filter((c) => c.done).length,
-        totalChecklists: checklists.length,
-      };
-    })
-  );
+  // 행사마다 초대 명단과 체크리스트를 따로 부르던 자리다. 행사가 5개면 왕복이 10번이었고,
+  // 그때마다 초청자 이름·연락처가 전부 딸려 왔다 — 이 화면은 개수만 쓴다.
+  const [events, inviteeCounts, checklistCounts] = await Promise.all([
+    getEventsByCampaignId(campaign.id),
+    countEventInvitees(),
+    countEventChecklistItems(),
+  ]);
+  const cards = events.map((ev) => {
+    const inv = inviteeCounts.get(ev.id);
+    const chk = checklistCounts.get(ev.id);
+    return {
+      ev,
+      inviteeCount: inv?.total ?? 0,
+      attendingCount: inv?.attending ?? 0,
+      attendedCount: inv?.attended ?? 0,
+      doneChecklists: chk?.done ?? 0,
+      totalChecklists: chk?.total ?? 0,
+    };
+  });
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto font-sans">
