@@ -34,6 +34,7 @@
 import fs from "fs";
 import path from "path";
 import pg from "pg";
+import { isLegacyPathname, LEGACY_DOC_PREFIX } from "./legacy-blob.mjs";
 
 const HELP = `사용법:
   npm run db:backup                                   지금 DB 를 .data/backups/ 에 받는다
@@ -41,7 +42,7 @@ const HELP = `사용법:
   npm run db:backup -- --restore <파일> --prod --yes   그 백업으로 되돌린다 (현재 데이터를 전부 지운다)
   npm run db:backup -- --list-remote                  Vercel Blob(backups/)의 크론 백업 목록
   npm run db:backup -- --pull [이름]                   Blob 백업을 .data/backups/ 로 내려받는다 (생략 시 최신)
-  npm run db:backup -- --purge-legacy                 Blob 에 남은 옛 백업(db-*.json)을 보여준다 (지우지 않음)
+  npm run db:backup -- --purge-legacy                 Blob 에 남은 전환 전 데이터를 보여준다 (지우지 않음)
   npm run db:backup -- --purge-legacy --yes           그것들을 .data/legacy-blob/ 로 내려받은 뒤 지운다
   npm run db:backup -- --from <파일> --campaigns       백업에 담긴 캠페인 목록
   npm run db:backup -- --from <파일> --campaign <이름|id> --yes   그 캠페인만 복구
@@ -234,48 +235,49 @@ async function listRemoteBackups() {
 }
 
 /**
- * Blob 의 backups/db-*.json 을 나열한다. 오래된 것이 앞.
+ * Supabase 로 옮기기 전 저장 계층이 Blob 에 남긴 것을 전부 나열한다. 경로순.
  *
- * 이것들은 **Supabase 로 옮기기 전** 저장 계층(로컬 JSON 문서)이 남긴 백업이다.
- * 2026-09-14 전환 때 옮기지 않기로 했지만 원본은 일부러 지우지 않았다.
- * 지금 보관 정리(runBackup 의 keep)는 supabase-*.json 만 세므로 이것들은 영영 안 지워진다.
+ * 두 갈래만 훑는다 — `db/`(전환 전 문서)와 `backups/`(전환 전 자동 백업).
+ * **`uploads/` 와 `templates/` 는 훑지도 않는다.** 거기엔 지금 쓰는 파일이 있다.
+ * 그렇게 좁혀 놓고도, 고른 것마다 `isLegacyPathname` 으로 한 번 더 확인한다.
+ * 목록을 만드는 곳과 지워도 되는지 판정하는 곳이 따로 있어야 한쪽이 틀려도 안 지워진다.
  */
-async function listLegacyBackups() {
+async function listLegacyBlobs() {
   const { list } = await import("@vercel/blob");
   const out = [];
-  let cursor;
-  do {
-    const res = await list({ prefix: REMOTE_PREFIX, cursor });
-    for (const b of res.blobs) {
-      const key = b.pathname.slice(REMOTE_PREFIX.length);
-      if (/^db-\d{8}-\d{6}\.json$/.test(key)) {
-        out.push({ key, pathname: b.pathname, url: b.url, size: b.size, uploadedAt: new Date(b.uploadedAt) });
+  for (const prefix of [LEGACY_DOC_PREFIX, REMOTE_PREFIX]) {
+    let cursor;
+    do {
+      const res = await list({ prefix, cursor });
+      for (const b of res.blobs) {
+        if (!isLegacyPathname(b.pathname)) continue;
+        out.push({ pathname: b.pathname, url: b.url, size: b.size, uploadedAt: new Date(b.uploadedAt) });
       }
-    }
-    cursor = res.hasMore ? res.cursor : undefined;
-  } while (cursor);
-  return out.sort((a, b) => a.key.localeCompare(b.key));
+      cursor = res.hasMore ? res.cursor : undefined;
+    } while (cursor);
+  }
+  return out.sort((a, b) => a.pathname.localeCompare(b.pathname));
 }
 
 const fmtKst = (d) => d.toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false });
 
 if (wantPurgeLegacy) {
   requireBlobToken();
-  const legacy = await listLegacyBackups();
+  const legacy = await listLegacyBlobs();
   if (legacy.length === 0) {
-    console.log(`Blob(${REMOTE_PREFIX})에 옛 백업(db-*.json)이 없습니다. 정리할 것이 없습니다.`);
+    console.log("Blob 에 전환 전 데이터가 없습니다. 정리할 것이 없습니다.");
     process.exit(0);
   }
 
   const totalKb = (legacy.reduce((n, f) => n + f.size, 0) / 1024).toFixed(0);
-  console.log(`옛 백업 ${legacy.length}개 (${totalKb} KB, 시각은 KST):`);
+  console.log(`전환 전 데이터 ${legacy.length}개 (${totalKb} KB, 시각은 KST):`);
   for (const f of legacy) {
-    console.log(`  ${f.key}  ${(f.size / 1024).toFixed(0).padStart(5)} KB  ${fmtKst(f.uploadedAt)}`);
+    console.log(`  ${f.pathname.padEnd(40)} ${(f.size / 1024).toFixed(0).padStart(5)} KB  ${fmtKst(f.uploadedAt)}`);
   }
   console.log("");
-  console.log("이 파일들은 Supabase 로 옮기기 전 데이터의 **마지막 사본**입니다.");
-  console.log("2026-09-14 에 옮기지 않기로 했지만(캠페인 1건, 행사 1건, 감사 로그 24건 등)");
-  console.log("원본은 일부러 남겨 두었습니다. 지우면 되돌릴 수 없습니다.");
+  console.log("이것들은 Supabase 로 옮기기 전(2026-09-14) 저장 계층이 남긴 것입니다.");
+  console.log("지금 코드는 이 경로들을 쓰지 않습니다. 지우면 되돌릴 수 없습니다.");
+  console.log("uploads/ 와 templates/ 는 훑지도 않았으므로 목록에 있을 수 없습니다.");
 
   if (!confirmed) {
     console.log("");
@@ -294,23 +296,25 @@ if (wantPurgeLegacy) {
     console.log("");
     console.log(`내려받는 중 → ${archiveDir}`);
     for (const f of legacy) {
-      const dest = path.join(archiveDir, f.key);
+      // Blob 의 경로 모양 그대로 저장한다. 납작하게 펴면 어느 갈래에 있던 것인지 잃는다.
+      const dest = path.join(archiveDir, ...f.pathname.split("/"));
       if (fs.existsSync(dest) && fs.statSync(dest).size > 0) {
-        console.log(`  건너뜀(이미 있음) ${f.key}`);
+        console.log(`  건너뜀(이미 있음) ${f.pathname}`);
         continue;
       }
       const res = await get(f.pathname, { access: "private" });
       if (!res || res.statusCode !== 200 || !res.stream) {
-        console.error(`  실패 ${f.key} — 아무것도 지우지 않고 멈춥니다.`);
+        console.error(`  실패 ${f.pathname} — 아무것도 지우지 않고 멈춥니다.`);
         process.exit(1);
       }
       const buf = Buffer.from(await new Response(res.stream).arrayBuffer());
       if (buf.length === 0) {
-        console.error(`  빈 파일 ${f.key} — 아무것도 지우지 않고 멈춥니다.`);
+        console.error(`  빈 파일 ${f.pathname} — 아무것도 지우지 않고 멈춥니다.`);
         process.exit(1);
       }
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
       fs.writeFileSync(dest, buf);
-      console.log(`  받음 ${f.key}  ${(buf.length / 1024).toFixed(0)} KB`);
+      console.log(`  받음 ${f.pathname}  ${(buf.length / 1024).toFixed(0)} KB`);
     }
     console.log(`보관 완료. .data/ 는 git 에 올라가지 않으니 필요하면 다른 곳으로 옮기세요.`);
   } else {
@@ -321,10 +325,16 @@ if (wantPurgeLegacy) {
   const { del } = await import("@vercel/blob");
   console.log("");
   for (const f of legacy) {
+    // 지우기 직전에 한 번 더 본다. 여기까지 잘못된 것이 왔다면 목록 만드는 쪽이 깨진 것이다.
+    if (!isLegacyPathname(f.pathname)) {
+      console.error(`  멈춤 — 옛 데이터가 아닌 것이 목록에 있습니다: ${f.pathname}`);
+      process.exit(1);
+    }
     await del(f.url);
-    console.log(`  지움 ${f.key}`);
+    console.log(`  지움 ${f.pathname}`);
   }
-  console.log(`\n옛 백업 ${legacy.length}개를 지웠습니다. 크론 백업(supabase-*.json)은 건드리지 않았습니다.`);
+  console.log(`\n전환 전 데이터 ${legacy.length}개를 지웠습니다.`);
+  console.log("크론 백업(backups/supabase-*.json)과 업로드 파일은 건드리지 않았습니다.");
   process.exit(0);
 }
 
