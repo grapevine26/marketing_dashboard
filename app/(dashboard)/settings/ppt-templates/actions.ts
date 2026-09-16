@@ -127,7 +127,10 @@ export async function updatePptTemplateMetaAction(input: {
 export async function preparePptTemplateReplaceAction(
   templateId: string
 ): Promise<ActionResult<{ fileKey: string; pathname: string }>> {
-  return runAuthedAction(async () => {
+  return runAuthedAction(async (user) => {
+    // 교체는 옛 파일을 지운다(recordReplacedPptTemplate → purgeTemplateKey).
+    // 결과가 삭제와 같으므로 기준도 삭제와 같아야 한다. 한쪽만 좁히면 좁힌 쪽이 무의미해진다.
+    if (!isManager(user.role)) throw new ValidationError("템플릿 교체는 관리자만 할 수 있습니다.");
     if (!templateId) throw new ValidationError("잘못된 요청입니다.");
     return preparePptTemplateReplace(templateId);
   });
@@ -141,7 +144,10 @@ export async function confirmPptTemplateReplaceAction(input: {
   templateId: string;
   fileKey: string;
 }): Promise<ActionResult<{ template: PptTemplate; warning: string | null }>> {
-  return runAuthedAction(async () => {
+  return runAuthedAction(async (user) => {
+    // 교체는 옛 파일을 지운다(recordReplacedPptTemplate → purgeTemplateKey).
+    // 결과가 삭제와 같으므로 기준도 삭제와 같아야 한다. 한쪽만 좁히면 좁힌 쪽이 무의미해진다.
+    if (!isManager(user.role)) throw new ValidationError("템플릿 교체는 관리자만 할 수 있습니다.");
     if (!input.templateId || !input.fileKey) throw new ValidationError("잘못된 요청입니다.");
 
     const bytes = await readPptTemplateFileByKey(input.fileKey);
@@ -165,7 +171,10 @@ export async function confirmPptTemplateReplaceAction(input: {
 export async function uploadPptTemplateReplacementAction(
   formData: FormData
 ): Promise<ActionResult<null>> {
-  return runAuthedAction(async () => {
+  return runAuthedAction(async (user) => {
+    // 교체는 옛 파일을 지운다(recordReplacedPptTemplate → purgeTemplateKey).
+    // 결과가 삭제와 같으므로 기준도 삭제와 같아야 한다. 한쪽만 좁히면 좁힌 쪽이 무의미해진다.
+    if (!isManager(user.role)) throw new ValidationError("템플릿 교체는 관리자만 할 수 있습니다.");
     const file = formData.get("file");
     const fileKey = formData.get("fileKey");
     if (!(file instanceof File) || typeof fileKey !== "string") throw new ValidationError("필수 항목이 누락되었습니다.");

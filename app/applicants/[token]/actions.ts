@@ -8,6 +8,15 @@ import { Applicant, ApplicantStatus } from "@/lib/db/types";
 import { revalidatePath } from "next/cache";
 import { ActionResult, runAction } from "@/lib/actions/result";
 import { sendWebhookNotification } from "@/lib/notifications/webhook";
+import {
+  PUBLIC_BY_LINK,
+  PUBLIC_SUBMIT,
+  getClientIp,
+  hitThrottle,
+  isThrottled,
+  publicLinkKey,
+  publicSubmitKey,
+} from "@/lib/security/throttle";
 
 const APPLICANT_NOT_FOUND = "지원자가 이미 삭제되었거나 찾을 수 없습니다. 화면을 새로고침해주세요.";
 
@@ -26,6 +35,25 @@ export async function changeApplicantStatusByTokenAction(params: {
     if (!campaign) throw new ValidationError("유효하지 않은 공유 링크입니다. 담당자에게 새 링크를 요청해주세요.");
   // 끝난 뒤에는 옛 링크로 고쳐 쓰지 못하게 막는다. 화면과 같은 기준이다.
     if (campaign.status === "completed") throw new ValidationError("종료된 캠페인입니다. 담당자에게 문의해주세요.");
+
+    // 다른 공개 폼(지원·사전조사·인테이크·승인)과 같은 횟수 제한을 건다. 여기만 빠져 있었다.
+    //
+    // 이 액션은 호출마다 상태를 바꾸고 **감사 로그를 한 줄 남기며**, selected 면
+    // **광고주 웹훅까지 쏜다**. 링크를 받은 사람이 선정↔예비를 번갈아 누르면
+    // 그때마다 전부 다시 일어난다 — 남의 슬랙 채널에 알림을 퍼붓는 데 쓸 수 있고,
+    // 무료 요금제의 DB 용량을 감사 로그로 채우면 로그인 제한표까지 같은 DB 에서 멈춘다.
+    //
+    // **캠페인을 확인한 뒤**에 센다. 확인 전에 세면 아무 문자열이나 보낼 때마다
+    // 제한표에 새 행이 쌓여, 막으려던 것을 그대로 당한다.
+    const 제한키 = [
+      publicSubmitKey("applicantpick", params.token, await getClientIp()),
+      publicLinkKey("applicantpick", params.token),
+    ];
+    if (await isThrottled(제한키)) {
+      throw new ValidationError("단시간에 너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.");
+    }
+    await hitThrottle(제한키[0]!, PUBLIC_SUBMIT);
+    await hitThrottle(제한키[1]!, PUBLIC_BY_LINK);
 
     const applicant = await getApplicantById(params.applicantId);
     if (!applicant || applicant.campaign_id !== campaign.id) throw new ValidationError(APPLICANT_NOT_FOUND);

@@ -146,6 +146,17 @@ export async function getClientIp(): Promise<string | null> {
 
 /** 공개 폼 제출. 같은 링크·같은 곳에서 10분에 10회. */
 export const PUBLIC_SUBMIT: ThrottlePolicy = { maxHits: 10, windowMs: 10 * MINUTE, lockMs: 10 * MINUTE };
+/**
+ * 링크 하나 기준 상한. 1시간 100회.
+ *
+ * `PUBLIC_SUBMIT` 은 (링크 + IP) 로 센다. 그런데 IP 는 바꾸기 쉽다 — IPv6 는 한 회선이
+ * 주소를 통째로 덩어리로 받고, 프록시는 얼마든지 구한다. IP 별로만 막으면 주소를
+ * 갈아가며 사실상 무제한으로 부를 수 있다.
+ *
+ * 그래서 링크 자체에도 천장을 둔다. 정상적인 광고주 한 명이 1시간에 100번을 누를 일은
+ * 없고, 넘겼다면 그 링크가 샜다는 뜻이다. 링크는 회수(재발급)할 수 있다.
+ */
+export const PUBLIC_BY_LINK: ThrottlePolicy = { maxHits: 100, windowMs: 60 * MINUTE, lockMs: 60 * MINUTE };
 /** AI 초안, 링크 전체 기준. 10분에 20회. 여러 질문을 빠르게 훑는 것을 막는다. */
 export const AI_BY_LINK: ThrottlePolicy = { maxHits: 20, windowMs: 10 * MINUTE, lockMs: 10 * MINUTE };
 /** AI 초안, 질문 하나 기준. 하루 3회. 화면에 남은 횟수로 보여준다. */
@@ -153,6 +164,8 @@ export const AI_BY_QUESTION: ThrottlePolicy = { maxHits: 3, windowMs: 24 * 60 * 
 
 export const publicSubmitKey = (kind: string, token: string, ip: string | null) =>
   `form:${kind}:${token}:${ip ?? "-"}`;
+/** 링크 전체 기준 키. IP 를 섞지 않는다 — 그게 이 키의 요점이다. */
+export const publicLinkKey = (kind: string, token: string) => `link:${kind}:${token}`;
 export const aiLinkKey = (kind: string, token: string) => `ai:${kind}:${token}`;
 export const aiQuestionKey = (kind: string, token: string, questionId: string) =>
   `ai:${kind}:${token}:${questionId}`;

@@ -134,7 +134,11 @@ export const config = {
      * 대상으로 해서, 끝이 이미지 확장자이기만 하면 어떤 라우트든 프록시를 통째로
      * 건너뛰었다. 지금은 그런 라우트가 없어 새는 것이 없지만, 그런 주소를 만드는 날
      * 로그인 검사도 CSP 도 붙지 않는다.
+     *
+     * 이름 제외도 같은 이유로 **끝까지 묶는다.** 접두사로 두면 `/icons/...` 나
+     * `/icon-preview` 같은 주소까지 전부 프록시를 건너뛰어, 그 주소에는 CSP 도
+     * 로그인 검사도 붙지 않는다.
      */
-    "/((?!_next/static|_next/image|favicon.ico|icon|apple-icon|manifest.webmanifest|[^/]+\\.(?:png|jpg|jpeg|gif|webp|svg|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico$|icon(?:\\.\\w+)?$|apple-icon(?:\\.\\w+)?$|manifest\\.webmanifest$|[^/]+\\.(?:png|jpg|jpeg|gif|webp|svg|ico)$).*)",
   ],
 };

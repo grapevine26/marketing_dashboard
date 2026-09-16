@@ -16,7 +16,12 @@ const SECURITY_HEADERS = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  // 이 앱이 쓰지 않는 기능은 전부 닫는다. 쓰지 않는 문을 열어 둘 이유가 없고 닫는 비용이 한 줄이다.
+  {
+    key: "Permissions-Policy",
+    value:
+      "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), midi=(), bluetooth=(), display-capture=(), idle-detection=()",
+  },
 ];
 
 const nextConfig: NextConfig = {

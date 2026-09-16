@@ -4,6 +4,15 @@ import { getCampaignById, getCampaignByToken, getApplicantsByCampaignId, getForm
 import { applicantsToCSV } from "@/lib/applicants/csv";
 import { applicantsToXlsx } from "@/lib/applicants/xlsx";
 import { fileDownloadResponse } from "@/lib/http/fileResponse";
+import {
+  PUBLIC_BY_LINK,
+  PUBLIC_SUBMIT,
+  getClientIp,
+  hitThrottle,
+  isThrottled,
+  publicLinkKey,
+  publicSubmitKey,
+} from "@/lib/security/throttle";
 import { sanitizeApplicantForCompany, questionsSharedWithCompany } from "@/lib/db/types";
 
 /**
@@ -39,6 +48,23 @@ export async function GET(request: NextRequest) {
   // 화면은 닫고 파일은 열어 두면 파일이 곧 우회 경로가 된다.
   if (token && campaign.status === "completed") {
     return new NextResponse("종료된 캠페인입니다.", { status: 403 });
+  }
+
+  // 토큰으로 오는 요청에만 횟수 제한을 건다. 로그인한 직원이 자기 화면에서 받는 것은 셀 이유가 없다.
+  //
+  // 이 응답은 **캠페인 전체 명단**이고, 호출마다 감사 로그가 한 줄씩 쌓인다(아래 logCompanyExport).
+  // 링크가 단톡방이나 메일로 새면 그 하나로 명단을 무제한으로 받아갈 수 있고,
+  // 그 사이 감사 로그가 부풀어 진짜 기록이 묻힌다.
+  //
+  // 키를 둘 쓴다. (링크+IP) 는 평범한 남용을 막고, 링크 전체 상한은 IP 를 바꿔가며
+  // 우회하는 것을 막는다. 후자가 진짜 천장이다.
+  if (token) {
+    const 제한키 = [publicSubmitKey("exportapplicants", token, await getClientIp()), publicLinkKey("exportapplicants", token)];
+    if (await isThrottled(제한키)) {
+      return new NextResponse("단시간에 너무 많이 내려받았습니다. 잠시 후 다시 시도해주세요.", { status: 429 });
+    }
+    await hitThrottle(제한키[0]!, PUBLIC_SUBMIT);
+    await hitThrottle(제한키[1]!, PUBLIC_BY_LINK);
   }
 
   const [rawApplicants, formConfig] = await Promise.all([
