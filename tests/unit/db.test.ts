@@ -537,3 +537,48 @@ describeDb("공용 질문 템플릿 동시 저장", () => {
     expect(snsLogs).toHaveLength(1);
   }, 30_000);
 });
+
+describeDb("동시 편집에서 남의 수정이 살아남는가", () => {
+  it("안내문 템플릿은 보낸 종류만 바꾸고 나머지는 그대로 둔다", async () => {
+    const { camp } = await seedCampaign();
+
+    // A 가 최종선정 문구를, B 가 미선정 문구를 각각 저장한다.
+    await updateCampaignMessageTemplates(camp.id, { selected: "A 가 쓴 최종선정 문구" });
+    await updateCampaignMessageTemplates(camp.id, { rejected: "B 가 쓴 미선정 문구" });
+
+    const after = await getCampaignById(camp.id);
+    // 전에는 통째로 덮어써서 B 의 저장이 A 의 문구를 지웠다.
+    expect(after?.message_templates?.selected).toBe("A 가 쓴 최종선정 문구");
+    expect(after?.message_templates?.rejected).toBe("B 가 쓴 미선정 문구");
+  });
+
+  it("콘텐츠 수정은 보낸 칸만 바꾼다", async () => {
+    const acc = await createSnsAccount({
+      company_name: "브랜드",
+      platform: "instagram",
+      handle: "brand",
+      starts_on: null,
+      ends_on: null,
+    });
+    const content = await createSnsContent({
+      account_id: acc.id,
+      title: "원본 제목",
+      scheduled_on: null,
+      assignee: null,
+      caption: "원본 캡션",
+      hashtags: null,
+      media_note: null,
+    });
+
+    // B 가 캡션을 바꾼다.
+    await updateSnsContent(content.id, { caption: "B 가 쓴 카피" });
+    // A 는 제목만 고쳐 보낸다(화면이 달라진 칸만 보내므로 caption 은 들어 있지 않다).
+    await updateSnsContent(content.id, { title: "A 가 고친 제목" });
+
+    const after = await getSnsContentsByAccountId(acc.id);
+    const row = after.find((c) => c.id === content.id);
+    expect(row?.title).toBe("A 가 고친 제목");
+    // 화면이 caption 까지 함께 보내던 때에는 여기가 "원본 캡션" 으로 되돌아갔다.
+    expect(row?.caption).toBe("B 가 쓴 카피");
+  });
+});

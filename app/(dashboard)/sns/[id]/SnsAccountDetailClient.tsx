@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import { useOrigin } from "@/components/useOrigin";
+import { changedFields, nothingChanged } from "@/lib/ui/changedFields";
 import { useRouter } from "next/navigation";
 import {
   SnsAccount,
@@ -191,6 +192,11 @@ export default function SnsAccountDetailClient({
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ContentForm>(EMPTY_FORM);
+  /**
+   * 편집을 **열었을 때**의 값. 저장할 때 지금 값과 비교해 달라진 칸만 보낸다.
+   * 안 건드린 칸을 함께 보내면 그 사이 남이 고친 값을 옛 값으로 덮어쓴다.
+   */
+  const [formOpenedWith, setFormOpenedWith] = useState<ContentForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [loadingAi, setLoadingAi] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -330,20 +336,23 @@ export default function SnsAccountDetailClient({
     setEditingId(null);
     setSelectedFiles([]);
     setForm({ ...EMPTY_FORM, scheduled_on: dateStr || "" });
+    setFormOpenedWith({ ...EMPTY_FORM, scheduled_on: dateStr || "" });
     setModalOpen(true);
   };
 
   const openEdit = (c: SnsContent) => {
     setEditingId(c.id);
     setSelectedFiles([]);
-    setForm({
+    const opened: ContentForm = {
       title: c.title,
       scheduled_on: c.scheduled_on || "",
       assignee: c.assignee || "",
       caption: c.caption || "",
       hashtags: c.hashtags || "",
       media_note: c.media_note || "",
-    });
+    };
+    setForm(opened);
+    setFormOpenedWith(opened);
     setModalOpen(true);
   };
 
@@ -522,14 +531,25 @@ export default function SnsAccountDetailClient({
     setSaving(true);
     setError(null);
     if (editingId) {
-      const res = await safeCall(updateSnsContentAction(editingId, account.id, {
-        title: form.title,
-        scheduled_on: form.scheduled_on || null,
-        assignee: form.assignee || null,
-        caption: form.caption || null,
-        hashtags: form.hashtags || null,
-        media_note: form.media_note || null,
-      }));
+      // 달라진 칸만 보낸다. 안 건드린 칸을 함께 보내면, 그 사이 남이 고친 값을
+      // 내가 열었을 때의 옛 값으로 되돌려 버린다(그 사람은 자기 작업이 사라진 줄도 모른다).
+      const touched = changedFields(formOpenedWith, form);
+      const patch = {
+        ...(touched.title !== undefined ? { title: form.title } : {}),
+        ...(touched.scheduled_on !== undefined ? { scheduled_on: form.scheduled_on || null } : {}),
+        ...(touched.assignee !== undefined ? { assignee: form.assignee || null } : {}),
+        ...(touched.caption !== undefined ? { caption: form.caption || null } : {}),
+        ...(touched.hashtags !== undefined ? { hashtags: form.hashtags || null } : {}),
+        ...(touched.media_note !== undefined ? { media_note: form.media_note || null } : {}),
+      };
+      // 아무것도 안 고쳤으면 요청 자체를 보내지 않는다. 빈 저장은 남의 수정을
+      // 건드릴 일도 없고, 활동 기록에 "수정했습니다" 만 쌓인다.
+      if (nothingChanged(patch)) {
+        setSaving(false);
+        setModalOpen(false);
+        return;
+      }
+      const res = await safeCall(updateSnsContentAction(editingId, account.id, patch));
       setSaving(false);
       if (!res.ok) {
         toast.error(res.error || "콘텐츠 수정에 실패했습니다.");

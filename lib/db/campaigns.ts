@@ -203,7 +203,18 @@ export async function updateCampaignMessageTemplates(
   templates: Record<string, string>
 ): Promise<Campaign | null> {
   if (!isUuid(campaignId)) return null;
-  const cleaned: Record<string, string> = {};
+
+  // **덮어쓰지 않고 합친다.** 전에는 받은 객체로 통째로 바꿨다. 그래서 화면이 다섯 종류를
+  // 한꺼번에 보내야 했고, 그 값들은 모달을 연 순간의 스냅샷이라 그 사이 남이 다른 종류를
+  // 고쳤으면 옛 값으로 되돌려 버렸다. 보낸 종류만 바꾸면 그 사고가 없어진다.
+  const existing = unwrapMaybe(
+    await db().from("campaigns").select("message_templates").eq("id", campaignId).maybeSingle<{
+      message_templates: Record<string, string> | null;
+    }>()
+  );
+  if (!existing) return null;
+
+  const cleaned: Record<string, string> = { ...(existing.message_templates ?? {}) };
   for (const [k, v] of Object.entries(templates || {})) {
     if (typeof v === "string") cleaned[k] = v.slice(0, 5000);
   }
