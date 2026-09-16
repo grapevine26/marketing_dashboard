@@ -6,6 +6,7 @@ const describeDb = describe.skipIf(!hasTestDb);
 import {
   getCampaigns,
   getApplicantsByCampaignId,
+  countApplicantsByCampaign,
   getFormConfig,
   getEventsByCampaignId,
   getEventInvitees,
@@ -62,6 +63,37 @@ async function seedCampaign() {
   });
   return { camp, app };
 }
+
+describeDb("캠페인별 지원자 수", () => {
+  it("한 번의 조회로 캠페인마다 전체·최종선정 수를 센다", async () => {
+    const a = await seedCampaign();
+    const b = await seedCampaign();
+    // b 쪽에만 한 명 더 넣고 그 중 하나를 최종선정한다.
+    await createApplicant({
+      campaign_id: b.camp.id,
+      name: "김서연",
+      sns_link: "https://instagram.com/seoyeon",
+      nationality: "대한민국",
+      contact: "010-3333-4444",
+      shipping_address: "부산시",
+      privacy_agreed: true,
+      secondary_use_agreed: false,
+      custom_answers: {},
+    });
+    await updateApplicantStatus(b.app.id, "selected", "agency");
+
+    const counts = await countApplicantsByCampaign();
+    expect(counts.get(a.camp.id)).toEqual({ total: 1, selected: 0 });
+    expect(counts.get(b.camp.id)).toEqual({ total: 2, selected: 1 });
+  });
+
+  it("지원자가 없는 캠페인은 아예 담기지 않는다", async () => {
+    // 읽는 쪽이 0 으로 다루면 된다. 없는 것과 0 을 구분할 일이 없어서 넣지 않는다.
+    const camp = await createCampaign({ name: "빈 캠페인", company_name: "브랜드", campaign_type: "visit" });
+    const counts = await countApplicantsByCampaign();
+    expect(counts.has(camp.id)).toBe(false);
+  });
+});
 
 describeDb("Supabase DB", () => {
   it("첫 조회에 캠페인이 없고 내장 템플릿 3개가 있다", async () => {

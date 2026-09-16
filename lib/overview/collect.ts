@@ -209,7 +209,10 @@ export interface HomeSummary {
   pendingApprovalSnsContents: PendingApprovalSnsItem[];
   scheduledSnsThisWeekCount: number;
   scheduledSnsThisWeek: ScheduledSnsItem[];
-  /** 최근 생성된 진행중(모집중~보고서 작성) 캠페인 최대 3개. 홈 화면 카드 목록용. */
+  /**
+   * 진행중(모집중~보고서 작성) 캠페인 전부, 최근 생성 순.
+   * "진행중 캠페인" KPI 카드의 모달이 이걸 그대로 그린다. activeCampaignCount 와 길이가 같아야 한다.
+   */
   activeCampaigns: HomeCampaignSummary[];
 }
 
@@ -248,10 +251,11 @@ export async function collectHomeSummary(todayKst: string): Promise<HomeSummary>
 
   const isActive = (status: string) => status !== "draft" && status !== "completed";
 
+  // 자르지 않는다. 이 목록은 "진행중 캠페인" KPI 카드의 모달에 그대로 뜨는데,
+  // 카드에 적힌 수(activeCampaignCount)와 모달 줄 수가 다르면 사람이 빠진 게 있다고 의심한다.
   const activeCampaigns: HomeCampaignSummary[] = perCampaign
     .filter(({ campaign }) => isActive(campaign.status))
     .sort((a, b) => b.campaign.created_at.localeCompare(a.campaign.created_at))
-    .slice(0, 3)
     .map(({ campaign, applicants }) => ({
       id: campaign.id,
       name: campaign.name,

@@ -28,9 +28,20 @@ interface CampaignsListClientProps {
    * 없으면 직원이 캠페인 이름을 다 옮겨 적고 버튼을 누른 뒤에야 거부당한다.
    */
   canDelete: boolean;
+  /**
+   * 캠페인 id -> 지원자 수. 목록에 없는 캠페인은 0 으로 본다.
+   *
+   * 전에는 이 수가 오버뷰 맨 아래 박스에만 있었다. 그 박스는 캘린더 아래라 스크롤해야
+   * 보였고 최근 3건만 나왔다. 박스를 없애면서 이리로 옮겼다 — 캠페인을 훑는 자리가 여기다.
+   */
+  applicantCounts: Record<string, { total: number; selected: number }>;
 }
 
-export default function CampaignsListClient({ initialCampaigns, canDelete }: CampaignsListClientProps) {
+export default function CampaignsListClient({
+  initialCampaigns,
+  canDelete,
+  applicantCounts,
+}: CampaignsListClientProps) {
   const router = useRouter();
   const [campaigns, setCampaigns] = useState<Campaign[]>(initialCampaigns);
   const [filter, setFilter] = useState<"active" | "all" | "completed">("active");
@@ -342,7 +353,14 @@ export default function CampaignsListClient({ initialCampaigns, canDelete }: Cam
                 </Link>
               </div>
 
-              <div className="pt-3 border-t border-border flex items-center justify-between text-xs text-text-sub">
+              <div className="pt-3 border-t border-border space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-text-sub font-mono tabular-nums">
+                  <span>지원자 {applicantCounts[camp.id]?.total ?? 0}명</span>
+                  <span className="text-text font-semibold">
+                    최종선정 {applicantCounts[camp.id]?.selected ?? 0}명
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-text-sub">
                 <span>
                   상태:{" "}
                   <strong className={camp.status === "completed" ? "text-text-muted font-semibold" : "text-blue-400 font-semibold"}>
@@ -356,6 +374,7 @@ export default function CampaignsListClient({ initialCampaigns, canDelete }: Cam
                   <span>관리 허브</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition" />
                 </Link>
+                </div>
               </div>
             </div>
           ))}

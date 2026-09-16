@@ -57,6 +57,41 @@ export async function getApplicantsByCampaignId(campaignId: string): Promise<App
   return rows.map(rowToApplicant);
 }
 
+/** 캠페인 하나의 지원자 수 요약. */
+export interface ApplicantCounts {
+  /** 전체 지원자 수 */
+  total: number;
+  /** 최종선정된 수 */
+  selected: number;
+}
+
+/**
+ * 캠페인별 지원자 수를 **한 번의 조회로** 센다. 캠페인 id -> 수.
+ *
+ * 캠페인 목록 화면은 수만 보여주고 지원자 내용은 쓰지 않는다. 그런데 캠페인마다
+ * `getApplicantsByCampaignId` 를 부르면 캠페인 수만큼 왕복하고, 그때마다 이름·연락처·주소가
+ * 전부 딸려 온다. **화면에 쓰지도 않을 개인정보를 서버 메모리로 끌어오는 셈이다.**
+ * 여기서는 `campaign_id` 와 `status` 두 칸만 받아 센다.
+ *
+ * 없는 캠페인은 결과에 담기지 않는다. 읽는 쪽에서 0 으로 다루면 된다.
+ */
+export async function countApplicantsByCampaign(): Promise<Map<string, ApplicantCounts>> {
+  const rows = unwrap(
+    await db()
+      .from("applicants")
+      .select("campaign_id, status")
+      .returns<{ campaign_id: string; status: string }[]>()
+  );
+  const counts = new Map<string, ApplicantCounts>();
+  for (const row of rows) {
+    const current = counts.get(row.campaign_id) ?? { total: 0, selected: 0 };
+    current.total += 1;
+    if (row.status === "selected") current.selected += 1;
+    counts.set(row.campaign_id, current);
+  }
+  return counts;
+}
+
 export async function getApplicantById(id: string): Promise<Applicant | null> {
   if (!isUuid(id)) return null;
   const row = unwrapMaybe(
