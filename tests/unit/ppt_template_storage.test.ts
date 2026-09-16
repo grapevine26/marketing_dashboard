@@ -25,7 +25,7 @@ import { buildTemplatePathname } from "@/lib/db/types";
 /** 최소한의 zip 컨테이너 흉내. pptx 는 PK 로 시작한다. */
 const pptxBytes = (size: number, filler = "A") => {
   const buf = Buffer.alloc(size, filler.charCodeAt(0));
-  buf.write("PK", 0, "latin1");
+  buf.write("PK\x03\x04", 0, "latin1");
   return buf;
 };
 

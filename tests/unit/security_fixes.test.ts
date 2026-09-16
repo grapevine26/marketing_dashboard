@@ -305,8 +305,8 @@ describe("검색엔진 색인 차단", () => {
     const robots = readFileSync("app/robots.ts", "utf8");
     expect(robots).toContain('disallow: "/"');
     // 일부만 막으면 새 공개 경로가 생길 때마다 여기에 손으로 추가해야 한다. 전체를 막는다.
-    // `` 로 단어 경계를 잡는다. toContain("allow:") 로 하면 disallow: 안에서도 걸린다.
-    expect(robots).not.toMatch(/allow:/);
+    // `\b` 로 단어 경계를 잡는다. toContain("allow:") 로 하면 disallow: 안에서도 걸린다.
+    expect(robots).not.toMatch(/\ballow:/);
   });
 
   it("모든 페이지에 noindex 가 걸려 있다", async () => {
@@ -794,5 +794,53 @@ describe("Range 헤더 파싱", () => {
     expect(src.includes('range.replace(/bytes=/, "").split("-")')).toBe(true);
     expect(src.includes("Number.isNaN(start)")).toBe(true);
     expect(src.includes("Number.isNaN(end)")).toBe(true);
+  });
+});
+
+describe("소스에 날 제어문자가 없는가", () => {
+  /**
+   * 이 검사를 넣은 이유 — 이 파일의 "검색엔진 색인 차단" 테스트가 **조용히 죽어 있었다.**
+   *
+   * `/\ballow:/` 로 적으려던 정규식이 언젠가 날 백스페이스(0x08) 한 글자로 바뀌어 있었다.
+   * 소스에 절대 없는 문자를 찾는 꼴이라 `.not.toMatch` 는 무엇을 넣어도 통과했다.
+   * robots.ts 에 `allow:` 구멍이 나도 아무도 몰랐을 것이다.
+   *
+   * 같은 사고가 또 있었다. pptx/mp4/webp 매직 바이트를 날것으로 붙여 넣은 파일들인데,
+   * NUL 이 들어간 `tests/unit/phase3.test.ts` 는 git 이 아예 **바이너리로** 보는 바람에
+   * diff 가 안 보였다. 리뷰에서 걸릴 수가 없다.
+   *
+   * 고치는 법은 같다 — `\x00` `\x03` `\b` 처럼 **이스케이프로** 적는다. 뜻은 똑같고
+   * 눈에 보인다. 탭·개행·캐리지리턴은 정상이므로 뺀다.
+   */
+  it("탭과 개행 말고는 제어문자가 없다", async () => {
+    const { readdirSync, readFileSync, statSync } = await import("node:fs");
+    const { join } = await import("node:path");
+
+    const SKIP = new Set([
+      "node_modules", ".next", ".git", ".data",
+      "test-results", "playwright-report", "coverage",
+    ]);
+    const EXT = /\.(ts|tsx|js|mjs|json|md|css)$/;
+    const OK = new Set([9, 10, 13]); // 탭, 개행, 캐리지리턴
+
+    const walk = (dir: string): string[] =>
+      readdirSync(dir).flatMap((name) => {
+        if (SKIP.has(name)) return [];
+        const p = join(dir, name);
+        if (statSync(p).isDirectory()) return walk(p);
+        return EXT.test(name) ? [p] : [];
+      });
+
+    const offenders: string[] = [];
+    for (const file of walk(".")) {
+      const bytes = readFileSync(file);
+      const found = new Set<number>();
+      for (const b of bytes) if (b < 0x20 && !OK.has(b)) found.add(b);
+      if (found.size > 0) {
+        const codes = [...found].map((b) => `0x${b.toString(16).padStart(2, "0")}`);
+        offenders.push(`${file}: ${codes.join(", ")}`);
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 });

@@ -402,6 +402,7 @@ e2e 는 `tests/e2e/global-setup.ts` 가 매번 테스트 DB를 비우고, 전용
 - **`app/layout.tsx` 의 `<Script id="theme-init">` 에 `nonce` 를 계속 넘기세요.** 안 넘기면 서버는 난수를 달고 클라이언트는 빈 값으로 그려 개발 모드에 하이드레이션 경고가 뜹니다(배포 동작에는 문제없지만 로그가 지저분해집니다).
 - **`app/layout.tsx` 의 `force-dynamic` 을 빼지 마세요.** 정적으로 미리 만든 HTML 에는 그 요청의 CSP 난수가 들어갈 수 없어, 그 페이지만 스크립트가 전부 막힌 죽은 화면이 됩니다.
 - **`e.target.files` 는 곧바로 배열로 옮기고 나서 `input.value` 를 비우세요.** `files` 는 input 에 붙어 있는 살아 있는 목록이라, 비우면 같은 객체가 그 자리에서 빕니다. `setState` 의 함수형 업데이터는 늦게 실행되므로 그 안에서 `Array.from(files)` 를 하면 빈 배열을 담습니다. 실제로 신규 기획안에서 시안을 골라도 아무 일도 안 일어났습니다(2026-09-07 ~ 09-15).
+- **매직 바이트나 정규식 이스케이프를 소스에 `\x00` `\x03` `\b` 처럼 *글자로* 적으세요.** 날 제어문자를 그대로 붙여 넣으면 두 가지가 터집니다. NUL 이 들어가면 git 이 그 파일을 **바이너리로 보고 diff 를 아예 안 보여 줍니다** (`tests/unit/phase3.test.ts` 가 그랬습니다). 그리고 `\b`(단어 경계)가 날 백스페이스로 바뀌면 정규식이 소스에 없는 문자를 찾게 되어 **단언이 무엇을 넣어도 통과합니다** — robots.txt 의 `allow:` 검사가 그렇게 죽어 있었습니다. `tests/unit/security_fixes.test.ts` 가 이제 저장소 전체를 훑어 막습니다.
 - **인라인 `onclick` 같은 속성 핸들러는 이제 동작하지 않습니다.** CSP 가 막습니다. React 의 `onClick` 은 속성이 아니라 이벤트 리스너라 영향 없습니다.
 - **Blob 저장소는 반드시 Private 으로 만드세요.** 공개/비공개는 **저장소를 만들 때 정해지고 나중에 못 바꿉니다**(`vercel blob create-store --access private`). 현재 저장소(`marketing-dashboard-blob`)는 Private 이라, 비공개 파일 주소가 `https://<store-id>.private.blob.vercel-storage.com/...` 이고 읽기·쓰기 모두 인증을 요구합니다.
 

@@ -1570,7 +1570,7 @@ describe("renderReportPptx", () => {
   }, 30_000);
 
   test("produces a real OOXML package", () => {
-    expect(pptx.subarray(0, 4).toString("latin1")).toBe("PK");
+    expect(pptx.subarray(0, 4).toString("latin1")).toBe("PK\x03\x04");
     expect(zip.file("ppt/presentation.xml")).not.toBeNull();
     expect(zip.file("[Content_Types].xml")).not.toBeNull();
   });
@@ -3035,7 +3035,7 @@ describe("GET /api/reports/[reportId]/pdf", () => {
 });
 ```
 
-`app/api/reports/[reportId]/pptx/route.test.ts` is the same file with these four substitutions: import `renderReportPptx` from `@/lib/reports/pptx` (and mock that module instead), the mocked buffer is `Buffer.from("PK fake", "latin1")`, the expected `Content-Type` is `"application/vnd.openxmlformats-officedocument.presentationml.presentation"`, the expected filename suffix is `.pptx`, and the body assertion is `expect(body.subarray(0, 4).toString("latin1")).toBe("PK")`. Write it out in full — do not import shared fixtures across route test files.
+`app/api/reports/[reportId]/pptx/route.test.ts` is the same file with these four substitutions: import `renderReportPptx` from `@/lib/reports/pptx` (and mock that module instead), the mocked buffer is `Buffer.from("PK\x03\x04 fake", "latin1")`, the expected `Content-Type` is `"application/vnd.openxmlformats-officedocument.presentationml.presentation"`, the expected filename suffix is `.pptx`, and the body assertion is `expect(body.subarray(0, 4).toString("latin1")).toBe("PK\x03\x04")`. Write it out in full — do not import shared fixtures across route test files.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
