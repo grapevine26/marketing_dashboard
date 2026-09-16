@@ -97,3 +97,41 @@ test("모달을 열면 탭 포커스가 그 안에 갇힌다", async ({ page }) 
   });
   expect(돌아왔나).toBe("진행중 캠페인 목록 확인");
 });
+
+/**
+ * 공개 폼은 지원자가 직접 채운다. 라벨이 칸과 이어져 있어야
+ *  - 화면낭독기가 **입력 중에도** 무슨 칸인지 계속 알려 주고,
+ *  - 라벨 글을 눌러도 그 칸으로 포커스가 간다(손이 불편한 사람에게 표적이 커진다).
+ *
+ * 전에는 placeholder 가 이름 노릇을 했다. axe 는 통과시키지만 입력을 시작하면 사라진다.
+ */
+test("공개 신청폼은 라벨과 입력칸이 이어져 있다", async ({ page }) => {
+  await page.goto(`/apply/${SAMPLE.applyToken}`);
+  await page.waitForLoadState("networkidle");
+
+  const 이어진것 = await page.evaluate(() => {
+    const out: { 글: string; 이어짐: boolean }[] = [];
+    for (const label of Array.from(document.querySelectorAll("label"))) {
+      const 글 = (label.textContent || "").replace(/\s+/g, " ").trim();
+      if (!글) continue;
+      // 칸을 품고 있으면 그것으로 이미 이어진 것이다(동의 체크박스가 그렇다).
+      const 품음 = !!label.querySelector("input, select, textarea");
+      const forId = label.getAttribute("for");
+      const 가리킴 = !!forId && !!document.getElementById(forId);
+      out.push({ 글: 글.slice(0, 24), 이어짐: 품음 || 가리킴 });
+    }
+    return out;
+  });
+
+  const 안이어진것 = 이어진것.filter((r) => !r.이어짐).map((r) => r.글);
+  expect(이어진것.length, "라벨을 하나도 못 찾았다 — 화면이 안 떴을 수 있다").toBeGreaterThan(8);
+  expect(
+    안이어진것,
+    `라벨 글은 있는데 어느 칸을 가리키는지가 없다. htmlFor/id 로 이어라: ${안이어진것.join(" / ")}`
+  ).toEqual([]);
+
+  // 라벨을 눌렀을 때 실제로 그 칸으로 포커스가 가는지 한 곳으로 확인한다.
+  await page.getByText("연락처", { exact: false }).first().click();
+  const 포커스된칸 = await page.evaluate(() => (document.activeElement as HTMLElement)?.id ?? "");
+  expect(포커스된칸).toBe("apply-contact");
+});

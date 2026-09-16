@@ -121,10 +121,13 @@ export default function ApplyPublicForm({
 
   const renderCustom = (q: CustomFormQuestion) => {
     const value = formData.custom_answers[q.id];
+    // 라벨과 이어 줄 id. 체크박스는 라벨 안에 들어 있어 따로 잇지 않아도 이름이 있다.
+    const fieldId = `apply-custom-${q.id}`;
     switch (q.type) {
       case "number":
         return (
           <input
+            id={fieldId}
             type="number"
             required={q.required}
             value={value === undefined ? "" : String(value)}
@@ -135,6 +138,7 @@ export default function ApplyPublicForm({
       case "select":
         return (
           <select
+            id={fieldId}
             required={q.required}
             value={typeof value === "string" ? value : ""}
             onChange={(e) => setCustom(q.id, e.target.value)}
@@ -162,6 +166,7 @@ export default function ApplyPublicForm({
       default:
         return (
           <input
+            id={fieldId}
             type="text"
             required={q.required}
             value={typeof value === "string" ? value : ""}
@@ -177,19 +182,26 @@ export default function ApplyPublicForm({
       {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">{error}</div>}
 
       <div className="space-y-1">
-        <label className="text-xs font-semibold text-text-2">성함 / 활동명 *</label>
-        <input type="text" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="홍길동" className={inputCls} />
+        <label htmlFor="apply-name" className="text-xs font-semibold text-text-2">
+            성함 / 활동명 *
+          </label>
+        <input id="apply-name" type="text" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="홍길동" className={inputCls} />
       </div>
 
       <div className="space-y-1">
-        <label className="text-xs font-semibold text-text-2">활동 SNS 계정 URL *</label>
-        <input type="url" required value={formData.sns_link} onChange={(e) => setFormData({ ...formData, sns_link: e.target.value })} placeholder="https://instagram.com/your_id" className={inputCls} />
+        <label htmlFor="apply-sns-link" className="text-xs font-semibold text-text-2">
+            활동 SNS 계정 URL *
+          </label>
+        <input id="apply-sns-link" type="url" required value={formData.sns_link} onChange={(e) => setFormData({ ...formData, sns_link: e.target.value })} placeholder="https://instagram.com/your_id" className={inputCls} />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-text-2">팔로워 / 구독자 수 (선택)</label>
+          <label htmlFor="apply-follower" className="text-xs font-semibold text-text-2">
+            팔로워 / 구독자 수 (선택)
+          </label>
           <input
+            id="apply-follower"
             type="number"
             min="0"
             value={formData.follower_count}
@@ -199,8 +211,11 @@ export default function ApplyPublicForm({
           />
         </div>
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-text-2">주요 활동 분야 (선택)</label>
+          <label htmlFor="apply-category" className="text-xs font-semibold text-text-2">
+            주요 활동 분야 (선택)
+          </label>
           <input
+            id="apply-category"
             type="text"
             value={formData.category}
             onChange={(e) => setFormData({ ...formData, category: e.target.value })}
@@ -212,8 +227,10 @@ export default function ApplyPublicForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-text-2">연락처 *</label>
-          <input type="tel" required value={formData.contact} onChange={(e) => setFormData({ ...formData, contact: e.target.value })} placeholder="010-1234-5678" className={inputCls} />
+          <label htmlFor="apply-contact" className="text-xs font-semibold text-text-2">
+            연락처 *
+          </label>
+          <input id="apply-contact" type="tel" required value={formData.contact} onChange={(e) => setFormData({ ...formData, contact: e.target.value })} placeholder="010-1234-5678" className={inputCls} />
         </div>
         <div className="space-y-1">
           <label htmlFor="apply-nationality" className="text-xs font-semibold text-text-2">
@@ -225,23 +242,30 @@ export default function ApplyPublicForm({
 
       {isShipping ? (
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-text-2">배송지 주소 (상세주소 포함) *</label>
-          <input type="text" required value={formData.shipping_address} onChange={(e) => setFormData({ ...formData, shipping_address: e.target.value })} placeholder="서울특별시 강남구 테헤란로 123 401호" className={inputCls} />
+          <label htmlFor="apply-shipping" className="text-xs font-semibold text-text-2">
+            배송지 주소 (상세주소 포함) *
+          </label>
+          <input id="apply-shipping" type="text" required value={formData.shipping_address} onChange={(e) => setFormData({ ...formData, shipping_address: e.target.value })} placeholder="서울특별시 강남구 테헤란로 123 401호" className={inputCls} />
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-text-2">방문 희망 일정 *</label>
-            <input type="text" required value={formData.visit_schedule} onChange={(e) => setFormData({ ...formData, visit_schedule: e.target.value })} placeholder="예: 9월 10일 오후 3시" className={inputCls} />
+            <label htmlFor="apply-visit-schedule" className="text-xs font-semibold text-text-2">
+            방문 희망 일정 *
+          </label>
+            <input id="apply-visit-schedule" type="text" required value={formData.visit_schedule} onChange={(e) => setFormData({ ...formData, visit_schedule: e.target.value })} placeholder="예: 9월 10일 오후 3시" className={inputCls} />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-text-2">방문 인원수</label>
+            <label htmlFor="apply-party-size" className="text-xs font-semibold text-text-2">
+              방문 인원수
+            </label>
             {/*
               min/max 를 걸지 않는다. 걸어 두면 0 이나 21 을 넣었을 때 브라우저가 제출을 막는데,
               그 사유가 화면에 남지 않아 인플루언서 입장에서는 버튼이 죽은 것처럼 보인다.
               대신 칸에서 포커스가 빠질 때 서버가 저장할 값(1~20)으로 바꿔 눈으로 확인시킨다.
             */}
             <input
+              id="apply-party-size"
               type="number"
               inputMode="numeric"
               step={1}
@@ -265,7 +289,12 @@ export default function ApplyPublicForm({
         <div className="pt-2 border-t border-border space-y-3">
           {customQuestions.map((q) => (
             <div key={q.id} className="space-y-1">
-              <label className="text-xs font-semibold text-text-2">
+              <label
+                // 체크박스형은 입력칸이 자기 라벨 안에 들어 있어 이미 이름이 있다.
+                // 거기에 htmlFor 를 또 주면 라벨 두 개가 한 칸을 가리키게 된다.
+                htmlFor={q.type === "checkbox" ? undefined : `apply-custom-${q.id}`}
+                className="text-xs font-semibold text-text-2"
+              >
                 {q.label} {q.required && <span className="text-blue-400">*</span>}
               </label>
               {renderCustom(q)}
