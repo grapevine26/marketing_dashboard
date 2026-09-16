@@ -582,3 +582,62 @@ describeDb("동시 편집에서 남의 수정이 살아남는가", () => {
     expect(row?.caption).toBe("B 가 쓴 카피");
   });
 });
+
+describeDb("같은 칸을 둘이 고칠 때", () => {
+  async function 콘텐츠하나() {
+    const acc = await createSnsAccount({
+      company_name: "브랜드",
+      platform: "instagram",
+      handle: `brand_${Date.now()}`,
+      starts_on: null,
+      ends_on: null,
+    });
+    return createSnsContent({
+      account_id: acc.id,
+      title: "원본 제목",
+      scheduled_on: null,
+      assignee: null,
+      caption: "원본 캡션",
+      hashtags: null,
+      media_note: null,
+    });
+  }
+
+  it("내가 불러온 뒤 남이 저장했으면 덮어쓰지 않고 거부한다", async () => {
+    const content = await 콘텐츠하나();
+    // A 가 편집을 연다. 이때의 기준 시각을 들고 있는다.
+    const A가본기준 = content.updated_at;
+
+    // B 가 같은 칸을 고쳐 저장한다.
+    await updateSnsContent(content.id, { caption: "B 가 쓴 카피" });
+
+    // A 가 자기 캡션을 저장하려 한다 → 거부되어야 한다.
+    await expect(
+      updateSnsContent(content.id, { caption: "A 가 쓴 카피", expected_updated_at: A가본기준 })
+    ).rejects.toThrow(/먼저 저장했습니다/);
+
+    // 거부됐으니 B 의 글이 그대로 남아 있어야 한다.
+    const after = (await getSnsContentsByAccountId(content.account_id)).find((c) => c.id === content.id);
+    expect(after?.caption).toBe("B 가 쓴 카피");
+  });
+
+  it("아무도 안 건드렸으면 그대로 저장된다", async () => {
+    const content = await 콘텐츠하나();
+    const saved = await updateSnsContent(content.id, {
+      caption: "A 가 쓴 카피",
+      expected_updated_at: content.updated_at,
+    });
+    expect(saved?.caption).toBe("A 가 쓴 카피");
+    // 저장하면 기준 시각이 새로 찍힌다(DB 트리거). 안 바뀌면 다음 저장이 충돌을 못 잡는다.
+    expect(new Date(saved!.updated_at).getTime()).toBeGreaterThan(new Date(content.updated_at).getTime());
+  });
+
+  it("기준 시각을 안 보내면 잠그지 않는다", async () => {
+    // 상태 드롭다운처럼 한 칸만 바꾸는 조작은 덮어쓸 남의 글이 없다.
+    const content = await 콘텐츠하나();
+    await updateSnsContent(content.id, { caption: "남이 먼저" });
+    const saved = await updateSnsContent(content.id, { title: "기준 시각 없이" });
+    expect(saved?.title).toBe("기준 시각 없이");
+    expect(saved?.caption).toBe("남이 먼저");
+  });
+});

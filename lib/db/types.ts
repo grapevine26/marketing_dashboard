@@ -685,6 +685,12 @@ export interface SnsContent {
   comment_count: number | null;
   status_changed_at: string | null;
   created_at: string;
+  /**
+   * 마지막으로 바뀐 시각. DB 트리거가 찍는다(마이그레이션 0008).
+   * 편집 화면이 이 값을 들고 있다가 저장할 때 돌려보내면, 그 사이 남이 저장한 경우
+   * 덮어쓰지 않고 알려 준다(`lib/db/row-lock.ts`).
+   */
+  updated_at: string;
 }
 
 /** 광고주 승인 화면에 노출되는 필드만. media_note·성과 수치·토큰은 절대 포함하지 않는다. */

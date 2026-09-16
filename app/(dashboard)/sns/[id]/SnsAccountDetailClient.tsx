@@ -197,6 +197,16 @@ export default function SnsAccountDetailClient({
    * 안 건드린 칸을 함께 보내면 그 사이 남이 고친 값을 옛 값으로 덮어쓴다.
    */
   const [formOpenedWith, setFormOpenedWith] = useState<ContentForm>(EMPTY_FORM);
+  /**
+   * 편집을 열었을 때 이 콘텐츠의 기준 시각. 저장할 때 함께 보내면, 그 사이 남이
+   * **같은 칸**을 고쳤을 경우 덮어쓰지 않고 알려 준다. 다른 칸이면 애초에 안 보내므로 상관없다.
+   */
+  const [editingBaseline, setEditingBaseline] = useState<string | null>(null);
+  /**
+   * 저장하려는데 그 사이 남이 먼저 저장한 상태. 토스트만 띄우면 막다른 길이 된다 —
+   * 사용자는 자기 글을 손에 쥔 채 무엇을 해야 할지 모른다. 선택지를 화면에 남긴다.
+   */
+  const [saveConflict, setSaveConflict] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingAi, setLoadingAi] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -337,6 +347,8 @@ export default function SnsAccountDetailClient({
     setSelectedFiles([]);
     setForm({ ...EMPTY_FORM, scheduled_on: dateStr || "" });
     setFormOpenedWith({ ...EMPTY_FORM, scheduled_on: dateStr || "" });
+    setEditingBaseline(null);
+    setSaveConflict(false);
     setModalOpen(true);
   };
 
@@ -353,6 +365,8 @@ export default function SnsAccountDetailClient({
     };
     setForm(opened);
     setFormOpenedWith(opened);
+    setEditingBaseline(c.updated_at);
+    setSaveConflict(false);
     setModalOpen(true);
   };
 
@@ -549,12 +563,20 @@ export default function SnsAccountDetailClient({
         setModalOpen(false);
         return;
       }
-      const res = await safeCall(updateSnsContentAction(editingId, account.id, patch));
+      const res = await safeCall(
+        updateSnsContentAction(editingId, account.id, { ...patch, expected_updated_at: editingBaseline })
+      );
       setSaving(false);
       if (!res.ok) {
+        // 충돌은 실패와 다르다. 내 글은 멀쩡하고, 무엇을 할지 고르기만 하면 된다.
+        if ((res.error || "").includes("먼저 저장했습니다")) {
+          setSaveConflict(true);
+          return setError(null);
+        }
         toast.error(res.error || "콘텐츠 수정에 실패했습니다.");
         return setError(res.error);
       }
+      setSaveConflict(false);
       setContents((prev) => prev.map((c) => (c.id === editingId ? res.data : c)));
       toast.success("콘텐츠가 수정되었습니다.");
     } else {
@@ -1583,6 +1605,41 @@ export default function SnsAccountDetailClient({
                   </div>
                 </label>
               </div>
+
+              {saveConflict && (
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-warn-soft text-xs space-y-2">
+                  <p className="font-semibold">내가 이 창을 연 뒤에 다른 사람이 먼저 저장했습니다.</p>
+                  <p className="text-[11px] leading-relaxed">
+                    지금 화면의 내용은 그대로 있습니다. 그대로 저장하면 그 사람의 수정을 덮어씁니다.
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // 기준 시각을 버리고 다시 저장한다 = 덮어쓰기. 사고가 아니라 **선택**이다.
+                        setEditingBaseline(null);
+                        setSaveConflict(false);
+                        toast.info("다시 [수정 저장] 을 누르면 내 내용으로 덮어씁니다.");
+                      }}
+                      className="px-2 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 font-semibold transition"
+                    >
+                      내 내용으로 덮어쓰기
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSaveConflict(false);
+                        setModalOpen(false);
+                        router.refresh();
+                        toast.info("최신 내용을 불러왔습니다. 다시 열어 확인해주세요.");
+                      }}
+                      className="px-2 py-1 rounded-lg bg-surface2 hover:bg-surface3 text-text-sub transition"
+                    >
+                      최신 내용 불러오기 (내 수정 버림)
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="pt-3 flex flex-col-reverse sm:flex-row justify-end gap-2">
                 <button type="button" onClick={() => setModalOpen(false)} className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs">취소</button>

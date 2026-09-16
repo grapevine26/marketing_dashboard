@@ -419,6 +419,7 @@ export interface SnsContentRow {
   comment_count: number | null;
   status_changed_at: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export function rowToSnsContent(r: SnsContentRow): SnsContent {
@@ -440,6 +441,7 @@ export function rowToSnsContent(r: SnsContentRow): SnsContent {
     comment_count: r.comment_count,
     status_changed_at: ts(r.status_changed_at),
     created_at: ts(r.created_at),
+    updated_at: ts(r.updated_at),
   };
 }
 

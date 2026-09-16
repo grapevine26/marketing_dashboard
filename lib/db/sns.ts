@@ -18,6 +18,7 @@
 import { randomBytes } from "crypto";
 import path from "path";
 import { insertAuditLog } from "./audit";
+import { updateRowWithLock } from "./row-lock";
 import { db, unwrap, unwrapMaybe } from "./client";
 import { DEFAULT_SNS_INTAKE_QUESTIONS } from "./defaults";
 import {
@@ -681,6 +682,12 @@ export interface SnsContentPatch {
   view_count?: number | null;
   like_count?: number | null;
   comment_count?: number | null;
+  /**
+   * 편집을 시작할 때 화면이 받아 둔 기준 시각. 보내면 그 사이 남이 저장한 경우
+   * 덮어쓰지 않고 거부한다. 긴 글을 다루는 편집 모달만 보낸다 — 상태 드롭다운처럼
+   * 한 칸만 바꾸는 조작은 덮어쓸 남의 글이 없어서 막으면 쓰기만 불편해진다.
+   */
+  expected_updated_at?: string | null;
 }
 
 /** 콘텐츠 수정. 성과 수치는 게시완료(posted) 상태에서만 넣을 수 있다. 없는 id 면 null. */
@@ -727,9 +734,14 @@ export async function updateSnsContent(id: string, patch: SnsContentPatch): Prom
   // 수치를 비우는 것(null)은 성과 입력으로 치지 않는다. 실제 값이 새로 들어온 경우만 문구에 드러낸다.
   const perfEntered = perfKeys.some((key) => update[key] != null && update[key] !== current[key]);
 
-  const row = unwrap(
-    await db().from("sns_contents").update(update).eq("id", id).select("*").single<SnsContentRow>()
-  );
+  // 기준 시각을 보냈으면 그 사이 남이 저장했는지 본다. 어긋나면 덮어쓰지 않고 알린다.
+  const row = await updateRowWithLock<SnsContentRow>({
+    table: "sns_contents",
+    id,
+    values: update,
+    expectedUpdatedAt: patch.expected_updated_at,
+  });
+  if (!row) return null;
   const content = rowToSnsContent(row);
 
   const changes: string[] = [];

@@ -157,3 +157,49 @@ test.describe("C. SNS 운영", () => {
     expect(noTemplate.status()).toBe(400);
   });
 });
+
+/**
+ * 둘이 같은 콘텐츠를 고칠 때, 나중에 저장한 쪽이 앞사람 것을 조용히 덮어쓰면 안 된다.
+ *
+ * B 의 저장은 테스트 DB 에 직접 써서 흉내 낸다. 브라우저 두 개를 띄우는 것보다
+ * 확실하고, 우리가 확인하려는 것은 "A 의 화면이 어떻게 반응하는가" 이기 때문이다.
+ */
+test("같은 콘텐츠를 둘이 고치면 덮어쓰지 않고 선택지를 준다", async ({ page }) => {
+  const { createClient } = await import("@supabase/supabase-js");
+  const { loadTestEnv } = await import("./env");
+  const env = loadTestEnv();
+  const admin = createClient(env.url, env.serviceRoleKey, { auth: { persistSession: false } });
+
+  await page.goto(`/sns/${SAMPLE.snsAccountId}?tab=list`);
+  const card = contentCard(page, SAMPLE.pendingContentTitle);
+
+  // A: 편집을 연다. 이 순간의 기준 시각이 화면에 담긴다.
+  await card.getByRole("button", { name: "수정", exact: true }).click();
+  const 제목칸 = page.getByPlaceholder("예: 3초 속건조 탈출! 하이드라 세럼 제형 릴스");
+  await expect(제목칸).toBeVisible();
+
+  // B: A 가 창을 열어 둔 사이에 같은 콘텐츠를 고친다.
+  const { error } = await admin
+    .from("sns_contents")
+    .update({ caption: "B 가 먼저 쓴 카피" })
+    .eq("title", SAMPLE.pendingContentTitle);
+  expect(error, `B 의 저장이 실패하면 이 테스트는 의미가 없다: ${error?.message}`).toBeNull();
+
+  // A: 제목을 고쳐 저장한다.
+  await 제목칸.fill("A 가 고친 제목");
+  await page.getByRole("button", { name: "수정 저장" }).click();
+
+  // 덮어쓰지 않고 알린다. 내 글은 화면에 그대로 있어야 한다.
+  await expect(page.getByText("다른 사람이 먼저 저장했습니다")).toBeVisible();
+  await expect(제목칸).toHaveValue("A 가 고친 제목");
+  await expect(page.getByRole("button", { name: "내 내용으로 덮어쓰기" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /최신 내용 불러오기/ })).toBeVisible();
+
+  // B 의 글은 아직 살아 있다.
+  const { data } = await admin
+    .from("sns_contents")
+    .select("caption, title")
+    .eq("title", SAMPLE.pendingContentTitle)
+    .maybeSingle();
+  expect(data?.caption).toBe("B 가 먼저 쓴 카피");
+});
