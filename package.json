@@ -18,6 +18,7 @@
     "test:e2e:ui": "playwright test --ui",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:backup": "node scripts/db-backup.mjs",
+    "blob:orphans": "node scripts/blob-orphans.mjs",
     "db:make-admin": "node scripts/make-admin.mjs",
     "db:hide-user": "node scripts/hide-user.mjs",
     "doc:pdf": "node scripts/make-doc-pdf.mjs",
