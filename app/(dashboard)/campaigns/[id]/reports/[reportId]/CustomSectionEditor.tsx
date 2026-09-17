@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { CustomSection } from "@/lib/db/types";
 import { saveReportSectionsAction } from "../actions";
 import { Plus, Trash2, Save, CheckCircle2, Loader2 } from "lucide-react";
@@ -11,15 +12,31 @@ export default function CustomSectionEditor({
   reportId,
   campaignId,
   initialSections,
+  initialUpdatedAt,
 }: {
   reportId: string;
   campaignId: string;
   initialSections: CustomSection[];
+  /** 이 화면을 연 시점의 기준 시각. 저장할 때 돌려보내 남의 수정을 덮어쓰지 않게 한다. */
+  initialUpdatedAt: string;
 }) {
   const [sections, setSections] = useState<CustomSection[]>(initialSections);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * 낙관적 잠금 기준. 저장에 성공할 때마다 새 값으로 옮긴다.
+   * 안 옮기면 **연달아 저장할 때 자기 자신과 충돌**한다.
+   */
+  const [baseline, setBaseline] = useState<string | null>(initialUpdatedAt);
+  /**
+   * 저장하려는데 그 사이 남이 먼저 저장한 상태.
+   *
+   * 토스트만 띄우면 막다른 길이 된다 — 사용자는 자기 글을 손에 쥔 채 무엇을 해야 할지 모른다.
+   * 선택지를 화면에 남긴다. (SNS 콘텐츠 수정 모달과 같은 방식)
+   */
+  const [saveConflict, setSaveConflict] = useState(false);
+  const router = useRouter();
 
   const update = (id: string, patch: Partial<CustomSection>) =>
     setSections((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
@@ -32,19 +49,35 @@ export default function CustomSectionEditor({
   };
 
   const handleRemove = (id: string) => {
+    // 10,000자짜리 총평 옆의 휴지통을 잘못 누르면 그 자리에서 사라지고, 습관적으로 저장을
+    // 누르면 DB 에서도 사라진다. 되돌릴 방법이 없어서 한 번 묻는다.
+    const target = sections.find((s) => s.id === id);
+    const 이름 = target?.title?.trim() || "제목 없는 섹션";
+    const 내용있음 = Boolean(target?.content?.trim());
+    if (내용있음 && !confirm(`"${이름}" 섹션을 지울까요? 작성한 내용이 함께 사라집니다.`)) return;
     setSections((prev) => prev.filter((s) => s.id !== id));
   };
 
   const handleSave = async () => {
     setSaving(true);
     setError(null);
-    const res = await safeCall(saveReportSectionsAction({ reportId, campaignId, customSections: sections }));
+    const res = await safeCall(
+      saveReportSectionsAction({ reportId, campaignId, customSections: sections, expectedUpdatedAt: baseline })
+    );
     setSaving(false);
     if (!res.ok) {
+      // 충돌은 실패와 다르다. 내 글은 멀쩡하고, 무엇을 할지 고르기만 하면 된다.
+      if ((res.error || "").includes("먼저 저장했습니다")) {
+        setSaveConflict(true);
+        setError(null);
+        return;
+      }
       setError(res.error);
       toast.error(res.error || "섹션 저장에 실패했습니다.");
       return;
     }
+    setSaveConflict(false);
+    setBaseline(res.data.updatedAt);
     setSaved(true);
     toast.success("보고서 맞춤 섹션이 저장되었습니다.");
     setTimeout(() => setSaved(false), 3000);
@@ -65,6 +98,40 @@ export default function CustomSectionEditor({
       </div>
 
       {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">{error}</div>}
+
+      {saveConflict && (
+        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-warn-soft text-xs space-y-2">
+          <p className="font-semibold">내가 이 화면을 연 뒤에 다른 사람이 먼저 저장했습니다.</p>
+          <p className="text-[11px] leading-relaxed">
+            지금 화면의 내용은 그대로 있습니다. 그대로 저장하면 그 사람의 수정을 덮어씁니다.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                // 기준 시각을 버리고 다시 저장한다 = 덮어쓰기. 사고가 아니라 **선택**이다.
+                setBaseline(null);
+                setSaveConflict(false);
+                toast.info("다시 [보고서 내용 저장] 을 누르면 내 내용으로 덮어씁니다.");
+              }}
+              className="px-2 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 font-semibold transition"
+            >
+              내 내용으로 덮어쓰기
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSaveConflict(false);
+                router.refresh();
+                toast.info("최신 내용을 불러왔습니다. 화면을 확인해주세요.");
+              }}
+              className="px-2 py-1 rounded-lg bg-surface2 hover:bg-surface3 text-text-sub transition"
+            >
+              최신 내용 불러오기 (내 수정 버림)
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-4">
         {sections.length === 0 && (

@@ -104,7 +104,12 @@ export default async function ReportDetailPage({
         ))}
       </div>
 
-      <CustomSectionEditor reportId={report.id} campaignId={campaign.id} initialSections={report.custom_sections || []} />
+      <CustomSectionEditor
+        reportId={report.id}
+        campaignId={campaign.id}
+        initialSections={report.custom_sections || []}
+        initialUpdatedAt={report.updated_at}
+      />
 
       <div className="p-6 rounded-2xl bg-surface border border-border space-y-4">
         <h2 className="text-base font-bold text-text">참여 인플루언서 성과 목록 (생성 시점 스냅샷)</h2>

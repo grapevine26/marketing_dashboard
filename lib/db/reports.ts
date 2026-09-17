@@ -22,6 +22,7 @@ import {
 } from "./mappers";
 import type { Applicant, Campaign, CampaignReport, ReportSnapshot, SeedingRecord } from "./types";
 import { nowIso, optionalText, requireText, ValidationError } from "./validation";
+import { updateRowWithLock } from "./row-lock";
 import { isUploadDone } from "@/lib/seeding/uploadDone";
 
 // ---------- 조회 ----------
@@ -55,21 +56,30 @@ export async function getReportById(reportId: string): Promise<CampaignReport | 
  */
 export async function saveReportSections(
   reportId: string,
-  customSections: CampaignReport["custom_sections"]
+  customSections: CampaignReport["custom_sections"],
+  /**
+   * 화면이 이 보고서를 불러올 때 받은 기준 시각.
+   *
+   * 총평은 **문서 전체를 통째로 덮어쓴다.** 그래서 탭 두 개로 열어 놓고 차례로 저장하면
+   * 뒤에 저장한 쪽이 앞사람이 쓴 것을 경고 없이 지운다(실제로 이 표만 잠금이 없었다).
+   * 같은 성격의 다른 문서는 전부 잠금을 쓴다.
+   *
+   * 안 보내면 잠그지 않는다 — 옛 화면이나 잠금이 필요 없는 경로를 위해 열어 두지만,
+   * 이 앱의 편집 화면은 반드시 보낸다.
+   */
+  expectedUpdatedAt?: string | null
 ): Promise<CampaignReport | null> {
   const sections = (customSections || []).map((s) => ({
     id: requireText(s.id, "섹션 ID", 100),
     title: typeof s.title === "string" ? s.title.slice(0, 300) : "",
     content: typeof s.content === "string" ? s.content.slice(0, 10000) : "",
   }));
-  const row = unwrapMaybe(
-    await db()
-      .from("reports")
-      .update({ custom_sections: sections })
-      .eq("id", reportId)
-      .select("*")
-      .maybeSingle<ReportRow>()
-  );
+  const row = await updateRowWithLock<ReportRow>({
+    table: "reports",
+    id: reportId,
+    values: { custom_sections: sections },
+    expectedUpdatedAt,
+  });
   // 없는 보고서면 아무것도 안 바뀌었으므로 로그도 남기지 않는다.
   if (!row) return null;
   const report = rowToReport(row);

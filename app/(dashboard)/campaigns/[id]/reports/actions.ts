@@ -19,11 +19,19 @@ export async function saveReportSectionsAction(params: {
   reportId: string;
   campaignId: string;
   customSections: CustomSection[];
-}): Promise<ActionResult<{ saved: true }>> {
+  /** 화면이 보고서를 불러올 때 받은 기준 시각. 그 사이 남이 저장했으면 거부된다. */
+  expectedUpdatedAt?: string | null;
+}): Promise<ActionResult<{ saved: true; updatedAt: string }>> {
   return runAuthedAction(async () => {
-    const report = await updateReportCustomSections(params.reportId, params.customSections);
+    const report = await updateReportCustomSections(
+      params.reportId,
+      params.customSections,
+      params.expectedUpdatedAt
+    );
     if (!report) throw new ValidationError("보고서가 이미 삭제되었거나 찾을 수 없습니다. 화면을 새로고침해주세요.");
     revalidatePath(`/campaigns/${params.campaignId}/reports/${params.reportId}`);
-    return { saved: true as const };
+    // 저장에 성공했으면 기준 시각도 새 값으로 옮겨야 한다. 안 그러면 **연달아 저장할 때
+    // 자기 자신과 충돌**한다.
+    return { saved: true as const, updatedAt: report.updated_at };
   });
 }

@@ -23,6 +23,8 @@ import {
   getSeedingRecordsByCampaignId,
   updateSeedingRecord,
   createReport,
+  updateReportCustomSections,
+  getReportById,
   buildReportSnapshot,
   createSnsAccount,
   createSnsContent,
@@ -228,6 +230,39 @@ describeDb("결과보고서 스냅샷", () => {
     const m = report.snapshot_data!.metrics;
     expect(m).toMatchObject({ totalApplicants: 1, selectedCount: 1, completedUploads: 1, totalViews: 1000, totalEngagement: 50, avgEngagementRate: 5 });
     expect(report.snapshot_data!.applicants[0]!.seeding?.upload_link).toBe("https://instagram.com/p/1");
+  });
+
+  it("총평도 남의 저장을 덮어쓰지 않는다", async () => {
+    // 총평은 **문서 전체를 통째로 덮어쓴다.** 이 표만 잠금이 없어서, 탭 두 개로 열어 놓고
+    // 차례로 저장하면 뒤에 저장한 쪽이 앞사람이 쓴 것을 경고 없이 지웠다.
+    const { camp } = await seedCampaign();
+    const report = await createReport(camp.id);
+
+    // A 가 화면을 열고 기준 시각을 쥔다.
+    const 기준 = report.updated_at;
+
+    // B 가 먼저 저장한다.
+    const b = await updateReportCustomSections(report.id, [{ id: "sec_b", title: "B", content: "B 가 먼저 쓴 총평" }]);
+    expect(b?.custom_sections[0]?.content).toBe("B 가 먼저 쓴 총평");
+
+    // A 가 옛 기준으로 저장하면 거부된다.
+    await expect(
+      updateReportCustomSections(report.id, [{ id: "sec_a", title: "A", content: "A 가 나중에 쓴 총평" }], 기준)
+    ).rejects.toThrow(/먼저 저장했습니다/);
+
+    // B 의 글이 그대로 살아 있어야 한다.
+    const 지금 = await getReportById(report.id);
+    expect(지금?.custom_sections[0]?.content).toBe("B 가 먼저 쓴 총평");
+
+    // 최신 기준으로 다시 저장하면 통과한다(= 화면이 빠져나올 수 있다).
+    const 재시도 = await updateReportCustomSections(
+      report.id,
+      [{ id: "sec_a", title: "A", content: "A 가 나중에 쓴 총평" }],
+      지금!.updated_at
+    );
+    expect(재시도?.custom_sections[0]?.content).toBe("A 가 나중에 쓴 총평");
+    // 저장 성공이면 기준 시각도 옮겨져야 한다. 안 그러면 연달아 저장할 때 자기 자신과 충돌한다.
+    expect(재시도!.updated_at).not.toBe(지금!.updated_at);
   });
 
   it("buildReportSnapshot은 순수 함수다", () => {

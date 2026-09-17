@@ -489,6 +489,11 @@ export interface CampaignReport {
   custom_sections: CustomReportSection[];
   generated_at?: string;
   created_at: string;
+  /**
+   * 낙관적 잠금 기준 시각. 화면이 불러올 때 받아 두었다가 저장할 때 그대로 돌려보낸다.
+   * 그 사이 다른 사람이 저장했으면 거부된다(lib/db/row-lock.ts).
+   */
+  updated_at: string;
 }
 export type Report = CampaignReport;
 

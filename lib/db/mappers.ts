@@ -203,6 +203,8 @@ export interface ReportRow {
   custom_sections: CampaignReport["custom_sections"];
   generated_at: string | null;
   created_at: string;
+  /** 낙관적 잠금 기준(0009 마이그레이션). DB 트리거가 찍는다. */
+  updated_at: string;
 }
 
 export function rowToReport(r: ReportRow): CampaignReport {
@@ -214,6 +216,7 @@ export function rowToReport(r: ReportRow): CampaignReport {
     custom_sections: r.custom_sections ?? [],
     generated_at: r.generated_at === null ? undefined : ts(r.generated_at),
     created_at: ts(r.created_at),
+    updated_at: ts(r.updated_at),
   };
 }
 
