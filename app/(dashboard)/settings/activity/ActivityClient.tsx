@@ -30,6 +30,15 @@ const PAGE_SIZE = 50;
 
 type EntityType = AuditLogEntry["entity_type"];
 
+/**
+ * 더 보기 커서. `lib/db/audit.ts` 의 `AuditLogCursor` 와 같은 모양이다.
+ *
+ * 거기서 직접 가져오지 않는 이유: `audit.ts` 는 `server-only` 인 admin 클라이언트에 닿아 있다.
+ * 타입만 가져와도 화면 쪽에서 그 파일을 가리키게 되는데, `lib/auth/invite-types.ts` 처럼
+ * 이 저장소는 그럴 때 모양을 따로 두는 쪽을 택해 왔다. 모양이 단순해서 옮겨 적는 값이 더 싸다.
+ */
+type ActivityCursor = { id: string; created_at: string };
+
 const ENTITY_LABELS: Record<EntityType, string> = {
   campaign: "캠페인",
   applicant: "지원자",
@@ -111,6 +120,18 @@ export default function ActivityClient({
 }) {
   const [rows, setRows] = useState(initialRows);
   const [hasMore, setHasMore] = useState(initialHasMore);
+  /**
+   * 다음 쪽을 가리키는 커서. 화면에 쌓인 개수(offset)를 쓰면 안 된다 —
+   * 보는 동안 새 로그가 맨 위에 쌓이면 창이 그만큼 밀려서 이미 본 행이 다시 붙고,
+   * 밀려난 만큼은 이 세션에서 다시 못 본다.
+   *
+   * 첫 쪽은 서버(page.tsx)가 그려 내려주므로 마지막 행에서 직접 만든다.
+   * created_at 은 여기까지 오면서 밀리초로 잘려 있지만, 서버가 id 로 원본 값을 다시 읽는다.
+   */
+  const [cursor, setCursor] = useState<ActivityCursor | null>(() => {
+    const last = initialRows[initialRows.length - 1];
+    return last ? { id: last.id, created_at: last.created_at } : null;
+  });
   const [entityTypes, setEntityTypes] = useState<EntityType[]>([]);
   const [actorTypes, setActorTypes] = useState<AuditActorType[]>([]);
   const [period, setPeriod] = useState<PeriodKey>("all");
@@ -119,16 +140,16 @@ export default function ActivityClient({
   const [pending, startTransition] = useTransition();
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const currentFilter = (offset: number) => ({
+  const currentFilter = (next: ActivityCursor | null) => ({
     entity_types: entityTypes.length ? entityTypes : undefined,
     actor_types: actorTypes.length ? actorTypes : undefined,
     since: sinceFor(period),
     search: search || undefined,
     limit: PAGE_SIZE,
-    offset,
+    cursor: next,
   });
 
-  /** 거르기가 바뀌면 처음부터 다시 받는다. */
+  /** 거르기가 바뀌면 처음부터 다시 받는다. 커서는 옛 조건에서 만든 것이라 반드시 버린다. */
   const reload = (next: {
     entityTypes?: EntityType[];
     actorTypes?: AuditActorType[];
@@ -147,7 +168,7 @@ export default function ActivityClient({
           since: sinceFor(p),
           search: s || undefined,
           limit: PAGE_SIZE,
-          offset: 0,
+          cursor: null,
         })
       );
       if (!res.ok) {
@@ -155,17 +176,26 @@ export default function ActivityClient({
         return;
       }
       setRows(res.data.rows);
-      setHasMore(res.data.hasMore);
+      setCursor(res.data.nextCursor);
+      setHasMore(res.data.hasMore && res.data.nextCursor !== null);
     });
   };
 
   const loadMore = async () => {
+    if (!cursor) return;
     setLoadingMore(true);
-    const res = await safeCall(fetchActivityAction(currentFilter(rows.length)));
+    const res = await safeCall(fetchActivityAction(currentFilter(cursor)));
     setLoadingMore(false);
     if (!res.ok) return toast.error(res.error || "더 불러오지 못했습니다.");
-    setRows((prev) => [...prev, ...res.data.rows]);
-    setHasMore(res.data.hasMore);
+    setRows((prev) => {
+      // 커서 방식이면 겹칠 일이 없지만, 겹치면 React key 가 충돌해 화면이 죽는다.
+      // 붙이기 직전에 한 번 더 거른다 — 값이 비싸지 않고, 최악이 조용한 누락이라 이쪽이 안전하다.
+      const seen = new Set(prev.map((r) => r.id));
+      return [...prev, ...res.data.rows.filter((r) => !seen.has(r.id))];
+    });
+    setCursor(res.data.nextCursor);
+    // 커서가 없으면(= 받은 게 없으면) 더 부를 방법이 없으니 버튼을 숨긴다.
+    setHasMore(res.data.hasMore && res.data.nextCursor !== null);
   };
 
   const toggleEntity = (t: EntityType) => {
@@ -384,7 +414,7 @@ export default function ActivityClient({
             </div>
           ))}
 
-          {hasMore && (
+          {hasMore && cursor && (
             <button
               type="button"
               onClick={loadMore}

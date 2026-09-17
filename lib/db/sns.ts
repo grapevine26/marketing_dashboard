@@ -1128,6 +1128,70 @@ export async function deleteSnsMediaAttachment(
 }
 
 /**
+ * 첨부 순서 변경. 캐러셀에 나가는 순서가 곧 배열 순서라서, 순서를 바꾸려면
+ * 지우고 다시 올리는 수밖에 없었다.
+ *
+ * **배열이 아니라 id 순서만 받는다.** 화면이 배열을 통째로 보내면, 보내는 사이에 다른 사람이
+ * 붙인 첨부가 그 배열에 없어서 조용히 사라진다(첨부는 파일까지 고아가 된다).
+ * 그래서 서버가 **지금 저장된 배열을 읽어** 받은 순서대로 재배치한다. 실제로 옮기는 것은
+ * 순서뿐이고, 첨부가 늘거나 줄지 않는다.
+ *
+ * - `orderedIds` 에 없는 첨부(그 사이 추가된 것)는 **원래 상대 순서를 지킨 채 뒤에 붙인다.**
+ *   버리지 않는 쪽이 중요하다. 순서는 다시 바꾸면 되지만 사라진 첨부는 되살릴 수 없다.
+ * - `orderedIds` 에 있지만 지금 없는 id(그 사이 삭제된 것)는 무시한다.
+ * - 결과가 지금과 같으면 쓰지도, 기록하지도 않는다.
+ *
+ * 첨부 조작은 콘텐츠 행을 고치므로 DB 트리거가 `updated_at` 을 올린다. 부르는 쪽(액션)은
+ * 추가·삭제와 마찬가지로 새 기준 시각을 함께 돌려줘야 모달이 가짜 충돌을 내지 않는다.
+ *
+ * @returns 재배치된 첨부 배열. 콘텐츠가 없으면 null.
+ */
+export async function reorderSnsMediaAttachments(
+  contentId: string,
+  orderedIds: string[]
+): Promise<SnsMediaAttachment[] | null> {
+  const content = await readSnsContentRow(contentId);
+  if (!content) return null;
+
+  const current = content.media_attachments ?? [];
+  if (current.length === 0) return [];
+
+  if (!Array.isArray(orderedIds)) throw new ValidationError("첨부 순서가 올바르지 않습니다.");
+
+  // 같은 id 를 두 번 보내도 첨부가 복제되지 않는다 — Map 에서 꺼낸 뒤 지우므로 두 번째는 걸리지 않는다.
+  const byId = new Map(current.map((m) => [m.id, m]));
+  const reordered: SnsMediaAttachment[] = [];
+  for (const id of orderedIds) {
+    if (typeof id !== "string") continue;
+    const att = byId.get(id);
+    if (!att) continue; // 그 사이 삭제됐거나, 이미 자리를 잡은 중복 id
+    reordered.push(att);
+    byId.delete(id);
+  }
+  // 남은 것(= 그 사이 추가된 첨부)은 원래 순서대로 뒤에 붙인다. byId 는 삽입 순서를 지킨다.
+  for (const att of byId.values()) reordered.push(att);
+
+  const unchanged = reordered.every((m, i) => m.id === current[i]?.id);
+  if (unchanged) return current;
+
+  unwrap(
+    await db().from("sns_contents").update({ media_attachments: reordered }).eq("id", contentId)
+  );
+
+  await insertAuditLog({
+    account_id: content.account_id,
+    entity_type: "sns_content",
+    entity_id: content.id,
+    action: "sns.reorder_media",
+    actor_type: "agency",
+    summary: `[${content.title}] 시안 미디어 순서를 변경했습니다. (${reordered.length}개)`,
+    details: { order: reordered.map((m) => m.id) },
+  });
+
+  return reordered;
+}
+
+/**
  * 첨부 id 로 콘텐츠를 찾는다(/api/media/:id).
  * jsonb 배열 포함 검색(@>)을 쓰며, sns_contents_media_gin 인덱스가 받쳐 준다.
  */

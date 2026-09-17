@@ -2,6 +2,7 @@ import { getCampaignById, getReportsByCampaignId } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import CreateReportButton from "./CreateReportButton";
+import DeleteReportButton from "./DeleteReportButton";
 import DownloadFileButton from "@/components/DownloadFileButton";
 import { ChevronLeft, ArrowRight, Download, Calendar } from "lucide-react";
 
@@ -127,6 +128,17 @@ export default async function ReportsListPage({
                     fallbackFilename={`${rep.title}.pptx`}
                     icon={<Download className="w-3 h-3 text-orange-400" />}
                     className="px-3 py-1.5 rounded-lg bg-surface2 hover:bg-surface3 text-text text-xs font-semibold inline-flex items-center gap-1 transition disabled:opacity-50"
+                  />
+                  {/*
+                    [보고서 생성]을 세 번 누르면 카드가 세 장 쌓이는데 지울 방법이 없었다.
+                    제목 바꾸기는 상세 화면에 있지만, **버리는 것**은 쌓인 모습이 보이는 여기서
+                    바로 할 수 있어야 한다. (되돌릴 수 없어 확인을 받는다)
+                  */}
+                  <DeleteReportButton
+                    reportId={rep.id}
+                    campaignId={campaign.id}
+                    title={rep.title}
+                    hasSections={(rep.custom_sections || []).some((s) => (s.content || "").trim())}
                   />
                 </div>
               </div>

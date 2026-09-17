@@ -450,18 +450,38 @@ export async function addDirectEventInvitee(data: {
   return invitee;
 }
 
-/** 초대 부분 수정(RSVP·참석 여부·메모). 초대가 없으면 null. 바꿀 필드가 없으면 현재 행을 돌려준다. */
+/**
+ * 초대 부분 수정(이름·SNS·연락처·RSVP·참석 여부·메모). 초대가 없으면 null.
+ * 바꿀 필드가 없으면 현재 행을 돌려준다.
+ *
+ * 이름·SNS·연락처까지 받는 이유: 오타 하나를 고치려고 지우고 다시 등록하면 RSVP 응답과
+ * 현장 참석 체크가 함께 날아가고, 지원자에서 가져온 초대라면 출처(applicant_id)까지 잃는다.
+ * 검증은 직접 추가(`addDirectEventInvitee`)와 **같은 규칙**을 쓴다. 두 경로가 갈리면
+ * 추가는 되는데 수정은 막히는(또는 그 반대) 값이 생긴다.
+ */
 export async function updateEventInvitee(
   inviteeId: string,
-  patch: { rsvp_status?: EventRsvpStatus; attended?: boolean; memo?: string | null }
+  patch: {
+    name?: string;
+    sns_url?: string | null;
+    contact?: string | null;
+    rsvp_status?: EventRsvpStatus;
+    attended?: boolean;
+    memo?: string | null;
+  }
 ): Promise<EventInvitee | null> {
   if (!isUuid(inviteeId)) return null;
-  const changes: Partial<Pick<EventInviteeRow, "rsvp_status" | "attended" | "memo">> = {};
+  const changes: Partial<
+    Pick<EventInviteeRow, "name" | "sns_url" | "contact" | "rsvp_status" | "attended" | "memo">
+  > = {};
+  if (patch.name !== undefined) changes.name = requireText(patch.name, "이름", 100);
+  if (patch.sns_url !== undefined) changes.sns_url = optionalUrl(patch.sns_url, "SNS URL");
+  if (patch.contact !== undefined) changes.contact = optionalText(patch.contact, 50);
   if (patch.rsvp_status !== undefined) changes.rsvp_status = oneOf(patch.rsvp_status, RSVP_STATUSES, "RSVP 상태");
   if (patch.attended !== undefined) changes.attended = Boolean(patch.attended);
   if (patch.memo !== undefined) changes.memo = optionalText(patch.memo, 1000);
 
-  // 바뀐 게 RSVP·참석 체크인지 메모뿐인지 가리려면 이전 값이 필요하다.
+  // 무엇이 바뀌었는지(이름·SNS·연락처·RSVP·참석 체크 / 메모뿐) 가리려면 이전 값이 필요하다.
   // 바꿀 필드가 없을 때 어차피 하던 조회를 앞으로 옮긴 것이라 쿼리는 늘지 않는다.
   const current = unwrapMaybe(
     await db().from("event_invitees").select("*").eq("id", inviteeId).maybeSingle<EventInviteeRow>()
@@ -481,26 +501,38 @@ export async function updateEventInvitee(
   const invitee = rowToEventInvitee(row);
 
   // 메모는 입력칸에서 포커스가 빠질 때마다 자동 저장되므로, 메모만 바뀐 경우는 로그를 남기지 않는다.
-  const rsvpChanged = invitee.rsvp_status !== current.rsvp_status;
-  const attendedChanged = invitee.attended !== current.attended;
-  if (rsvpChanged || attendedChanged) {
+  // 이름·SNS·연락처는 사람이 [저장] 을 눌러야 바뀌므로 자동 저장처럼 쏟아지지 않는다. 남긴다.
+  const parts: string[] = [];
+  if (invitee.name !== current.name) {
+    parts.push(`이름을 [${invitee.name}]${josa(invitee.name, "로")} 변경`);
+  }
+  if (invitee.sns_url !== current.sns_url) {
+    // 링크 전문을 문구에 넣으면 활동 기록 한 줄이 통째로 URL 이 된다. 바뀐 사실만 남긴다.
+    parts.push(invitee.sns_url ? "SNS 링크를 수정" : "SNS 링크를 삭제");
+  }
+  if (invitee.contact !== current.contact) {
+    // 연락처는 개인정보라 활동 기록에 값을 남기지 않는다.
+    parts.push(invitee.contact ? "연락처를 수정" : "연락처를 삭제");
+  }
+  if (invitee.rsvp_status !== current.rsvp_status) {
+    parts.push(`참석 여부를 [${RSVP_STATUS_LABELS[invitee.rsvp_status]}]${josa(RSVP_STATUS_LABELS[invitee.rsvp_status], "로")} 변경`);
+  }
+  if (invitee.attended !== current.attended) {
+    parts.push(invitee.attended ? "현장 참석을 체크" : "현장 참석 체크를 해제");
+  }
+  if (parts.length > 0) {
     // 캠페인 id·행사명은 초대 행에 없다. 로그를 남길 때만 행사 행을 읽는다.
     const ev = await getEventBrief(invitee.event_id);
     if (ev) {
-      const parts: string[] = [];
-      if (rsvpChanged) {
-        parts.push(`참석 여부를 [${RSVP_STATUS_LABELS[invitee.rsvp_status]}]${josa(RSVP_STATUS_LABELS[invitee.rsvp_status], "로")} 변경`);
-      }
-      if (attendedChanged) {
-        parts.push(invitee.attended ? "현장 참석을 체크" : "현장 참석 체크를 해제");
-      }
       await insertAuditLog({
         campaign_id: ev.campaign_id,
         entity_type: "event",
         entity_id: ev.id,
         action: "event.invitee_updated",
         actor_type: "agency",
-        summary: `[${ev.name}] ${invitee.name}님의 ${parts.join("하고 ")}했습니다.`,
+        // 주어는 **바꾸기 전 이름**이다. 새 이름을 주어로 쓰면 이름을 고친 기록이
+        // "김지현님의 이름을 [김지현]으로 변경" 처럼 읽혀서 무엇이 무엇으로 바뀌었는지 사라진다.
+        summary: `[${ev.name}] ${current.name}님의 ${parts.join("하고 ")}했습니다.`,
       });
     }
   }

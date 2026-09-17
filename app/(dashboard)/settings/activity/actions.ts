@@ -1,6 +1,6 @@
 "use server";
 
-import { queryAuditLogs, type AuditLogFilter } from "@/lib/db/audit";
+import { queryAuditLogs, type AuditLogCursor, type AuditLogFilter } from "@/lib/db/audit";
 import { ActionResult, runOwnerAction } from "@/lib/actions/result";
 import type { AuditLogEntry } from "@/lib/db/types";
 
@@ -11,7 +11,7 @@ import type { AuditLogEntry } from "@/lib/db/types";
  * `runOwnerAction` 으로 막는다. 화면에서 메뉴를 숨기는 것만으로는 부족하다.
  */
 export async function fetchActivityAction(filter: AuditLogFilter): Promise<
-  ActionResult<{ rows: AuditLogEntry[]; hasMore: boolean }>
+  ActionResult<{ rows: AuditLogEntry[]; hasMore: boolean; nextCursor: AuditLogCursor | null }>
 > {
   return runOwnerAction(async () => {
     return queryAuditLogs({
@@ -20,7 +20,9 @@ export async function fetchActivityAction(filter: AuditLogFilter): Promise<
       since: filter.since,
       search: filter.search,
       limit: filter.limit ?? 50,
-      offset: filter.offset ?? 0,
+      // 더 보기는 커서로만 이어붙인다. 첫 쪽(커서 없음)은 맨 위부터.
+      // offset 은 그 사이 쌓인 새 로그만큼 창이 밀려서 중복·누락을 만들기 때문에 넘기지 않는다.
+      cursor: filter.cursor ?? null,
     });
   });
 }

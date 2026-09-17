@@ -40,6 +40,11 @@ export interface OverviewData {
   failedSources: string[];
 }
 
+/** 오버뷰 화면 한 장이 필요한 전부. 통합 일정과 상단 요약을 같은 조회에서 만든다. */
+export interface OverviewPageData extends OverviewData {
+  summary: HomeSummary;
+}
+
 async function safe<T>(label: string, fn: () => Promise<T[]>): Promise<SourceResult<T>> {
   try {
     return { ok: true, rows: await fn() };
@@ -47,121 +52,6 @@ async function safe<T>(label: string, fn: () => Promise<T[]>): Promise<SourceRes
     console.error(`[overview] ${label} 조회 실패:`, err);
     return { ok: false, error: label };
   }
-}
-
-/**
- * A/B/C 4개 소스를 독립적으로 조회해 통합 일정 항목으로 합친다.
- * 한 소스가 실패해도 나머지는 렌더링되며, 실패한 소스는 failedSources로 알린다.
- */
-export async function collectOverviewItems(todayKst: string): Promise<OverviewData> {
-  const [campaignsRes, seedingRes, eventsRes, checklistRes, snsAccountsRes, snsContentsRes] = await Promise.all([
-    safe("캠페인", getCampaigns),
-    safe("시딩 관리시트", getAllSeedingRecords),
-    safe("행사", getAllEvents),
-    safe("행사 체크리스트", getAllEventChecklistItems),
-    safe("SNS 계정", getSnsAccounts),
-    safe("SNS 콘텐츠", getAllSnsContents),
-  ]);
-
-  const failedSources = [campaignsRes, seedingRes, eventsRes, checklistRes, snsAccountsRes, snsContentsRes]
-    .filter((r): r is { ok: false; error: string } => !r.ok)
-    .map((r) => r.error);
-
-  const campaigns = campaignsRes.ok ? campaignsRes.rows : [];
-  const campaignMap = new Map(campaigns.map((c) => [c.id, c]));
-  const items: UnifiedCalendarItem[] = [];
-
-  // A. 시딩 업로드 기한 (업로드완료가 아닌 최종선정 인플루언서)
-  if (seedingRes.ok && campaignsRes.ok) {
-    // 캠페인마다 지원자 전체를 **순차로** 부르던 자리다. 캠페인이 10개면 왕복 10번을
-    // 줄줄이 기다렸고, 필요한 것은 이름뿐인데 연락처·주소까지 딸려 왔다.
-    const applicantNames = new Map<string, string>();
-    try {
-      for (const a of await listApplicantSummaries()) {
-        if (a.status === "selected") applicantNames.set(a.id, a.name);
-      }
-    } catch {
-      /* 이름 조인 실패는 라벨만 빠진다 */
-    }
-    for (const s of seedingRes.rows) {
-      if (!s.upload_deadline || isUploadDone(s)) continue;
-      const camp = campaignMap.get(s.campaign_id);
-      const name = applicantNames.get(s.applicant_id);
-      if (!camp || !name) continue; // 삭제된 캠페인/선정 취소된 지원자는 조용히 제외
-      items.push({
-        id: `seed_${s.id}`,
-        source: "seeding",
-        title: `${name} 업로드 마감`,
-        dateStr: s.upload_deadline,
-        linkUrl: `/campaigns/${s.campaign_id}/seeding-sheet`,
-        brandName: camp.name,
-        extraInfo: `진행: ${s.progress_stage}`,
-        daysDiff: daysUntilDeadline(s.upload_deadline, todayKst),
-      });
-    }
-  }
-
-  // B. 행사 일시 (준비중만) + 체크리스트 마감 (미완료만)
-  const eventMap = new Map((eventsRes.ok ? eventsRes.rows : []).map((e) => [e.id, e]));
-  if (eventsRes.ok) {
-    for (const e of eventsRes.rows) {
-      if (!e.event_at || e.status !== "preparing") continue;
-      const dateStr = isoToKstDateString(e.event_at);
-      if (!dateStr) continue;
-      const camp = campaignMap.get(e.campaign_id);
-      items.push({
-        id: `event_${e.id}`,
-        source: "event",
-        title: e.name,
-        dateStr,
-        linkUrl: `/campaigns/${e.campaign_id}/events/${e.id}`,
-        brandName: camp?.company_name || "행사",
-        extraInfo: e.venue || "장소 미정",
-        daysDiff: daysUntilDeadline(dateStr, todayKst),
-      });
-    }
-  }
-  if (checklistRes.ok && eventsRes.ok) {
-    for (const chk of checklistRes.rows) {
-      if (!chk.due_date || chk.done) continue;
-      const parentEvent = eventMap.get(chk.event_id);
-      if (!parentEvent) continue; // 부모 행사가 삭제된 항목은 제외
-      const camp = campaignMap.get(parentEvent.campaign_id);
-      items.push({
-        id: `chk_${chk.id}`,
-        source: "event_checklist",
-        title: chk.label,
-        dateStr: chk.due_date,
-        linkUrl: `/campaigns/${parentEvent.campaign_id}/events/${parentEvent.id}?tab=checklist&checklistId=${chk.id}`,
-        brandName: camp?.company_name || parentEvent.name,
-        extraInfo: [parentEvent.name, chk.assignee ? `담당: ${chk.assignee}` : null].filter(Boolean).join(" • "),
-        daysDiff: daysUntilDeadline(chk.due_date, todayKst),
-      });
-    }
-  }
-
-  // C. SNS 발행 예정일 (게시완료가 아닌 것)
-  if (snsContentsRes.ok && snsAccountsRes.ok) {
-    const snsMap = new Map(snsAccountsRes.rows.map((a) => [a.id, a]));
-    for (const c of snsContentsRes.rows) {
-      if (!c.scheduled_on || c.status === "posted") continue;
-      const acc = snsMap.get(c.account_id);
-      if (!acc) continue;
-      items.push({
-        id: `sns_${c.id}`,
-        source: "sns",
-        title: `${c.title} · @${acc.handle}`,
-        dateStr: c.scheduled_on,
-        linkUrl: `/sns/${c.account_id}?tab=list&contentId=${c.id}`,
-        brandName: acc.company_name,
-        extraInfo: c.status === "pending_approval" ? "승인대기" : c.status === "approved" ? "승인완료" : c.status === "producing" ? "제작중" : "기획중",
-        daysDiff: daysUntilDeadline(c.scheduled_on, todayKst),
-      });
-    }
-  }
-
-  items.sort((a, b) => a.daysDiff - b.daysDiff || a.dateStr.localeCompare(b.dateStr));
-  return { items, failedSources };
 }
 
 export interface HomeCampaignSummary {
@@ -242,23 +132,227 @@ export interface HomeSummary {
 }
 
 /**
- * 홈 화면 상단 요약 통계 + 진행중인 캠페인 카드 목록.
- * 캠페인이 삭제되어도 조용히 제외되며, 지원자 조회 실패는 해당 캠페인만 0으로 집계한다.
+ * 오버뷰 한 화면이 필요한 것을 **한 번에** 모은다. 통합 일정 항목 + 상단 KPI 요약.
+ *
+ * **왜 합쳤나.** 전에는 `collectOverviewItems`(캘린더)와 `collectHomeSummary`(KPI)가 따로 있었고,
+ * 둘이 캠페인·행사·SNS 콘텐츠·SNS 계정·지원자 요약을 **각자 한 번씩** 읽었다. 화면 하나를
+ * 그리려고 같은 전체 조회를 여섯 번 왕복한 셈이다. 조회는 여기서 한 번만 하고, 아래 두 계산이
+ * 그 결과를 나눠 쓴다.
+ *
+ * **합치면서 필터는 한 글자도 바꾸지 않았다.** KPI 카드에 적힌 수와 모달 목록의 줄 수가 같아야
+ * 한다는 계약(activeCampaigns / preparingEvents 주석)이 걸려 있어서다. 캘린더 쪽 필터도
+ * 그대로다 — 합치기는 조회 횟수만 줄이는 작업이고, 숫자를 건드리는 작업이 아니다.
+ *
+ * **실패는 값으로 다룬다.** 한 소스가 죽어도 나머지는 그려지고, 죽은 소스는 failedSources 로
+ * 배너에 뜬다. 전에는 캠페인(`getCampaigns`)만 이 규칙 밖에 있어서, 캠페인 조회가 실패하면
+ * 예외가 그대로 올라가 화면 전체가 `app/error.tsx`("문제가 생겼습니다")로 바뀌었다.
+ * 부분 실패를 견디려고 만든 구조가 캠페인 하나 때문에 통째로 무력해지던 자리다.
  */
-export async function collectHomeSummary(todayKst: string): Promise<HomeSummary> {
-  const [campaigns, events, snsContents, snsAccounts, inviteeCounts] = await Promise.all([
-    getCampaigns(),
-    getAllEvents().catch(() => []),
-    getAllSnsContents().catch(() => []),
-    getSnsAccounts().catch(() => []),
+export async function collectOverview(todayKst: string): Promise<OverviewPageData> {
+  const [
+    campaignsRes,
+    seedingRes,
+    eventsRes,
+    checklistRes,
+    snsAccountsRes,
+    snsContentsRes,
+    applicantsRes,
+    inviteeCounts,
+  ] = await Promise.all([
+    safe("캠페인", getCampaigns),
+    safe("시딩 관리시트", getAllSeedingRecords),
+    safe("행사", getAllEvents),
+    safe("행사 체크리스트", getAllEventChecklistItems),
+    safe("SNS 계정", getSnsAccounts),
+    safe("SNS 콘텐츠", getAllSnsContents),
+    // 캠페인마다 지원자 전체를 부르던 자리다. 조회 한 번으로 받아 캠페인별로 나눈다.
+    // 캘린더의 이름 라벨과 KPI 의 지원자·선정 수가 이 한 번을 같이 쓴다.
+    safe("지원자", listApplicantSummaries),
     // 한 번의 조회로 행사별 초청·참석확정 수를 센다. 실패해도 목록은 0 으로 그린다.
     countEventInvitees().catch(() => new Map()),
   ]);
+
+  const failedSources = [
+    campaignsRes,
+    seedingRes,
+    eventsRes,
+    checklistRes,
+    snsAccountsRes,
+    snsContentsRes,
+    applicantsRes,
+  ]
+    .filter((r): r is { ok: false; error: string } => !r.ok)
+    .map((r) => r.error);
+
+  const campaigns = campaignsRes.ok ? campaignsRes.rows : [];
+  const events = eventsRes.ok ? eventsRes.rows : [];
+  const snsAccounts = snsAccountsRes.ok ? snsAccountsRes.rows : [];
+  const snsContents = snsContentsRes.ok ? snsContentsRes.rows : [];
+  const summaries: ApplicantSummary[] = applicantsRes.ok ? applicantsRes.rows : [];
+  const campaignMap = new Map(campaigns.map((c) => [c.id, c]));
+
+  return {
+    items: buildCalendarItems(todayKst, {
+      campaignMap,
+      campaignsOk: campaignsRes.ok,
+      seedingRes,
+      eventsRes,
+      checklistRes,
+      snsAccountsRes,
+      snsContentsRes,
+      summaries,
+    }),
+    failedSources,
+    summary: buildHomeSummary(todayKst, {
+      campaigns,
+      campaignMap,
+      events,
+      snsAccounts,
+      snsContents,
+      summaries,
+      inviteeCounts,
+    }),
+  };
+}
+
+type CampaignRows = Awaited<ReturnType<typeof getCampaigns>>;
+type EventRows = Awaited<ReturnType<typeof getAllEvents>>;
+type SnsAccountRows = Awaited<ReturnType<typeof getSnsAccounts>>;
+type SnsContentRows = Awaited<ReturnType<typeof getAllSnsContents>>;
+type SeedingRows = Awaited<ReturnType<typeof getAllSeedingRecords>>;
+type ChecklistRows = Awaited<ReturnType<typeof getAllEventChecklistItems>>;
+type InviteeCounts = Awaited<ReturnType<typeof countEventInvitees>>;
+
+/**
+ * A/B/C 3개 소스를 통합 일정 항목으로 합친다.
+ * 한 소스가 실패해도 나머지는 렌더링된다 — 그래서 실패 여부를 그대로 받아 본다.
+ */
+function buildCalendarItems(
+  todayKst: string,
+  src: {
+    campaignMap: Map<string, CampaignRows[number]>;
+    campaignsOk: boolean;
+    seedingRes: SourceResult<SeedingRows[number]>;
+    eventsRes: SourceResult<EventRows[number]>;
+    checklistRes: SourceResult<ChecklistRows[number]>;
+    snsAccountsRes: SourceResult<SnsAccountRows[number]>;
+    snsContentsRes: SourceResult<SnsContentRows[number]>;
+    summaries: ApplicantSummary[];
+  }
+): UnifiedCalendarItem[] {
+  const { campaignMap, campaignsOk, seedingRes, eventsRes, checklistRes, snsAccountsRes, snsContentsRes } = src;
+  const items: UnifiedCalendarItem[] = [];
+
+  // A. 시딩 업로드 기한 (업로드완료가 아닌 최종선정 인플루언서)
+  if (seedingRes.ok && campaignsOk) {
+    // 이름표에 필요한 것은 이름뿐이다. 지원자 요약 조회가 실패했으면 이 맵이 비고,
+    // 그러면 라벨을 붙일 수 없는 항목만 빠진다(예전과 같다).
+    const applicantNames = new Map<string, string>();
+    for (const a of src.summaries) {
+      if (a.status === "selected") applicantNames.set(a.id, a.name);
+    }
+    for (const s of seedingRes.rows) {
+      if (!s.upload_deadline || isUploadDone(s)) continue;
+      const camp = campaignMap.get(s.campaign_id);
+      const name = applicantNames.get(s.applicant_id);
+      if (!camp || !name) continue; // 삭제된 캠페인/선정 취소된 지원자는 조용히 제외
+      items.push({
+        id: `seed_${s.id}`,
+        source: "seeding",
+        title: `${name} 업로드 마감`,
+        dateStr: s.upload_deadline,
+        linkUrl: `/campaigns/${s.campaign_id}/seeding-sheet`,
+        brandName: camp.name,
+        extraInfo: `진행: ${s.progress_stage}`,
+        daysDiff: daysUntilDeadline(s.upload_deadline, todayKst),
+      });
+    }
+  }
+
+  // B. 행사 일시 (준비중만) + 체크리스트 마감 (미완료만)
+  const eventMap = new Map((eventsRes.ok ? eventsRes.rows : []).map((e) => [e.id, e]));
+  if (eventsRes.ok) {
+    for (const e of eventsRes.rows) {
+      if (!e.event_at || e.status !== "preparing") continue;
+      const dateStr = isoToKstDateString(e.event_at);
+      if (!dateStr) continue;
+      const camp = campaignMap.get(e.campaign_id);
+      items.push({
+        id: `event_${e.id}`,
+        source: "event",
+        title: e.name,
+        dateStr,
+        linkUrl: `/campaigns/${e.campaign_id}/events/${e.id}`,
+        brandName: camp?.company_name || "행사",
+        extraInfo: e.venue || "장소 미정",
+        daysDiff: daysUntilDeadline(dateStr, todayKst),
+      });
+    }
+  }
+  if (checklistRes.ok && eventsRes.ok) {
+    for (const chk of checklistRes.rows) {
+      if (!chk.due_date || chk.done) continue;
+      const parentEvent = eventMap.get(chk.event_id);
+      if (!parentEvent) continue; // 부모 행사가 삭제된 항목은 제외
+      const camp = campaignMap.get(parentEvent.campaign_id);
+      items.push({
+        id: `chk_${chk.id}`,
+        source: "event_checklist",
+        title: chk.label,
+        dateStr: chk.due_date,
+        linkUrl: `/campaigns/${parentEvent.campaign_id}/events/${parentEvent.id}?tab=checklist&checklistId=${chk.id}`,
+        brandName: camp?.company_name || parentEvent.name,
+        extraInfo: [parentEvent.name, chk.assignee ? `담당: ${chk.assignee}` : null].filter(Boolean).join(" • "),
+        daysDiff: daysUntilDeadline(chk.due_date, todayKst),
+      });
+    }
+  }
+
+  // C. SNS 발행 예정일 (게시완료가 아닌 것)
+  if (snsContentsRes.ok && snsAccountsRes.ok) {
+    const snsMap = new Map(snsAccountsRes.rows.map((a) => [a.id, a]));
+    for (const c of snsContentsRes.rows) {
+      if (!c.scheduled_on || c.status === "posted") continue;
+      const acc = snsMap.get(c.account_id);
+      if (!acc) continue;
+      items.push({
+        id: `sns_${c.id}`,
+        source: "sns",
+        title: `${c.title} · @${acc.handle}`,
+        dateStr: c.scheduled_on,
+        linkUrl: `/sns/${c.account_id}?tab=list&contentId=${c.id}`,
+        brandName: acc.company_name,
+        extraInfo: c.status === "pending_approval" ? "승인대기" : c.status === "approved" ? "승인완료" : c.status === "producing" ? "제작중" : "기획중",
+        daysDiff: daysUntilDeadline(c.scheduled_on, todayKst),
+      });
+    }
+  }
+
+  items.sort((a, b) => a.daysDiff - b.daysDiff || a.dateStr.localeCompare(b.dateStr));
+  return items;
+}
+
+/**
+ * 홈 화면 상단 요약 통계 + 진행중인 캠페인 카드 목록.
+ * 캠페인이 삭제되어도 조용히 제외되며, 지원자 조회 실패는 해당 캠페인만 0으로 집계한다.
+ */
+function buildHomeSummary(
+  todayKst: string,
+  src: {
+    campaigns: CampaignRows;
+    campaignMap: Map<string, CampaignRows[number]>;
+    events: EventRows;
+    snsAccounts: SnsAccountRows;
+    snsContents: SnsContentRows;
+    summaries: ApplicantSummary[];
+    inviteeCounts: InviteeCounts;
+  }
+): HomeSummary {
+  const { campaigns, campaignMap, events, snsAccounts, snsContents, summaries, inviteeCounts } = src;
   const currentYm = todayKst.slice(0, 7);
 
-  // 캠페인마다 지원자 전체를 부르던 자리다. 조회 한 번으로 받아 캠페인별로 나눈다.
-  // 조회가 실패하면 예전처럼 전부 0 으로 집계한다(화면은 뜨고 숫자만 비는 쪽).
-  const summaries: ApplicantSummary[] = await listApplicantSummaries().catch(() => []);
+  // 지원자 요약 한 벌을 캠페인별로 나눈다.
+  // 조회가 실패했으면 빈 배열이 와서 예전처럼 전부 0 으로 집계된다(화면은 뜨고 숫자만 비는 쪽).
   const byCampaign = new Map<string, ApplicantSummary[]>();
   for (const a of summaries) {
     const bucket = byCampaign.get(a.campaign_id);
@@ -299,11 +393,10 @@ export async function collectHomeSummary(todayKst: string): Promise<HomeSummary>
   const preparingEventsRaw = events.filter((e) => e.status === "preparing");
   const preparingEventCount = preparingEventsRaw.length;
 
-  const campaignById = new Map(campaigns.map((c) => [c.id, c]));
   // 자르지 않는다. 카드에 적힌 수(preparingEventCount)와 모달 줄 수가 달라지면 안 된다.
   const preparingEvents: HomePreparingEventSummary[] = preparingEventsRaw
     .map((e) => {
-      const camp = campaignById.get(e.campaign_id);
+      const camp = campaignMap.get(e.campaign_id);
       const dateStr = isoToKstDateString(e.event_at);
       const counts = inviteeCounts.get(e.id);
       return {

@@ -154,11 +154,25 @@ export async function addDirectInviteeAction(data: {
   });
 }
 
+/**
+ * 초대자 부분 수정.
+ *
+ * 이름·SNS·연락처도 받는다. 오타를 고치려고 지웠다 다시 등록하면 RSVP 응답·현장 참석 체크가
+ * 함께 날아가고, 지원자에서 가져온 초대는 출처(applicant_id)까지 잃기 때문이다.
+ * 검증은 `updateEventInvitee` 가 직접 추가와 같은 규칙으로 한다. 여기서는 그대로 넘기기만 한다.
+ */
 export async function updateInviteeAction(
   inviteeId: string,
   campaignId: string,
   eventId: string,
-  patch: { rsvp_status?: EventRsvpStatus; attended?: boolean; memo?: string | null }
+  patch: {
+    name?: string;
+    sns_url?: string | null;
+    contact?: string | null;
+    rsvp_status?: EventRsvpStatus;
+    attended?: boolean;
+    memo?: string | null;
+  }
 ): Promise<ActionResult<EventInvitee>> {
   return runAuthedAction(async () => {
     const inv = await updateEventInvitee(inviteeId, patch);

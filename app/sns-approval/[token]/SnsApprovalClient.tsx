@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { PublicSnsAccount, ReviewableSnsContent, SnsMediaAttachment } from "@/lib/db/types";
 import { reviewSnsContentByTokenAction } from "./actions";
-import { CheckCircle2, AlertCircle, MessageSquare, Loader2, Image as ImageIcon, Video as VideoIcon, ExternalLink, X } from "lucide-react";
+import { CheckCircle2, AlertCircle, MessageSquare, Loader2, Image as ImageIcon, Video as VideoIcon, ExternalLink, X, Download, Info } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
 import { toast } from "@/components/Toast";
 
@@ -22,6 +22,22 @@ export default function SnsApprovalClient({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ title: string; decision: string }[]>([]);
   const [activeMedia, setActiveMedia] = useState<SnsMediaAttachment | null>(null);
+  /**
+   * 브라우저가 재생하지 못한 영상 첨부의 id.
+   *
+   * 아이폰으로 찍은 `.mov`(HEVC)는 업로드도 되고 파일명·용량도 멀쩡히 보이지만,
+   * 크롬·파이어폭스에서는 코덱이 없어 **검은 화면**만 남는다. 광고주는 시안을 못 본 채로
+   * 승인이나 수정요청을 눌러야 하고, 올린 직원은 그 사실을 알 길이 없다.
+   * 그래서 `<video>` 가 실패하면(onError) 플레이어를 안내 카드로 바꿔 내려받기 경로를 준다.
+   *
+   * 다만 **실패가 늘 onError 로 오지는 않는다.** 컨테이너와 음성 코덱은 읽히는데 영상 코덱만
+   * 없으면 오류 없이 검은 화면으로 재생되는 경우가 있다. 그래서 정상 재생 중인 영상에도
+   * 내려받기 링크를 늘 같이 둔다 — 안내 카드는 확실히 실패한 경우의 추가 장치다.
+   */
+  const [unplayableMedia, setUnplayableMedia] = useState<Record<string, true>>({});
+  const markUnplayable = (id: string) => setUnplayableMedia((prev) => (prev[id] ? prev : { ...prev, [id]: true }));
+  /** 승인을 한 건이라도 눌렀는지. 되돌리는 방법을 안내할지 정한다. */
+  const hasApproved = done.some((d) => d.decision === "승인 완료");
 
   const handleReview = async (c: ReviewableSnsContent, decision: "approve" | "request_changes") => {
     setError(null);
@@ -55,7 +71,10 @@ export default function SnsApprovalClient({
     if (!res.data.changed) {
       toast.info(`"${c.title}" 시안은 이미 처리된 상태입니다.`);
     } else if (decision === "approve") {
-      toast.success(`"${c.title}" 시안을 승인했습니다.`);
+      // 되돌리는 방법은 위 완료 배너에도 남지만, 누른 직후가 실수를 알아채는 순간이라 여기서도 말한다.
+      toast.success(`"${c.title}" 시안을 승인했습니다.`, {
+        description: "잘못 누르셨다면 담당자에게 알려주세요. 다시 검토 요청을 받으실 수 있습니다.",
+      });
     } else {
       toast.success(`"${c.title}" 수정 요청을 전달했습니다.`, {
         description: "요청하신 내용을 반영해 다시 시안을 보내드리겠습니다.",
@@ -72,6 +91,23 @@ export default function SnsApprovalClient({
           {done.map((d, i) => (
             <div key={i}>✓ {d.title} — {d.decision}</div>
           ))}
+          {/*
+            승인을 누르면 카드가 목록에서 사라지고 그것으로 끝이라, 잘못 눌러도 되돌릴 길이
+            화면에 없었다. 실제로는 담당자가 상태를 [승인대기] 로 되돌리면 이 화면에 다시 나타나는데
+            광고주는 그 사실을 모른다. 그래서 되돌리는 **방법**을 알려 준다.
+
+            광고주가 스스로 되돌리는 버튼은 두지 않는다. 언제든 취소할 수 있는 승인은 승인이 아니고,
+            대행사 입장에서는 "컨펌 받았다" 는 기준 시점이 사라진다. 담당자를 한 번 거치게 해서
+            되돌린 사실이 기록에 남게 한다.
+          */}
+          {hasApproved && (
+            <div className="mt-2 pt-2 border-t border-emerald-500/20 flex items-start gap-1.5 text-emerald-200/90">
+              <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <p className="leading-relaxed">
+                잘못 누르셨다면 담당자에게 알려주세요. 담당자가 다시 검토 요청을 보내면 이 화면에서 한 번 더 확인하실 수 있습니다.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -112,13 +148,35 @@ export default function SnsApprovalClient({
                       >
                         {isVideo ? (
                           <div className="space-y-2">
-                            <video
-                              controls
-                              playsInline
-                              preload="metadata"
-                              src={mediaSrc}
-                              className="w-full h-44 rounded-xl bg-black object-contain"
-                            />
+                            {unplayableMedia[m.id] ? (
+                              // 재생 실패. 파일이 잘못된 게 아니라 이 브라우저에 코덱이 없는 경우가 대부분이라
+                              // "안 됩니다" 로 끝내지 않고 바로 볼 수 있는 길을 준다.
+                              <div className="w-full h-44 rounded-xl bg-bg border border-dashed border-amber-500/40 flex flex-col items-center justify-center gap-2 p-3 text-center">
+                                <AlertCircle className="w-5 h-5 text-warn" />
+                                <p className="text-[11px] text-warn-soft leading-relaxed">
+                                  이 브라우저에서는 영상이 재생되지 않습니다.
+                                  <br />
+                                  파일을 내려받아 확인해주세요.
+                                </p>
+                                <a
+                                  href={mediaSrc}
+                                  download={m.name}
+                                  className="px-3 py-1.5 rounded-lg bg-accent2 hover:bg-accent2/90 text-white text-[11px] font-bold inline-flex items-center gap-1.5"
+                                >
+                                  <Download className="w-3 h-3" />
+                                  <span>내려받아 보기</span>
+                                </a>
+                              </div>
+                            ) : (
+                              <video
+                                controls
+                                playsInline
+                                preload="metadata"
+                                src={mediaSrc}
+                                onError={() => markUnplayable(m.id)}
+                                className="w-full h-44 rounded-xl bg-black object-contain"
+                              />
+                            )}
                             <div className="flex items-center justify-between text-[11px] text-text-sub">
                               <span className="truncate max-w-[160px] font-medium inline-flex items-center gap-1" title={m.name}>
                                 <VideoIcon className="w-3 h-3 text-accent2 shrink-0" />
@@ -126,6 +184,20 @@ export default function SnsApprovalClient({
                               </span>
                               <span className="text-accent2 shrink-0 font-mono">{(m.size / (1024 * 1024)).toFixed(1)} MB</span>
                             </div>
+                            {/*
+                              재생이 되는 것처럼 보여도 실제로는 검은 화면인 경우(영상 코덱만 없을 때)가 있다.
+                              그때는 onError 가 오지 않아 위 안내 카드가 뜨지 않으므로, 내려받기 길은 늘 열어 둔다.
+                            */}
+                            {!unplayableMedia[m.id] && (
+                              <a
+                                href={mediaSrc}
+                                download={m.name}
+                                className="text-[11px] text-text-muted hover:text-accent2 inline-flex items-center gap-1"
+                              >
+                                <Download className="w-3 h-3" />
+                                <span>화면이 검게 나오면 내려받아 보기</span>
+                              </a>
+                            )}
                           </div>
                         ) : (
                           <button
@@ -242,18 +314,43 @@ export default function SnsApprovalClient({
                   alt={activeMedia.name}
                   className="max-h-[65vh] max-w-full object-contain rounded-xl"
                 />
+              ) : unplayableMedia[activeMedia.id] ? (
+                // 확대 보기에서도 같은 안내를 준다. 여기서만 되는 줄 알고 다시 눌러 보는 일이 없도록.
+                <div className="w-full py-12 flex flex-col items-center justify-center gap-3 text-center px-4">
+                  <AlertCircle className="w-7 h-7 text-warn" />
+                  <p className="text-xs text-warn-soft leading-relaxed">
+                    이 브라우저에서는 영상이 재생되지 않습니다.
+                    <br />
+                    아이폰으로 촬영한 .mov 영상은 크롬·파이어폭스가 재생하지 못하는 경우가 있습니다.
+                    <br />
+                    파일을 내려받으면 정상적으로 확인하실 수 있습니다.
+                  </p>
+                </div>
               ) : (
                 <video
                   controls
                   autoPlay
                   playsInline
                   src={`${activeMedia.url}?token=${encodeURIComponent(token)}`}
+                  onError={() => markUnplayable(activeMedia.id)}
                   className="max-h-[65vh] max-w-full rounded-xl bg-black"
                 />
               )}
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex flex-wrap justify-end gap-2 pt-2">
+              {/*
+                내려받기는 재생이 안 될 때의 유일한 우회로다. 같은 출처(/api/media)라서
+                download 속성이 그대로 먹는다(서버는 inline 으로 내려주지만 브라우저가 저장으로 바꾼다).
+              */}
+              <a
+                href={`${activeMedia.url}?token=${encodeURIComponent(token)}`}
+                download={activeMedia.name}
+                className="px-4 py-2 rounded-xl bg-surface2 hover:bg-surface3 text-text text-xs font-semibold inline-flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>파일 내려받기</span>
+              </a>
               <a
                 href={`${activeMedia.url}?token=${encodeURIComponent(token)}`}
                 target="_blank"

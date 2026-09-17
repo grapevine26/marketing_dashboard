@@ -169,7 +169,14 @@ function DashboardShellInner({
   const guardNavigate = (e: { preventDefault: () => void }, href: string) => {
     if (saveGuard.allowNavigate(href)) return;
     e.preventDefault();
-    toast.info("저장 중입니다. 끝나면 바로 이동합니다.");
+    // 막히는 이유가 두 가지다. **저장 중**이면 기다리면 끝나고 가드가 대신 이동시킨다.
+    // **저장 안 한 변경**이면 기다려도 저장되지 않는다 — 확인창에서 "취소" 를 누른 경우다.
+    // 한 문구로 뭉뚱그리면 후자에서 "저장 중입니다" 라는 거짓말을 하게 된다.
+    toast.info(
+      saveGuard.saving
+        ? "저장 중입니다. 끝나면 바로 이동합니다."
+        : "저장하지 않은 변경이 있어 이동을 멈췄습니다."
+    );
   };
 
   const isActive = (href: string) => {
@@ -201,7 +208,8 @@ function DashboardShellInner({
 
       {/* Mobile Top Header */}
       <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-sidebar/95 backdrop-blur-md border-b border-border">
-        <Link href="/" className="flex items-center">
+        {/* 로고도 화면을 떠나는 링크다. 메뉴만 막고 여기를 열어 두면 편집분을 잃는 길이 남는다. */}
+        <Link href="/" onNavigate={(e) => guardNavigate(e, "/")} className="flex items-center">
           <RbLogo size={18} />
         </Link>
 
@@ -240,7 +248,7 @@ function DashboardShellInner({
       >
         {/* Sidebar Brand Header */}
         <div className="px-2 flex items-center justify-between">
-          <Link href="/" onClick={closeMenu} className="flex items-center">
+          <Link href="/" onClick={closeMenu} onNavigate={(e) => guardNavigate(e, "/")} className="flex items-center">
             <RbLogo size={20} />
           </Link>
 

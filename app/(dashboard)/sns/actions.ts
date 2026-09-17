@@ -16,6 +16,7 @@ import {
   saveSnsMediaAttachment,
   recordUploadedSnsMedia,
   deleteSnsMediaAttachment,
+  reorderSnsMediaAttachments,
   saveSnsPlan,
   getSnsAccountById,
   getSnsIntakeResponse,
@@ -359,5 +360,30 @@ export async function regenerateSnsTokenAction(
     revalidatePath(`/sns-intake/${updated.intake_token}`);
     revalidatePath(`/sns-approval/${updated.approval_token}`);
     return updated;
+  });
+}
+
+/**
+ * 첨부 순서 변경. **배열이 아니라 id 순서만** 받는다.
+ *
+ * 화면이 배열을 통째로 보내면, 그 사이 다른 사람이 붙인 첨부가 그 배열에 없어서 조용히 사라진다.
+ * 서버가 저장된 배열을 읽어 이 순서대로 재배치하므로 첨부가 늘거나 줄지 않는다.
+ *
+ * 추가·삭제와 마찬가지로 콘텐츠 행을 고치므로 `updated_at` 이 바뀐다. 모달이 자기가 일으킨
+ * 변경 때문에 가짜 충돌을 내지 않도록 새 기준 시각을 함께 돌려준다.
+ *
+ * 삭제와 달리 관리자 제한을 두지 않는다 — 파일이 사라지지 않고 언제든 되돌릴 수 있는 조작이다.
+ */
+export async function reorderSnsMediaAction(
+  contentId: string,
+  orderedIds: string[],
+  accountId: string
+): Promise<ActionResult<{ attachments: SnsMediaAttachment[]; contentUpdatedAt: string | null }>> {
+  return runAuthedAction(async () => {
+    if (!contentId || !accountId) throw new ValidationError("잘못된 요청입니다.");
+    const attachments = await reorderSnsMediaAttachments(contentId, orderedIds);
+    if (attachments === null) throw new ValidationError(CONTENT_NOT_FOUND);
+    revalidateAccount(accountId);
+    return { attachments, contentUpdatedAt: await readRowUpdatedAt("sns_contents", contentId) };
   });
 }

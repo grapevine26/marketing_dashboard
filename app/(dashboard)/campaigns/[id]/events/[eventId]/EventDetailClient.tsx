@@ -44,7 +44,7 @@ import {
   X,
 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
-import { guardedSave, useSaveGuard } from "@/components/PendingSaveGuard";
+import { guardedSave, useSaveGuard, useUnsavedChanges } from "@/components/PendingSaveGuard";
 import { toast } from "@/components/Toast";
 import { josa } from "@/lib/ui/josa";
 
@@ -272,11 +272,48 @@ export default function EventDetailClient({
   const toggleSelectApplicant = (id: string) =>
     setSelectedApplicantIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
+  /**
+   * 초대자 이름·SNS·연락처 수정.
+   *
+   * **모달을 새로 만들지 않고 행에서 바로 고친다.** 이 화면은 이미 메모를 행 안에서 고치고
+   * 충돌 안내까지 행에 붙인다(MemoConflictNotice). 지원자 목록의 관리자 메모도 같은 방식이다.
+   * 한 행의 세 칸을 고치자고 화면을 덮으면 뒤에 있던 RSVP·현장 참석 현황이 가려져,
+   * 지금 누구를 고치는 중인지가 오히려 안 보인다.
+   *
+   * 입력 중인 값(초안)은 `invitees` 목록과 **따로** 둔다. 목록은 탭 복귀 자동 갱신으로
+   * 통째로 갈아끼워질 수 있는데, 초안이 목록 안에 들어 있으면 그때 치던 글자가 사라진다.
+   * 한 번에 한 행만 고치므로 초안도 하나면 된다.
+   */
+  const [inviteeEditingId, setInviteeEditingId] = useState<string | null>(null);
+  const [inviteeDraft, setInviteeDraft] = useState({ name: "", sns_url: "", contact: "" });
+  const [savingInvitee, setSavingInvitee] = useState(false);
+
+  const startEditInvitee = (inv: EventInvitee) => {
+    setInviteeEditingId(inv.id);
+    setInviteeDraft({ name: inv.name, sns_url: inv.sns_url || "", contact: inv.contact || "" });
+  };
+
   // Checklist
   const [newChecklistLabel, setNewChecklistLabel] = useState("");
   const [newChecklistDueDate, setNewChecklistDueDate] = useState("");
   const [newChecklistAssignee, setNewChecklistAssignee] = useState("");
   const [addingChecklist, setAddingChecklist] = useState(false);
+
+  // 체크리스트 항목 수정. 초대자 수정과 같은 이유로 인라인이고, 초안도 목록과 따로 둔다.
+  const [checklistEditingId, setChecklistEditingId] = useState<string | null>(null);
+  const [checklistDraft, setChecklistDraft] = useState({ label: "", due_date: "", assignee: "" });
+  const [savingChecklistEdit, setSavingChecklistEdit] = useState(false);
+
+  // 마감일 입력칸. 행사 일시와 **같은 함정**이 있다 — `<input type="date">` 는 "2026-03" 처럼
+  // 덜 채운 입력도 value 를 "" 로 준다. 그대로 보내면 저장돼 있던 마감일이 조용히 지워진다.
+  // state 만으로는 "일부러 비운 것" 과 "덜 채운 것" 을 구분할 수 없어서 DOM 의 validity 를 읽는다.
+  // 한 번에 한 항목만 고치므로 ref 하나면 된다.
+  const checklistDueRef = useRef<HTMLInputElement>(null);
+
+  const startEditChecklist = (c: EventChecklistItem) => {
+    setChecklistEditingId(c.id);
+    setChecklistDraft({ label: c.label, due_date: c.due_date || "", assignee: c.assignee || "" });
+  };
 
   // Plan
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(initialPlan?.template_id || templates[0]?.id || "");
@@ -299,6 +336,16 @@ export default function EventDetailClient({
   const [savingPlan, setSavingPlan] = useState(false);
   const [planSaved, setPlanSaved] = useState<boolean>(Boolean(initialPlan));
   const [planDirty, setPlanDirty] = useState(false);
+
+  /**
+   * 저장 안 한 운영안이 있으면 화면을 떠날 때 묻는다.
+   *
+   * 운영안은 긴 글 여러 칸이라 잃었을 때 손해가 가장 크고, `planDirty` 라는 **진짜 판정**이
+   * 이미 있다. 반면 초대자·체크리스트 인라인 편집이나 정보 수정 패널은 "열려 있다" 만 알 뿐
+   * 내용이 바뀌었는지는 모른다 — 열었다 그냥 닫는 경우까지 붙잡으면 매번 묻게 되어,
+   * 정작 중요한 물음까지 무시하게 만든다. 그래서 여기만 건다.
+   */
+  useUnsavedChanges(planDirty);
 
   const exportHref = `/campaigns/${campaign.id}/events/${event.id}/plan/export`;
 
@@ -434,6 +481,62 @@ export default function EventDetailClient({
     settleMemo(inv.id);
   };
 
+  /**
+   * 초대자 이름·SNS·연락처 저장.
+   *
+   * 화면을 먼저 바꾸고 실패하면 되돌린다. 이 화면의 다른 저장(RSVP·참석 체크)과 같은 방식이다.
+   * 되돌릴 때 **고친 세 칸만** 이전 값으로 돌린다. 행을 통째로 갈아끼우면, 저장이 도는 사이
+   * 같은 행의 RSVP 나 메모가 따로 저장됐을 때 그것까지 화면에서 옛 값으로 되돌아간다.
+   *
+   * 실패해도 **편집칸을 닫지 않는다.** 닫으면 방금 친 내용이 사라져 세 칸을 다시 쳐야 한다.
+   * 목록만 되돌리고 초안은 그대로 둔다.
+   */
+  const handleSaveInviteeProfile = async (inv: EventInvitee) => {
+    if (savingInvitee) return;
+    const name = inviteeDraft.name.trim();
+    if (!name) {
+      // 서버(requireText)도 같은 문구로 막지만, 왕복 한 번과 헛된 낙관적 갱신을 아낀다.
+      const msg = "이름을 입력해주세요.";
+      toast.error(msg);
+      return setError(msg);
+    }
+    const snsUrl = inviteeDraft.sns_url.trim() || null;
+    const contact = inviteeDraft.contact.trim() || null;
+
+    setSavingInvitee(true);
+    setError(null);
+    setInvitees((prev) => prev.map((i) => (i.id === inv.id ? { ...i, name, sns_url: snsUrl, contact } : i)));
+    // 저장이 끝나기 전에 다른 메뉴로 넘어가면 요청이 끊겨 화면만 바뀐다. 가드가 이동을 미뤄 준다.
+    const res = await guardedSave(saveGuard, () =>
+      safeCall(updateInviteeAction(inv.id, campaign.id, event.id, { name, sns_url: snsUrl, contact }))
+    );
+    setSavingInvitee(false);
+    if (!res.ok) {
+      setInvitees((prev) =>
+        prev.map((i) => (i.id === inv.id ? { ...i, name: inv.name, sns_url: inv.sns_url, contact: inv.contact } : i))
+      );
+      toast.error(res.error || "초대자 정보 수정에 실패했습니다.");
+      return setError(res.error);
+    }
+    setInvitees((prev) => prev.map((i) => (i.id === inv.id ? res.data : i)));
+    setInviteeEditingId(null);
+    toast.success("초대자 정보가 수정되었습니다.");
+  };
+
+  /**
+   * 편집칸에서 Enter 는 저장, Esc 는 취소.
+   * 표 칸 안이라 `<form>` 을 쓰지 않아서(표 구조가 깨진다) 직접 받는다.
+   */
+  const inviteeEditKeyDown = (e: React.KeyboardEvent, inv: EventInvitee) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void handleSaveInviteeProfile(inv);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setInviteeEditingId(null);
+    }
+  };
+
   const handleDeleteInvitee = async (inviteeId: string) => {
     if (!confirm("초대 명단에서 삭제하시겠습니까?")) return;
     const prev = invitees;
@@ -511,6 +614,67 @@ export default function EventDetailClient({
       return setError(res.error);
     }
     setChecklists((prev) => prev.map((x) => (x.id === c.id ? res.data : x)));
+  };
+
+  /**
+   * 체크리스트 항목의 내용·마감일·담당자 저장.
+   * 서버(`updateEventChecklistItem`)는 원래부터 셋 다 받는다. 화면만 `done` 을 보내고 있어서
+   * 오타 하나에 항목을 지우고 다시 만들어야 했다.
+   *
+   * 완료 체크 토글과 같게 화면을 먼저 바꾸고 실패하면 되돌린다. 실패해도 편집칸은 닫지 않는다.
+   */
+  const handleSaveChecklistEdit = async (c: EventChecklistItem) => {
+    if (savingChecklistEdit) return;
+
+    // 덜 채운 마감일은 저장하지 않는다. 행사 일시와 같은 이유다 — 그대로 보내면 ""(=null)이 되어
+    // 저장돼 있던 마감일이 조용히 지워진다. 되물어도 사용자가 원한 적 없는 상태라 아예 막는다.
+    const dueInput = checklistDueRef.current;
+    if (dueInput?.validity.badInput) {
+      const msg = "마감일을 끝까지 입력해주세요. 마감일을 정하지 않았다면 칸을 완전히 비워주세요.";
+      toast.error(msg);
+      setError(msg);
+      dueInput.focus();
+      return;
+    }
+
+    const label = checklistDraft.label.trim();
+    if (!label) {
+      const msg = "할 일 내용을 입력해주세요.";
+      toast.error(msg);
+      return setError(msg);
+    }
+    const dueDate = checklistDraft.due_date || null;
+    const assignee = checklistDraft.assignee.trim() || null;
+
+    setSavingChecklistEdit(true);
+    setError(null);
+    setChecklists((prev) => prev.map((x) => (x.id === c.id ? { ...x, label, due_date: dueDate, assignee } : x)));
+    const res = await guardedSave(saveGuard, () =>
+      safeCall(updateChecklistItemAction(c.id, campaign.id, event.id, { label, due_date: dueDate, assignee }))
+    );
+    setSavingChecklistEdit(false);
+    if (!res.ok) {
+      // 고친 세 칸만 되돌린다. 저장이 도는 사이 같은 항목의 완료 체크가 바뀌었을 수 있다.
+      setChecklists((prev) =>
+        prev.map((x) => (x.id === c.id ? { ...x, label: c.label, due_date: c.due_date, assignee: c.assignee } : x))
+      );
+      toast.error(res.error || "체크리스트 항목 수정에 실패했습니다.");
+      return setError(res.error);
+    }
+    setChecklists((prev) => prev.map((x) => (x.id === c.id ? res.data : x)));
+    setChecklistEditingId(null);
+    toast.success("체크리스트 항목이 수정되었습니다.");
+  };
+
+  /** 초대자 편집칸과 같다. Enter 저장 / Esc 취소. 마감일 칸에는 붙이지 않는다(달력 조작과 겹친다). */
+  const checklistEditKeyDown = (e: React.KeyboardEvent, c: EventChecklistItem) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void handleSaveChecklistEdit(c);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setChecklistEditingId(null);
+    }
   };
 
   const handleDeleteChecklist = async (itemId: string) => {
@@ -820,7 +984,7 @@ export default function EventDetailClient({
                   <th className="p-3.5 whitespace-nowrap">RSVP 상태 (수동 기록)</th>
                   <th className="p-3.5 text-center whitespace-nowrap">당일 현장 참석</th>
                   <th className="p-3.5 whitespace-nowrap">메모</th>
-                  <th className="p-3.5 text-right">삭제</th>
+                  <th className="p-3.5 text-right whitespace-nowrap">수정 · 삭제</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border text-text-2">
@@ -829,11 +993,42 @@ export default function EventDetailClient({
                     <td colSpan={7} className="p-8 text-center text-text-muted">초청된 인플루언서가 없습니다. 상단의 버튼을 통해 지원자를 불러오거나 직접 추가해보세요.</td>
                   </tr>
                 ) : (
-                  invitees.map((inv) => (
+                  invitees.map((inv) => {
+                  const editing = inviteeEditingId === inv.id;
+                  return (
                     <tr key={inv.id} className="hover:bg-surface2 transition">
-                      <td className="p-3.5 font-bold text-text whitespace-nowrap min-w-[96px]">{inv.name}</td>
+                      <td className="p-3.5 font-bold text-text whitespace-nowrap min-w-[96px]">
+                        {editing ? (
+                          // autoFocus 는 데스크톱 표와 모바일 카드 **양쪽에** 걸려 있다. 둘 다 DOM 에
+                          // 있고 한쪽만 CSS 로 숨겨져 있는데, 숨은 쪽의 focus() 는 아무 일도 하지 않아
+                          // 지금 보이는 칸 하나만 포커스를 받는다.
+                          <input
+                            type="text"
+                            required
+                            autoFocus
+                            value={inviteeDraft.name}
+                            onChange={(e) => setInviteeDraft({ ...inviteeDraft, name: e.target.value })}
+                            onKeyDown={(e) => inviteeEditKeyDown(e, inv)}
+                            placeholder="이름 *"
+                            aria-label="초대자 이름"
+                            className="w-28 px-2 py-1 rounded-lg bg-bg border border-teal-500 text-text text-xs font-semibold focus:outline-none"
+                          />
+                        ) : (
+                          inv.name
+                        )}
+                      </td>
                       <td className="p-3.5">
-                        {inv.sns_url ? (
+                        {editing ? (
+                          <input
+                            type="url"
+                            value={inviteeDraft.sns_url}
+                            onChange={(e) => setInviteeDraft({ ...inviteeDraft, sns_url: e.target.value })}
+                            onKeyDown={(e) => inviteeEditKeyDown(e, inv)}
+                            placeholder="SNS URL"
+                            aria-label="초대자 SNS URL"
+                            className="w-44 px-2 py-1 rounded-lg bg-bg border border-teal-500 text-text text-xs focus:outline-none"
+                          />
+                        ) : inv.sns_url ? (
                           <a href={inv.sns_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline inline-flex items-center gap-1 truncate max-w-[130px]">
                             <span>{inv.sns_url}</span>
                             <ExternalLink className="w-3 h-3 shrink-0" />
@@ -842,7 +1037,21 @@ export default function EventDetailClient({
                           <span className="text-text-muted">-</span>
                         )}
                       </td>
-                      <td className="p-3.5 font-mono text-text-2">{inv.contact || "-"}</td>
+                      <td className="p-3.5 font-mono text-text-2">
+                        {editing ? (
+                          <input
+                            type="text"
+                            value={inviteeDraft.contact}
+                            onChange={(e) => setInviteeDraft({ ...inviteeDraft, contact: e.target.value })}
+                            onKeyDown={(e) => inviteeEditKeyDown(e, inv)}
+                            placeholder="연락처"
+                            aria-label="초대자 연락처"
+                            className="w-28 px-2 py-1 rounded-lg bg-bg border border-teal-500 text-text text-xs font-sans focus:outline-none"
+                          />
+                        ) : (
+                          inv.contact || "-"
+                        )}
+                      </td>
                       <td className="p-3.5">
                         <select
                           aria-label={`${inv.name} 참석 여부`}
@@ -875,13 +1084,45 @@ export default function EventDetailClient({
                           onKeepMine={() => settleMemo(inv.id)}
                         />
                       </td>
-                      <td className="p-3.5 text-right">
-                        <button type="button" onClick={() => handleDeleteInvitee(inv.id)} className="p-1 rounded text-text-muted hover:text-red-400 transition">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                      <td className="p-3.5 text-right whitespace-nowrap">
+                        {editing ? (
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              disabled={savingInvitee}
+                              onClick={() => handleSaveInviteeProfile(inv)}
+                              className="px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold inline-flex items-center gap-1 disabled:opacity-50"
+                            >
+                              {savingInvitee ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                              <span>저장</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setInviteeEditingId(null)}
+                              className="px-2.5 py-1 rounded-lg bg-surface2 hover:bg-surface3 text-text-sub text-xs"
+                            >
+                              취소
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => startEditInvitee(inv)}
+                              className="p-1 rounded text-text-muted hover:text-teal-400 transition"
+                              title="이름·SNS·연락처 수정"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button type="button" onClick={() => handleDeleteInvitee(inv.id)} className="p-1 rounded text-text-muted hover:text-red-400 transition" title="초대 명단에서 삭제">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
-                  ))
+                  );
+                  })
                 )}
               </tbody>
             </table>
@@ -894,8 +1135,59 @@ export default function EventDetailClient({
                 초청된 인플루언서가 없습니다. 위 버튼으로 지원자를 불러오거나 직접 추가해보세요.
               </div>
             ) : (
-              invitees.map((inv) => (
+              invitees.map((inv) => {
+              const editing = inviteeEditingId === inv.id;
+              return (
                 <div key={inv.id} className="p-4 rounded-2xl bg-bg border border-border space-y-3">
+                  {editing ? (
+                    /* 데스크톱 표와 같은 초안·같은 저장 함수를 쓴다. 다른 것은 배치뿐이다. */
+                    <div className="space-y-2">
+                      <span className="text-[11px] font-bold text-text-2 block">초대자 정보 수정</span>
+                      <input
+                        type="text"
+                        required
+                        autoFocus
+                        value={inviteeDraft.name}
+                        onChange={(e) => setInviteeDraft({ ...inviteeDraft, name: e.target.value })}
+                        onKeyDown={(e) => inviteeEditKeyDown(e, inv)}
+                        placeholder="이름 *"
+                        aria-label="초대자 이름"
+                        className="w-full px-3 py-2.5 rounded-xl bg-surface border border-teal-500 text-text text-xs font-semibold focus:outline-none"
+                      />
+                      <input
+                        type="url"
+                        value={inviteeDraft.sns_url}
+                        onChange={(e) => setInviteeDraft({ ...inviteeDraft, sns_url: e.target.value })}
+                        onKeyDown={(e) => inviteeEditKeyDown(e, inv)}
+                        placeholder="SNS URL"
+                        aria-label="초대자 SNS URL"
+                        className="w-full px-3 py-2.5 rounded-xl bg-surface border border-teal-500 text-text text-xs focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        value={inviteeDraft.contact}
+                        onChange={(e) => setInviteeDraft({ ...inviteeDraft, contact: e.target.value })}
+                        onKeyDown={(e) => inviteeEditKeyDown(e, inv)}
+                        placeholder="연락처"
+                        aria-label="초대자 연락처"
+                        className="w-full px-3 py-2.5 rounded-xl bg-surface border border-teal-500 text-text text-xs focus:outline-none"
+                      />
+                      <div className="flex justify-end gap-2 pt-0.5">
+                        <button type="button" onClick={() => setInviteeEditingId(null)} className="px-3 py-2 rounded-xl bg-surface2 text-text-sub text-xs">
+                          취소
+                        </button>
+                        <button
+                          type="button"
+                          disabled={savingInvitee}
+                          onClick={() => handleSaveInviteeProfile(inv)}
+                          className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          {savingInvitee ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                          <span>저장</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="font-bold text-sm text-text">{inv.name}</div>
@@ -906,10 +1198,16 @@ export default function EventDetailClient({
                       ) : null}
                       {inv.contact && <div className="text-[11px] text-text-sub font-mono">{inv.contact}</div>}
                     </div>
-                    <button type="button" onClick={() => handleDeleteInvitee(inv.id)} className="p-2 rounded-lg text-text-muted hover:text-red-400 transition shrink-0" title="삭제">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button type="button" onClick={() => startEditInvitee(inv)} className="p-2 rounded-lg text-text-muted hover:text-teal-400 transition" title="이름·SNS·연락처 수정">
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button type="button" onClick={() => handleDeleteInvitee(inv.id)} className="p-2 rounded-lg text-text-muted hover:text-red-400 transition" title="삭제">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
+                  )}
 
                   <div className="space-y-1.5">
                     <label className="text-[11px] text-text-muted">RSVP 상태</label>
@@ -947,7 +1245,8 @@ export default function EventDetailClient({
                     />
                   </div>
                 </div>
-              ))
+              );
+              })
             )}
           </div>
 
@@ -1117,18 +1416,73 @@ export default function EventDetailClient({
               checklists.map((c) => {
                 const ddayInfo = calculateDDay(c.due_date, todayKst);
                 const isHighlighted = highlightChecklistId === c.id;
+                const editing = checklistEditingId === c.id;
                 return (
                   <div
                     key={c.id}
                     id={`checklist-${c.id}`}
                     className={`p-3.5 rounded-2xl border transition duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 ${
-                      isHighlighted
+                      // 고치는 중에는 완료 항목의 흐림(opacity-60)을 걷는다. 입력칸이 반투명하면 안 보인다.
+                      editing
+                        ? "bg-bg border-teal-500/40"
+                        : isHighlighted
                         ? "bg-teal-500/15 border-teal-400 ring-2 ring-teal-400/40 shadow-md"
                         : c.done
                         ? "bg-bg/50 border-surface2 opacity-60"
                         : "bg-bg border-border hover:border-teal-500/30"
                     }`}
                   >
+                    {editing ? (
+                      /* 칸 배치를 위 [새 준비 항목 추가] 폼과 똑같이 맞춘다. 같은 자리에 같은 것이 있어야
+                         "추가할 때 쓰던 칸" 과 "고칠 때 쓰는 칸" 을 따로 익히지 않는다. */
+                      <div className="w-full min-w-0 space-y-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                          <input
+                            type="text"
+                            required
+                            autoFocus
+                            value={checklistDraft.label}
+                            onChange={(e) => setChecklistDraft({ ...checklistDraft, label: e.target.value })}
+                            onKeyDown={(e) => checklistEditKeyDown(e, c)}
+                            placeholder="할 일 항목 내용 *"
+                            aria-label="할 일 항목 내용"
+                            className="col-span-1 sm:col-span-2 px-3 py-2 rounded-xl bg-surface border border-teal-500 text-text text-xs focus:outline-none"
+                          />
+                          <input
+                            ref={checklistDueRef}
+                            type="date"
+                            value={checklistDraft.due_date}
+                            onChange={(e) => setChecklistDraft({ ...checklistDraft, due_date: e.target.value })}
+                            aria-label="마감일"
+                            className="px-3 py-2 rounded-xl bg-surface border border-teal-500 text-text text-xs focus:outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={checklistDraft.assignee}
+                            onChange={(e) => setChecklistDraft({ ...checklistDraft, assignee: e.target.value })}
+                            onKeyDown={(e) => checklistEditKeyDown(e, c)}
+                            placeholder="담당자"
+                            aria-label="담당자"
+                            className="px-3 py-2 rounded-xl bg-surface border border-teal-500 text-text text-xs focus:outline-none"
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <button type="button" onClick={() => setChecklistEditingId(null)} className="px-3 py-2 rounded-xl bg-surface2 text-text-sub text-xs">
+                            취소
+                          </button>
+                          <button
+                            type="button"
+                            disabled={savingChecklistEdit}
+                            onClick={() => handleSaveChecklistEdit(c)}
+                            className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50"
+                          >
+                            {savingChecklistEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                            <span>저장</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
                     <label className="flex items-center gap-3 min-w-0 cursor-pointer select-none flex-1">
                       <input
                         type="checkbox"
@@ -1157,6 +1511,14 @@ export default function EventDetailClient({
                         {c.assignee && <span className="px-2 py-0.5 rounded bg-surface border border-border text-text-sub text-[10px]">{c.assignee}</span>}
                         <button
                           type="button"
+                          onClick={() => startEditChecklist(c)}
+                          className="p-1 rounded text-text-muted hover:text-teal-400 btn-press"
+                          title="항목 내용·마감일·담당자 수정"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleDeleteChecklist(c.id)}
                           className="p-1 rounded text-text-muted hover:text-red-400 btn-press"
                           title="체크리스트 항목 삭제"
@@ -1165,6 +1527,8 @@ export default function EventDetailClient({
                         </button>
                       </div>
                     </div>
+                      </>
+                    )}
                   </div>
                 );
               })

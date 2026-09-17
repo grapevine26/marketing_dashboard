@@ -147,12 +147,99 @@ interface Box {
 
 const DEFAULT_BOX: Box = { x: Math.round(0.75 * EMU_PER_INCH), y: Math.round(1.4 * EMU_PER_INCH), cx: Math.round(11.8 * EMU_PER_INCH), cy: Math.round(5.4 * EMU_PER_INCH) };
 
-function shapeBox(shapeXml: string): Box {
+/** 도형에 적힌 위치·크기 그대로. 못 읽으면 null. */
+function parseBox(shapeXml: string): Box | null {
   const m = shapeXml.match(/<a:off x="(-?\d+)" y="(-?\d+)"\/>\s*<a:ext cx="(\d+)" cy="(\d+)"\/>/);
-  if (!m) return DEFAULT_BOX;
-  const box = { x: Number(m[1]), y: Number(m[2]), cx: Number(m[3]), cy: Number(m[4]) };
+  if (!m) return null;
+  return { x: Number(m[1]), y: Number(m[2]), cx: Number(m[3]), cy: Number(m[4]) };
+}
+
+function shapeBox(shapeXml: string): Box {
+  const box = parseBox(shapeXml);
+  if (!box) return DEFAULT_BOX;
   if (box.cx < EMU_PER_INCH || box.cy < EMU_PER_INCH / 2) return DEFAULT_BOX;
   return box;
+}
+
+// ---------- 자동 축소 (도형 밖으로 넘치지 않게) ----------
+
+/*
+ * **어디까지 손대는가** — `{{...}}` 가 들어 있던 도형, 즉 **우리가 값을 써 넣는 도형만** 건드린다.
+ * 업로드된 템플릿의 나머지 도형(제목, 장식, 고정 문구)은 작성자가 길이를 알고 짠 것이라 그대로 둔다.
+ *
+ * 우리가 만드는 프레임만 고쳐서는 이 버그가 안 고쳐진다 — 넘치는 것은 `{{총평}}`·`{{운영안}}`
+ * 처럼 **템플릿 도형**에 들어가는 5000자 자유 입력이고, 그 도형을 만든 사람은 그 값이 얼마나
+ * 길지 알 수 없었다. 그래서 그 도형에 남아 있는 `noAutofit`(=파워포인트 기본값)이나
+ * `spAutoFit`(도형이 커져서 슬라이드 밖으로 나간다)은 "넘치게 두겠다는 선택" 이 아니라
+ * 그냥 기본값으로 본다. 다만 작성자가 **직접 넣은 `normAutofit` 은 그대로 둔다** — 배율까지
+ * 정해 둔 것이라 우리 추정보다 낫다.
+ *
+ * 표(`<a:tc>`) 는 건드리지 않는다 — 파워포인트 표는 글이 길면 칸이 저절로 높아지고,
+ * 넘치는 행은 `buildTableFrame` 이 이미 "외 N건" 으로 잘라 낸다.
+ */
+
+/** 도형 안에서 처음 만나는 글꼴 크기(sz, 1/100pt). 레이아웃에서 상속받는 도형은 없을 수 있다. */
+function firstFontSize(xml: string): number | null {
+  const m = xml.match(/\bsz="(\d+)"/);
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * 넣을 글 길이로 축소 배율을 어림한다.
+ *
+ * **왜 빈 `<a:normAutofit/>` 로 끝내지 않는가** — 파워포인트는 이 값을 스스로 다시 계산하지만,
+ * **그 계산은 도형을 건드릴 때 일어난다.** 파일을 열어 보기만 하거나 다른 뷰어(구글 슬라이드,
+ * 미리보기, PDF 변환)로 열면 저장된 `fontScale` 을 그대로 쓰므로, 비워 두면 여전히 넘친 채로 보인다.
+ *
+ * 어림값이라 정확하지 않다. 그래서 **줄이는 쪽으로만** 쓰고(넘치지 않으면 배율을 안 적는다),
+ * 25% 아래로는 내려가지 않게 막았다. 글꼴 크기를 못 읽으면(도형이 레이아웃에서 상속받는 경우)
+ * 본문 기본값 18pt 로 본다 — 실제보다 크게 잡는 쪽이라 덜 넘친다.
+ */
+function autofitTag(text: string, box: Box | null, sz: number | null): string {
+  const pt = (sz && sz > 0 ? sz : 1800) / 100;
+  const em = pt * 12700; // 1pt = 12700 EMU
+  if (!box || box.cx <= 0 || box.cy <= 0) return "<a:normAutofit/>";
+  // 한글은 1em, 영문·숫자는 0.5em 쯤 차지한다. 섞여 들어오므로 0.85em 으로 본다.
+  const perLine = Math.max(1, Math.floor(box.cx / (em * 0.85)));
+  const roomLines = Math.max(1, Math.floor(box.cy / (em * 1.25)));
+  const needLines = text
+    .split(/\r?\n/)
+    .reduce((n, line) => n + Math.max(1, Math.ceil(line.length / perLine)), 0);
+  if (needLines <= roomLines) return "<a:normAutofit/>";
+  const raw = Math.sqrt(roomLines / needLines);
+  const fontScale = Math.min(92500, Math.max(25000, Math.round((raw * 100000) / 2500) * 2500));
+  const lnSpcReduction = fontScale >= 85000 ? 0 : fontScale >= 70000 ? 10000 : 20000;
+  return `<a:normAutofit fontScale="${fontScale}"${lnSpcReduction ? ` lnSpcReduction="${lnSpcReduction}"` : ""}/>`;
+}
+
+/** 도형의 `<a:bodyPr>` 에 자동 축소를 건다. `filledText` 는 치환이 끝난 뒤의 글이다. */
+function withAutofit(shapeXml: string, filledText: string): string {
+  const start = shapeXml.indexOf("<p:txBody");
+  if (start < 0) return shapeXml;
+  const head = shapeXml.slice(0, start);
+  const body = shapeXml.slice(start);
+  if (/<a:normAutofit\b/.test(body)) return shapeXml; // 작성자가 이미 정해 둔 값
+
+  const tag = autofitTag(filledText, parseBox(shapeXml), firstFontSize(body));
+  const found = body.match(/<a:bodyPr\b[^>]*\/>|<a:bodyPr\b[^>]*>[\s\S]*?<\/a:bodyPr>/);
+  if (!found) {
+    // bodyPr 이 아예 없는 문서도 있다. 맨 앞에 만들어 넣는다(자식 순서상 bodyPr 이 첫째다).
+    return head + body.replace(/(<p:txBody\b[^>]*>)/, `$1<a:bodyPr>${tag}</a:bodyPr>`);
+  }
+  const old = found[0];
+  if (!old) return shapeXml;
+  let next: string;
+  if (old.endsWith("/>")) {
+    next = `${old.slice(0, -2)}>${tag}</a:bodyPr>`;
+  } else {
+    // noAutofit / spAutoFit / normAutofit 은 셋 중 하나만 올 수 있다. 있던 것을 지우고 바꾼다.
+    next = old.replace(/<a:noAutofit\s*\/>|<a:spAutoFit\s*\/>/g, "");
+    // 자식 순서가 정해져 있다: prstTxWarp 가 있으면 그 **뒤**가 자동 축소 자리다.
+    next = /<a:prstTxWarp\b/.test(next)
+      ? next.replace(/(<a:prstTxWarp\b[^>]*(?:\/>|>[\s\S]*?<\/a:prstTxWarp>))/, `$1${tag}`)
+      : next.replace(/(<a:bodyPr\b[^>]*>)/, `$1${tag}`);
+  }
+  return head + body.replace(old, () => next);
 }
 
 function nextShapeId(slideXml: string): number {
@@ -222,7 +309,9 @@ function buildTextFrame(text: string, box: Box, id: number): string {
   return (
     `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Note ${id}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>` +
     `<p:spPr><a:xfrm><a:off x="${box.x}" y="${box.y}"/><a:ext cx="${box.cx}" cy="${Math.round(0.6 * EMU_PER_INCH)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>` +
-    `<p:txBody><a:bodyPr wrap="square"/><a:lstStyle/><a:p><a:r><a:rPr lang="ko-KR" sz="1200"><a:solidFill><a:srgbClr val="94A3B8"/></a:solidFill></a:rPr><a:t>${escapeXml(text)}</a:t></a:r></a:p></p:txBody></p:sp>`
+    // 우리가 만드는 프레임에도 자동 축소를 건다. 지금 들어가는 글("표시할 데이터가 없습니다",
+    // "외 N건")은 짧지만, 도형 크기는 템플릿에서 가져온 것이라 얼마나 작을지 알 수 없다.
+    `<p:txBody><a:bodyPr wrap="square"><a:normAutofit/></a:bodyPr><a:lstStyle/><a:p><a:r><a:rPr lang="ko-KR" sz="1200"><a:solidFill><a:srgbClr val="94A3B8"/></a:solidFill></a:rPr><a:t>${escapeXml(text)}</a:t></a:r></a:p></p:txBody></p:sp>`
   );
 }
 
@@ -240,6 +329,10 @@ function ensureContentType(ctXml: string, opts: { defaultExt?: [string, string];
 /**
  * 런 분할(<a:t>) 문제를 해결하며 플레이스홀더를 치환하는 PPT 템플릿 채우기 엔진.
  * `{{표:이름}}` / `{{차트:이름}}` 텍스트가 든 도형은 options.tables / options.charts 로 넘긴 표·네이티브 차트로 교체된다.
+ *
+ * 값이 들어간 도형에는 자동 축소(`<a:normAutofit …/>`)를 건다. 총평·운영안은 5000자까지
+ * 허용하는 자유 입력이라 그냥 두면 카드 밖·슬라이드 밖으로 흘러넘친다. 내장 기본 템플릿도
+ * 이 경로를 그대로 지나가므로 `generateDefaultPptBuffer` 쪽은 따로 손대지 않는다.
  */
 export async function fillTemplate(
   buffer: Buffer,
@@ -307,8 +400,32 @@ export async function fillTemplate(
     }
     if (pendingCharts.length > 0 && rels) zip.file(relsPath, rels);
 
-    // 3) 텍스트 치환
-    const replaced = xml.replace(/<a:p\b[^>]*>[\s\S]*?<\/a:p>/g, (paragraphXml) => fillParagraph(paragraphXml, values));
+    // 3) 텍스트 치환 — 값이 들어가는 도형에는 자동 축소를 함께 건다.
+    //
+    //    도형(<p:sp>) 단위로 쪼개서 도는 이유가 둘이다.
+    //    (a) 자동 축소는 도형의 크기·글꼴을 알아야 어림할 수 있고, 치환 **전** 텍스트로
+    //        "여기 값이 들어가는가" 를 가려야 나머지 도형을 안 건드린다.
+    //    (b) **한 자리를 두 번 치환하지 않기 위해서다.** 도형을 돌고 나서 다시 전체를 훑으면,
+    //        총평에 사용자가 `{{...}}` 를 적어 넣은 경우 그 글자가 또 한 번 치환된다.
+    //    쪼갠 조각은 각각 정확히 한 번씩만 지나간다(도형 밖 = 템플릿이 직접 그려 둔 표의 칸 등).
+    const replaced = xml
+      .split(/(<p:sp\b[\s\S]*?<\/p:sp>)/)
+      .map((part) => {
+        // `<p:spPr>` 로 시작하는 조각과 헷갈리지 않게 여는 태그 끝까지 본다.
+        if (!/^<p:sp[\s>]/.test(part)) {
+          return part.replace(/<a:p\b[^>]*>[\s\S]*?<\/a:p>/g, (p) => fillParagraph(p, values));
+        }
+        const before = shapeText(part);
+        PLACEHOLDER_RE.lastIndex = 0;
+        if (!PLACEHOLDER_RE.test(before)) return part; // 값이 안 들어가는 도형은 그대로 둔다
+        const after = before.replace(PLACEHOLDER_RE, (_, key: string) => {
+          const val = values[key.trim()];
+          return val !== undefined && val !== null ? String(val) : "";
+        });
+        const filled = part.replace(/<a:p\b[^>]*>[\s\S]*?<\/a:p>/g, (p) => fillParagraph(p, values));
+        return withAutofit(filled, after);
+      })
+      .join("");
     zip.file(filePath, replaced);
   }
 

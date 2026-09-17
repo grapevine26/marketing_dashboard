@@ -9,6 +9,7 @@ import { safeCall } from "@/lib/actions/safeCall";
 import { toast } from "@/components/Toast";
 import { useFlipList } from "@/lib/hooks/useFlipList";
 import { swapItems } from "@/lib/ui/reorder";
+import { useUnsavedChanges } from "@/components/PendingSaveGuard";
 
 export default function PreSurveyTemplateEditor({
   initialTemplate,
@@ -22,6 +23,14 @@ export default function PreSurveyTemplateEditor({
   const [templateUpdatedAt, setTemplateUpdatedAt] = useState<string | null>(
     initialTemplate.updated_at ?? null
   );
+  /**
+   * 마지막으로 서버와 맞춰진 문항(저장 성공 시점, 또는 "최신 내용 불러오기" 로 받아 온 시점).
+   * 지금 화면의 문항이 여기서 벗어나 있으면 **저장 안 한 변경**이 있는 것이다.
+   *
+   * 문자열로 비교한다. 문항 하나의 글자 한 자만 바뀌어도 알아채야 하는데, 참조 비교로는
+   * 못 잡고 필드별 비교는 문항 구조가 바뀔 때마다 같이 고쳐야 한다.
+   */
+  const [baselineJson, setBaselineJson] = useState(() => JSON.stringify(initialTemplate.questions || []));
   const [recentlyMovedId, setRecentlyMovedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -57,6 +66,9 @@ export default function PreSurveyTemplateEditor({
     setSyncedFrom(initialTemplate);
     if (discardArmed) {
       setQuestions(initialTemplate.questions || []);
+      // 내 수정을 버리기로 한 것이므로 기준도 방금 받아 온 값으로 옮긴다.
+      // 안 옮기면 화면과 서버가 같은데도 "저장 안 한 변경이 있다" 고 계속 붙잡는다.
+      setBaselineJson(JSON.stringify(initialTemplate.questions || []));
       setTemplateUpdatedAt(initialTemplate.updated_at ?? null);
       setDiscardArmed(false);
       setSaveConflict(false);
@@ -66,6 +78,15 @@ export default function PreSurveyTemplateEditor({
   }
 
   const { registerRef } = useFlipList(questions);
+
+  /**
+   * 저장 안 한 문항이 있으면 화면을 빠져나가기 전에 붙잡는다.
+   * 새로고침·탭 닫기는 브라우저 경고로, 사이드바 이동은 확인창으로 막힌다.
+   *
+   * 저장 **중**(guardedSave)과는 다른 상태다. 저장 중은 기다리면 끝나지만, 여기는
+   * 기다려도 저장되지 않고 나가는 순간 문항이 통째로 사라진다.
+   */
+  useUnsavedChanges(JSON.stringify(questions) !== baselineJson);
 
   const update = (id: string, patch: Partial<PreSurveyQuestion>) =>
     setQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)));
@@ -123,6 +144,8 @@ export default function PreSurveyTemplateEditor({
     setOverwriteArmed(false);
     setDiscardArmed(false);
     setQuestions(res.data.questions);
+    // 저장된 내용이 새 기준이다. 여기를 안 옮기면 저장한 뒤에도 계속 붙잡는다.
+    setBaselineJson(JSON.stringify(res.data.questions));
     setTemplateUpdatedAt(res.data.updated_at);
     router.refresh();
     setSaved(true);

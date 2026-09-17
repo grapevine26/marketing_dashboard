@@ -30,7 +30,10 @@ import {
   generateSnsAiCaptionAction,
   updateSnsAccountAction,
   regenerateSnsTokenAction,
+  // ⚠️ 아직 actions.ts 에 없는 액션이다. 보고서의 시그니처·본문을 그대로 추가해야 빌드가 통과한다.
+  reorderSnsMediaAction,
 } from "../actions";
+import { swapItems } from "@/lib/ui/reorder";
 import { isoToKstDateString, buildMonthGrid, shiftMonth } from "@/lib/seeding/dday";
 import Link from "next/link";
 import {
@@ -262,7 +265,20 @@ export default function SnsAccountDetailClient({
 
   // Monthly aggregation
   const postedContents = contents.filter((c) => c.status === "posted");
-  const postedMonthOf = (c: SnsContent) => (isoToKstDateString(c.status_changed_at) || c.scheduled_on || "").slice(0, 7);
+  /**
+   * 이 콘텐츠를 **몇 월 실적으로 셀지**.
+   *
+   * 예전에는 `status_changed_at`(= 마지막으로 상태가 바뀐 시각)을 먼저 봤다. 그 값은
+   * 상태를 만질 때마다 바뀌기 때문에 합계가 달마다 옮겨 다녔다.
+   * - 게시완료로 올렸다가 되돌렸다 다시 올리면 **옛 달 합계에서 빠지고 새 달에 붙었다.**
+   * - 8월에 나간 콘텐츠를 9월에 뒤늦게 게시완료로 바꾸면 9월 실적으로 잡혔다.
+   *
+   * 대행사가 광고주에게 말하는 "8월 콘텐츠" 는 **발행 예정일** 기준이고, 그 값은 상태를
+   * 만져도 변하지 않는다. 그래서 `scheduled_on` 을 먼저 본다.
+   * 예정일이 비어 있는 콘텐츠만 `status_changed_at`(KST 환산)으로 떨어뜨린다 —
+   * 아무 달에도 안 잡혀 합계에서 통째로 사라지는 것보다는 낫다.
+   */
+  const postedMonthOf = (c: SnsContent) => (c.scheduled_on || isoToKstDateString(c.status_changed_at) || "").slice(0, 7);
   const availableMonths = useMemo(() => {
     const set = new Set<string>([todayKst.slice(0, 7)]);
     postedContents.forEach((c) => {
@@ -466,6 +482,25 @@ export default function SnsAccountDetailClient({
     const picked = Array.from(e.target.files ?? []);
     if (picked.length === 0) return;
 
+    /**
+     * **MOV 는 받되, 고른 순간 알린다.**
+     *
+     * 아이폰으로 찍은 `.mov`(HEVC)는 업로드도 잘 되고 파일명·용량도 멀쩡히 보이지만,
+     * 광고주가 크롬·파이어폭스로 열면 코덱이 없어 **검은 화면**이 된다. 올린 직원은 자기
+     * 맥·사파리에서 잘 보이니 문제를 모르고, 광고주는 시안을 못 본 채 승인 버튼을 누른다.
+     *
+     * 형식 허용 자체는 건드리지 않는다 — 받는 것은 문제가 아니고, 원본 보관이 필요한 경우도 있다.
+     * 대신 여기서 알려서 **올리기 전에** MP4 로 바꿀 기회를 준다.
+     * (광고주 화면 쪽에도 재생 실패 시 내려받기 안내가 따로 있다.)
+     */
+    const movFiles = picked.filter((f) => resolveMediaMime(f.name, f.type) === "video/quicktime");
+    if (movFiles.length > 0) {
+      toast.warning(`MOV 영상 ${movFiles.length}개는 일부 브라우저에서 재생되지 않을 수 있습니다.`, {
+        description:
+          "아이폰 .mov(HEVC)는 광고주가 크롬·파이어폭스로 열면 검은 화면이 될 수 있습니다. 가능하면 MP4(H.264)로 변환해 올려주세요. (승인 화면에는 내려받기 안내가 함께 나갑니다.)",
+      });
+    }
+
     if (!editingId) {
       setSelectedFiles((prev) => [...prev, ...picked]);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -526,6 +561,95 @@ export default function SnsAccountDetailClient({
     );
     toast.success("첨부를 삭제했습니다.");
   };
+
+  // 순서 변경이 도는 동안 다른 이동을 막는다. 두 번 연달아 누르면 되돌릴 기준(직전 배열)이
+  // 엇갈려서, 실패했을 때 엉뚱한 순서로 복구된다.
+  const [reorderingMedia, setReorderingMedia] = useState(false);
+
+  /**
+   * 첨부 순서 이동(앞/뒤 한 칸).
+   *
+   * 캐러셀에 나가는 순서가 곧 배열 순서인데 append 만 되고 순서를 바꿀 방법이 없어서,
+   * 순서를 고치려면 지우고 다시 올려야 했다(파일이 사라지는 삭제를 순서 때문에 하게 된다).
+   *
+   * **서버에는 배열이 아니라 id 순서만 보낸다.** 배열을 통째로 보내면 보내는 사이에 다른
+   * 사람이 붙인 첨부가 그 배열에 없어서 조용히 사라진다. 서버가 저장된 배열을 읽어
+   * 이 순서대로 재배치하므로 첨부가 늘거나 줄지 않는다(lib/db/sns.ts).
+   *
+   * 화면은 먼저 바꾸고(0ms) 실패하면 직전 배열로 되돌린다. 성공하면 **서버가 돌려준 배열**로
+   * 맞춘다 — 그 사이 추가·삭제된 첨부가 있으면 서버 쪽이 진실이다.
+   */
+  const handleMoveMedia = async (contentId: string, idx: number, dir: -1 | 1) => {
+    if (reorderingMedia || uploadingMedia || deletingId) return;
+    const before = editingContent?.media_attachments ?? [];
+    const target = idx + dir;
+    if (target < 0 || target >= before.length) return;
+    const next = swapItems(before, idx, target);
+    // swapItems 는 자리가 없으면 받은 배열을 그대로 돌려준다. 그때는 보낼 것도 없다.
+    if (next === before) return;
+
+    setContents((prev) => prev.map((c) => (c.id === contentId ? { ...c, media_attachments: next } : c)));
+    setReorderingMedia(true);
+    setError(null);
+    const res = await safeCall(
+      reorderSnsMediaAction(contentId, next.map((m) => m.id), account.id)
+    );
+    setReorderingMedia(false);
+
+    if (!res.ok) {
+      setContents((prev) => prev.map((c) => (c.id === contentId ? { ...c, media_attachments: before } : c)));
+      setError(res.error);
+      // 순서 버튼도 모달(fixed inset-0 z-50) 안이라 error 배너는 모달 뒤에 깔려 안 보인다.
+      toast.error(res.error || "첨부 순서를 저장하지 못했습니다.");
+      return;
+    }
+    setContents((prev) =>
+      prev.map((c) => (c.id === contentId ? { ...c, media_attachments: res.data.attachments } : c))
+    );
+    // 순서 변경도 콘텐츠 행을 고치므로 기준 시각이 바뀐다. 추가·삭제와 같은 이유로 갱신한다.
+    기준시각갱신(contentId, res.data.contentUpdatedAt);
+  };
+
+  /**
+   * **업로드가 도는 중에는 모달을 닫지 못하게 한다.**
+   *
+   * 업로드는 (1) 저장소에 파일을 올리고 (2) 서버에 기록하는 두 단계다. 그 사이에 창을 닫으면
+   * **파일만 남고 DB 는 그 파일을 모른다** — 아무 화면에도 안 보이고 지울 수도 없는 고아 파일이
+   * 저장소에 쌓인다(무료 요금제에서는 용량이 곧 비용이다).
+   *
+   * 지금까지 [취소]·[X] 는 업로드 중에도 그냥 눌렸다. 버튼을 비활성으로 바꾸고, 그래도 눌린
+   * 경로가 있을 수 있으니 함수에서도 한 번 더 막는다. 이유를 말하지 않고 막기만 하면
+   * "버튼이 고장났다" 가 되므로 토스트로 알린다.
+   *
+   * `saving` 도 함께 본다. **신규 등록**은 첨부를 `uploadingMedia` 가 아니라 저장 흐름
+   * (`handleSubmitContent`) 안에서 올리기 때문에, 업로드만 막으면 신규 등록 쪽에 같은 구멍이 남는다.
+   */
+  const modalBusy = uploadingMedia || saving;
+
+  const closeContentModal = () => {
+    if (modalBusy) {
+      toast.warning(uploadingMedia ? "업로드가 끝난 뒤에 닫을 수 있습니다." : "저장이 끝난 뒤에 닫을 수 있습니다.", {
+        description: "지금 닫으면 올라가던 파일이 어디에도 기록되지 않은 채 저장소에 남을 수 있습니다.",
+      });
+      return;
+    }
+    setModalOpen(false);
+  };
+
+  /**
+   * 새로고침·탭 닫기도 같은 손실을 낸다. 버튼만 막으면 F5 한 번에 그대로 빠져나간다.
+   * 브라우저가 자기 문구로 확인창을 띄운다(우리 문구는 못 넣는다) — 그래도 "그냥 나가짐" 보다는 낫다.
+   */
+  useEffect(() => {
+    if (!modalOpen || !modalBusy) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // 옛 브라우저는 returnValue 를 봐야 확인창을 띄운다.
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [modalOpen, modalBusy]);
 
   const handleAiCaption = async () => {
     if (!form.title.trim()) {
@@ -979,7 +1103,7 @@ export default function SnsAccountDetailClient({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-accent2" />
-            <h2 className="text-sm font-bold text-text">월별 게시 성과 (게시완료 전환 월 기준)</h2>
+            <h2 className="text-sm font-bold text-text">월별 게시 성과 (발행 예정일 기준)</h2>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <select aria-label="성과를 볼 월" value={perfMonth} onChange={(e) => setPerfMonth(e.target.value)} className="px-2.5 py-1.5 rounded-lg bg-bg border border-border text-text text-xs font-mono focus:outline-none focus:border-accent2">
@@ -988,6 +1112,10 @@ export default function SnsAccountDetailClient({
             <span className="text-text-muted">전체 누적 {postedContents.length}건 · 조회 {sum(postedContents, "view_count").toLocaleString()}</span>
           </div>
         </div>
+        <p className="text-[11px] text-text-muted leading-relaxed">
+          게시완료 콘텐츠를 <strong className="text-text-sub">발행 예정일</strong>이 속한 달로 셉니다. 상태를 다시 만져도 합계가 다른 달로 옮겨가지 않습니다.
+          발행 예정일이 비어 있는 콘텐츠만 상태가 마지막으로 바뀐 날로 셉니다.
+        </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 tabular-nums">
           {[
             { label: "게시 건수", value: `${monthPosted.length}건`, cls: "text-text" },
@@ -1514,7 +1642,15 @@ export default function SnsAccountDetailClient({
           <div className="w-full max-w-lg bg-surface border-t sm:border border-border rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto font-sans">
             <div className="flex items-center justify-between pb-2 border-b border-border">
               <h2 className="text-base font-bold text-text">{editingId ? "콘텐츠 수정" : "신규 SNS 콘텐츠 기획안 등록"}</h2>
-              <button type="button" onClick={() => setModalOpen(false)} className="text-text-sub hover:text-text"><X className="w-4 h-4" /></button>
+              <button
+                type="button"
+                onClick={closeContentModal}
+                disabled={modalBusy}
+                title={modalBusy ? "업로드·저장이 끝난 뒤에 닫을 수 있습니다." : "닫기"}
+                className="text-text-sub hover:text-text disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
             <form onSubmit={handleSubmitContent} className="space-y-4">
@@ -1562,14 +1698,59 @@ export default function SnsAccountDetailClient({
                     <ImageIcon className="w-3.5 h-3.5 text-accent2" />
                     <span>시안 미디어 (이미지 / 영상)</span>
                   </label>
-                  <span className="text-[10px] text-text-muted">최대 50MB (JPG, PNG, WebP, GIF, MP4, WebM)</span>
+                  {/* MOV 도 받는다. 다만 광고주 브라우저에서 재생이 안 될 수 있어 따로 적어 둔다. */}
+                  <span className="text-[10px] text-text-muted">최대 50MB (JPG, PNG, WebP, GIF, MP4, WebM, MOV)</span>
                 </div>
 
                 {/* Existing attachments when editing */}
                 {editingId && editingContent?.media_attachments && editingContent.media_attachments.length > 0 && (
+                  <>
+                  {editingContent.media_attachments.length > 1 && (
+                    <p className="text-[10px] text-text-muted">
+                      왼쪽 위가 1번입니다. 화살표로 순서를 바꾸면 광고주 화면의 캐러셀 순서도 같이 바뀝니다. (즉시 저장)
+                    </p>
+                  )}
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {editingContent.media_attachments.map((m) => (
+                    {editingContent.media_attachments.map((m, idx, list) => (
                       <div key={m.id} className="relative p-2 rounded-xl bg-bg border border-border group">
+                        {/*
+                          순서 이동. 목록이 좌→우로 채워지는 격자라서 위/아래가 아니라 앞/뒤(◀▶)로 둔다.
+                          `lib/ui/reorder.ts` 의 swapItems 를 쓰는 다른 화면들과 같은 조작이다.
+                        */}
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-accent2/10 text-accent2 border border-accent2/25">
+                            {idx + 1}
+                          </span>
+                          {list.length > 1 && (
+                            <div className="flex items-center gap-0.5 bg-surface rounded-lg p-0.5 border border-border">
+                              <button
+                                type="button"
+                                onClick={() => handleMoveMedia(editingId, idx, -1)}
+                                disabled={idx === 0 || reorderingMedia || uploadingMedia || deletingId !== null}
+                                className="p-0.5 text-text-muted hover:text-text disabled:opacity-20 disabled:cursor-not-allowed rounded hover:bg-surface2"
+                                title="앞으로 이동"
+                                aria-label={`${m.name} 앞으로 이동`}
+                              >
+                                <ChevronLeft className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleMoveMedia(editingId, idx, 1)}
+                                disabled={
+                                  idx === list.length - 1 ||
+                                  reorderingMedia ||
+                                  uploadingMedia ||
+                                  deletingId !== null
+                                }
+                                className="p-0.5 text-text-muted hover:text-text disabled:opacity-20 disabled:cursor-not-allowed rounded hover:bg-surface2"
+                                title="뒤로 이동"
+                                aria-label={`${m.name} 뒤로 이동`}
+                              >
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         {m.mime_type.startsWith("image/") ? (
                           <div className="w-full h-16 rounded-lg overflow-hidden bg-surface2">
                             {/* 권한 확인이 필요한 비공개 시안이라 next/image 를 쓰지 않는다. 자세한 이유는 위쪽 첫 <img> 주석 참고. */}
@@ -1597,6 +1778,7 @@ export default function SnsAccountDetailClient({
                       </div>
                     ))}
                   </div>
+                  </>
                 )}
 
                 {/* Staged files when creating */}
@@ -1694,10 +1876,32 @@ export default function SnsAccountDetailClient({
                 </div>
               )}
 
+              {/*
+                업로드가 도는 동안은 이 창을 떠나는 모든 길을 막는다. [저장] 도 마찬가지다 —
+                저장에 성공하면 모달이 닫히므로, 닫기만 막고 저장을 열어 두면 같은 구멍이 남는다.
+              */}
+              {uploadingMedia && (
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-warn-soft text-xs flex items-start gap-2">
+                  <Loader2 className="w-3.5 h-3.5 shrink-0 mt-0.5 animate-spin" />
+                  <p className="leading-relaxed">
+                    미디어를 업로드하는 중입니다. 끝날 때까지 이 창을 닫거나 새로고침하지 말아주세요.
+                    중간에 닫으면 파일이 어디에도 기록되지 않은 채 저장소에 남습니다.
+                  </p>
+                </div>
+              )}
+
               <div className="pt-3 flex flex-col-reverse sm:flex-row justify-end gap-2">
-                <button type="button" onClick={() => setModalOpen(false)} className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs">취소</button>
-                <button type="submit" disabled={saving} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-accent2 hover:bg-accent2/90 text-white text-xs font-semibold shadow-md disabled:opacity-50">
-                  {saving ? "저장 중..." : editingId ? "수정 저장" : "기획안 등록"}
+                <button
+                  type="button"
+                  onClick={closeContentModal}
+                  disabled={modalBusy}
+                  title={modalBusy ? "업로드·저장이 끝난 뒤에 닫을 수 있습니다." : undefined}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-surface2 hover:bg-surface3 text-text-2 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  취소
+                </button>
+                <button type="submit" disabled={saving || uploadingMedia} className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-accent2 hover:bg-accent2/90 text-white text-xs font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                  {saving ? "저장 중..." : uploadingMedia ? "업로드 중..." : editingId ? "수정 저장" : "기획안 등록"}
                 </button>
               </div>
             </form>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { toKstDateString, parseMonthParam, buildMonthGrid, shiftMonth } from "@/lib/seeding/dday";
-import { collectOverviewItems, collectHomeSummary } from "@/lib/overview/collect";
+import { collectOverview } from "@/lib/overview/collect";
 import { getCurrentUser, isManager, isOwner } from "@/lib/auth/session";
 import { countPendingUsers } from "@/lib/auth/users";
 import CalendarOverviewClient, { UrgentItemsWidget } from "./CalendarOverviewClient";
@@ -51,10 +51,19 @@ export default async function DashboardOverviewPage({
   const todayKst = toKstDateString();
   const currentMonth = parseMonthParam(month, todayKst);
 
-  const [{ items, failedSources }, summary, pendingUserCount, backupStatus] = await Promise.all([
-    collectOverviewItems(todayKst),
-    collectHomeSummary(todayKst),
-    canApproveUsers ? countPendingUsers() : Promise.resolve(0),
+  // 캘린더 항목과 KPI 요약은 같은 조회에서 나온다. 전에는 둘이 따로 서서 캠페인·행사·SNS·
+  // 지원자 전체 조회를 각각 한 번씩 더 했다(화면 하나에 왕복 여섯 번).
+  const [{ items, failedSources, summary }, pendingUserCount, backupStatus] = await Promise.all([
+    collectOverview(todayKst),
+    canApproveUsers
+      ? // 대기자 수 하나 때문에 오버뷰 전체가 500 이 되지는 않게 한다.
+        // 0 은 "대기자가 없다" 가 아니라 "이 알림을 감춘다" 는 뜻이다 — 아래 배너는 0이면 안 그린다.
+        // 실패를 "0명 대기중" 이라고 적어 보여주는 것보다, 아무 말도 하지 않는 쪽이 덜 거짓말이다.
+        countPendingUsers().catch((err) => {
+          console.error("[overview] 승인 대기자 수 조회 실패:", err);
+          return 0;
+        })
+      : Promise.resolve(0),
     // 대표 관리자가 아니면 저장소 조회 자체를 하지 않는다. 볼 수 없는 값을 굳이 읽어 올 이유가 없다.
     canSeeBackupStatus ? getBackupStatus() : Promise.resolve(null),
   ]);

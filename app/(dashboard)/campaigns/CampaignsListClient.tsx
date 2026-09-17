@@ -45,7 +45,19 @@ export default function CampaignsListClient({
 }: CampaignsListClientProps) {
   const router = useRouter();
   const [campaigns, setCampaigns] = useState<Campaign[]>(initialCampaigns);
-  const [filter, setFilter] = useState<"active" | "all" | "completed">("active");
+  /**
+   * 큰 묶음 탭. 세부단계 드롭다운(selectedStatus)이 "전체" 일 때만 쓰인다.
+   *
+   * "진행중(active)" 에서 **준비중(draft)을 뺀다.** 전에는 완료만 뺐는데, 오버뷰의
+   * "진행중 캠페인" KPI 는 준비중도 함께 빼고 세고 있었다. 그래서 준비중이 2개 있으면
+   * 오버뷰는 3, 이 탭은 5 라고 적었다 — 같은 단어에 다른 숫자라 어느 쪽도 못 믿게 된다.
+   * 기준은 오버뷰에 맞췄다. KPI 모달이 "기획 단계와 완료 보관함을 뺀" 이라고 못박고 있어서,
+   * 그쪽이 "진행중" 이라는 말의 의도에 가깝다.
+   *
+   * 대신 준비중이 어느 탭에도 없으면 안 되니 "준비중" 탭을 따로 뒀다(완료/보관과 같은 방식으로,
+   * 해당하는 캠페인이 있을 때만 보인다).
+   */
+  const [filter, setFilter] = useState<"active" | "draft" | "all" | "completed">("active");
   const [selectedType, setSelectedType] = useState<"all" | CampaignType>("all");
   const [selectedStatus, setSelectedStatus] = useState<"all" | CampaignStatus>("all");
   const [search, setSearch] = useState("");
@@ -83,7 +95,10 @@ export default function CampaignsListClient({
   const isNameConfirmed =
     targetCampaign !== null && confirmName.trim() === targetCampaign.name.trim();
 
-  const activeCount = campaigns.filter((c) => c.status !== "completed").length;
+  // 오버뷰 KPI(collect.ts 의 isActive)와 같은 식이어야 한다. 한쪽만 고치면 다시 어긋난다.
+  const isActiveStatus = (s: CampaignStatus) => s !== "draft" && s !== "completed";
+  const activeCount = campaigns.filter((c) => isActiveStatus(c.status)).length;
+  const draftCount = campaigns.filter((c) => c.status === "draft").length;
   const completedCount = campaigns.filter((c) => c.status === "completed").length;
 
   const isFiltered = search !== "" || selectedType !== "all" || selectedStatus !== "all" || filter !== "active";
@@ -100,7 +115,8 @@ export default function CampaignsListClient({
     if (selectedStatus !== "all") {
       if (c.status !== selectedStatus) return false;
     } else {
-      if (filter === "active" && c.status === "completed") return false;
+      if (filter === "active" && !isActiveStatus(c.status)) return false;
+      if (filter === "draft" && c.status !== "draft") return false;
       if (filter === "completed" && c.status !== "completed") return false;
     }
 
@@ -172,6 +188,26 @@ export default function CampaignsListClient({
           >
             진행중 ({activeCount})
           </button>
+          {/* 준비중(draft) 캠페인이 있을 때만 나오는 탭. "진행중" 에서 뺐으니 갈 곳을 만들어 준다.
+              없을 때까지 빈 탭을 세워 두면 쓰지도 않는 칸이 늘 자리를 먹는다(완료/보관과 같은 판단).
+              라벨은 CAMPAIGN_STATUS_LABELS.draft 와 같은 "준비중" 으로 맞춘다. */}
+          {draftCount > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setFilter("draft");
+                setSelectedStatus("all");
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                filter === "draft" && selectedStatus === "all"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "bg-surface text-text-sub hover:text-text border border-border"
+              }`}
+              title="아직 시작 전인(기획 단계) 캠페인입니다. 오버뷰의 진행중 숫자에는 포함되지 않습니다."
+            >
+              준비중 ({draftCount})
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -287,6 +323,8 @@ export default function CampaignsListClient({
           <p className="text-text-sub">
             {filter === "completed"
               ? "완료되어 보관된 캠페인이 없습니다."
+              : filter === "draft"
+              ? "준비중인 캠페인이 없습니다."
               : isFiltered
               ? "검색 및 필터 조건에 일치하는 캠페인이 없습니다."
               : "진행 중인 캠페인이 없습니다."}

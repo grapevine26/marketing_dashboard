@@ -7,18 +7,16 @@ import { saveReportSectionsAction } from "../actions";
 import { Plus, Trash2, Save, CheckCircle2, Loader2 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
 import { toast } from "@/components/Toast";
+import { useReportLock } from "./ReportLock";
 
 export default function CustomSectionEditor({
   reportId,
   campaignId,
   initialSections,
-  initialUpdatedAt,
 }: {
   reportId: string;
   campaignId: string;
   initialSections: CustomSection[];
-  /** 이 화면을 연 시점의 기준 시각. 저장할 때 돌려보내 남의 수정을 덮어쓰지 않게 한다. */
-  initialUpdatedAt: string;
 }) {
   const [sections, setSections] = useState<CustomSection[]>(initialSections);
   const [saving, setSaving] = useState(false);
@@ -27,8 +25,11 @@ export default function CustomSectionEditor({
   /**
    * 낙관적 잠금 기준. 저장에 성공할 때마다 새 값으로 옮긴다.
    * 안 옮기면 **연달아 저장할 때 자기 자신과 충돌**한다.
+   *
+   * 제목 편집기와 **같은 값을 본다**(ReportLock.tsx). 둘 다 `reports` 의 같은 행을 고치므로
+   * 따로 들고 있으면 제목을 바꾼 직후 여기서 가짜 충돌이 난다.
    */
-  const [baseline, setBaseline] = useState<string | null>(initialUpdatedAt);
+  const { baseline, setBaseline } = useReportLock();
   /**
    * 저장하려는데 그 사이 남이 먼저 저장한 상태.
    *
@@ -80,6 +81,15 @@ export default function CustomSectionEditor({
     setBaseline(res.data.updatedAt);
     setSaved(true);
     toast.success("보고서 맞춤 섹션이 저장되었습니다.");
+    // 이모지는 PDF 글꼴에 글리프가 없어 **빈칸으로 나간다**(lib/reports/pdf.ts).
+    // 방금 쓴 사람이 화면 앞에 있는 지금이 알리기 가장 좋은 때다 — 다운로드 순간에는
+    // 응답이 파일이라 말을 붙일 자리가 없고, 받는 사람은 왜 문장이 어색한지 알 수 없다.
+    // 막지는 않는다. 화면과 PPTX 에는 그대로 나오고, 이모지를 쓸지는 작성자가 정할 일이다.
+    if (res.data.pdfEmojiCount > 0) {
+      toast.warning(`이모지 ${res.data.pdfEmojiCount}자는 PDF 에서 빠집니다.`, {
+        description: "PDF 한글 글꼴에 이모지 글자가 없어 빈칸으로 나갑니다. 화면과 PPTX 에는 그대로 나옵니다.",
+      });
+    }
     setTimeout(() => setSaved(false), 3000);
   };
 

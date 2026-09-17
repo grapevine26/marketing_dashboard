@@ -8,6 +8,7 @@ import { Plus, Trash2, Save, CheckCircle2, Loader2, HelpCircle, MessageSquareTex
 import { safeCall } from "@/lib/actions/safeCall";
 import { toast } from "@/components/Toast";
 import { swapItems } from "@/lib/ui/reorder";
+import { useUnsavedChanges } from "@/components/PendingSaveGuard";
 
 export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTemplate: SnsIntakeTemplate }) {
   const router = useRouter();
@@ -20,6 +21,17 @@ export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTe
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * 마지막으로 저장된 문항. 지금 화면이 여기서 벗어나 있으면 저장 안 한 변경이 있는 것이다.
+   * (사전조사 편집기와 같은 방식 — 문자열로 비교해야 문항 안의 글자 변화까지 잡는다.)
+   */
+  const [baselineJson, setBaselineJson] = useState(() => JSON.stringify(initialTemplate.questions));
+
+  /**
+   * 저장 안 한 문항이 있으면 화면을 빠져나가기 전에 붙잡는다.
+   * 새로고침·탭 닫기는 브라우저 경고로, 사이드바 이동은 확인창으로 막힌다.
+   */
+  useUnsavedChanges(JSON.stringify(questions) !== baselineJson);
 
   const update = (id: string, patch: Partial<PreSurveyQuestion>) =>
     setQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)));
@@ -51,6 +63,8 @@ export default function SnsIntakeSettingsClient({ initialTemplate }: { initialTe
       return;
     }
     setQuestions(res.data.questions);
+    // 저장된 내용이 새 기준이다. 여기를 안 옮기면 저장한 뒤에도 계속 붙잡는다.
+    setBaselineJson(JSON.stringify(res.data.questions));
     setTemplateUpdatedAt(res.data.updated_at);
     router.refresh();
     setSaved(true);
