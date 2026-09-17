@@ -33,6 +33,20 @@ const EVENT_NOT_FOUND = "행사가 이미 삭제되었거나 찾을 수 없습�
 const INVITEE_NOT_FOUND = "초대 명단 항목이 이미 삭제되었거나 찾을 수 없습니다. 화면을 새로고침해주세요.";
 const CHECKLIST_NOT_FOUND = "체크리스트 항목이 이미 삭제되었거나 찾을 수 없습니다. 화면을 새로고침해주세요.";
 
+/**
+ * 저장돼 있던 행사 일시를 지우려 할 때 확인 없이는 통과시키지 않는다.
+ *
+ * `<input type="datetime-local">` 은 "2026-03-14" 처럼 **덜 채운 입력**도 `value === ""` 로 준다.
+ * 폼은 언제나 값을 보내므로 `""` → `null` → `changes.event_at = null` 이 되어, 장소만 고치려다
+ * 시간 칸을 지운 것만으로 저장돼 있던 일시가 조용히 사라졌다.
+ *
+ * 화면(EventDetailClient)이 먼저 물어보지만 서버에도 빗장을 둔다. 화면 쪽 검사는 브라우저나
+ * 옛 탭에 따라 건너뛰어질 수 있는데, 지워진 일시는 되돌릴 방법이 없다.
+ * **일부러 비우는 것은 계속 가능하다** — 확인을 거쳐 `confirmClearEventAt` 이 붙어 오면 그대로 지운다.
+ */
+const EVENT_AT_CLEAR_CONFIRM =
+  "저장된 행사 일시를 지우려는 것으로 보입니다. 날짜와 시간을 모두 입력하거나, 일시를 비우려면 화면을 새로고침한 뒤 다시 저장해 확인창에서 동의해주세요.";
+
 function revalidateEvent(campaignId: string, eventId?: string) {
   revalidatePath(`/campaigns/${campaignId}`);
   revalidatePath(`/campaigns/${campaignId}/events`);
@@ -66,8 +80,20 @@ export async function updateEventAction(data: {
   eventId: string;
   campaignId: string;
   patch: { name?: string; eventAtLocal?: string | null; venue?: string | null; memo?: string | null; status?: EventStatus };
+  /** 저장돼 있던 일시를 **일부러** 비운다고 사용자가 확인했을 때만 true. */
+  confirmClearEventAt?: boolean;
 }): Promise<ActionResult<MarketingEvent>> {
   return runAuthedAction(async () => {
+    // 일시를 건드리지 않는 저장(상태 변경 등)은 eventAtLocal 이 undefined 라 여기 걸리지 않는다.
+    const clearingEventAt =
+      data.patch.eventAtLocal !== undefined && kstLocalInputToIso(data.patch.eventAtLocal) === null;
+    if (clearingEventAt && !data.confirmClearEventAt) {
+      const before = await getEventById(data.eventId);
+      if (!before) throw new ValidationError(EVENT_NOT_FOUND);
+      // 원래 비어 있던 일시를 비운 채로 저장하는 것은 아무것도 잃지 않으므로 그냥 통과시킨다.
+      if (before.event_at) throw new ValidationError(EVENT_AT_CLEAR_CONFIRM);
+    }
+
     const ev = await updateEvent(data.eventId, {
       name: data.patch.name,
       event_at: data.patch.eventAtLocal === undefined ? undefined : kstLocalInputToIso(data.patch.eventAtLocal),

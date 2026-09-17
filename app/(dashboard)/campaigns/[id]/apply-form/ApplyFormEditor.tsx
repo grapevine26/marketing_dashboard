@@ -3,10 +3,23 @@
 import { useState } from "react";
 import { Campaign, CampaignFormConfig, CustomQuestion, CustomQuestionType, isSharedWithCompany } from "@/lib/db/types";
 import { saveFormConfigAction, generateAiIntroAction } from "./actions";
-import { Sparkles, Save, Plus, Trash2, ChevronLeft, Loader2, CheckCircle2, ExternalLink } from "lucide-react";
+import {
+  Sparkles,
+  Save,
+  Plus,
+  Trash2,
+  ChevronLeft,
+  Loader2,
+  CheckCircle2,
+  ExternalLink,
+  ArrowUp,
+  ArrowDown,
+} from "lucide-react";
 import Link from "next/link";
 import { safeCall } from "@/lib/actions/safeCall";
 import { toast } from "@/components/Toast";
+import { useFlipList } from "@/lib/hooks/useFlipList";
+import { swapItems } from "@/lib/ui/reorder";
 
 const TYPE_LABELS: Record<CustomQuestionType, string> = {
   text: "단답/서술",
@@ -29,6 +42,9 @@ export default function ApplyFormEditor({
   const [introText, setIntroText] = useState(initialConfig?.intro_text || defaultIntroText);
   const [customQuestions, setCustomQuestions] = useState<CustomQuestion[]>(initialConfig?.custom_questions || []);
   const [isPublished, setIsPublished] = useState(initialConfig?.is_published ?? true);
+  // 방금 위/아래로 옮긴 질문. 잠깐 테두리를 밝혀 어느 것이 움직였는지 눈으로 좇게 한다.
+  // 사전조사 편집기(CampaignPreSurveyQuestionEditor)와 같은 방식이다.
+  const [recentlyMovedId, setRecentlyMovedId] = useState<string | null>(null);
 
   const [loadingAi, setLoadingAi] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -78,8 +94,32 @@ export default function ApplyFormEditor({
    */
   const [optionText, setOptionText] = useState<Record<string, string>>({});
 
+  // 순서를 바꾸면 카드가 스르륵 자리를 옮긴다. 번호만 휙 바뀌면 어느 줄이 움직였는지 놓친다.
+  const { registerRef } = useFlipList(customQuestions);
+
   const updateQuestion = (id: string, patch: Partial<CustomQuestion>) => {
     setCustomQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)));
+  };
+
+  /**
+   * 질문을 한 칸 위/아래로 옮긴다.
+   *
+   * 이 편집기에는 원래 순서 변경이 없었다. 그래서 순서를 고치려면 지웠다 다시 만드는 수밖에
+   * 없었고, 그 순간 아래 `handleRemoveQuestion` 이 설명하는 사고(이미 들어온 답변이 화면에서
+   * 사라짐)를 정면으로 밟았다. **순서 변경이 곧 데이터 보호다.**
+   *
+   * 자리 맞바꾸기는 `swapItems` 에 맡긴다 — 범위 검사를 각자 구현하다가 배열에 undefined 가
+   * 박힌 전례가 있어 한 군데로 모아 둔 함수다.
+   */
+  const move = (idx: number, dir: -1 | 1) => {
+    const target = idx + dir;
+    if (target < 0 || target >= customQuestions.length) return;
+    const movedItem = customQuestions[idx];
+    if (movedItem) {
+      setRecentlyMovedId(movedItem.id);
+      setTimeout(() => setRecentlyMovedId(null), 500);
+    }
+    setCustomQuestions((prev) => swapItems(prev, idx, target));
   };
 
   const handleAddQuestion = () => {
@@ -88,11 +128,36 @@ export default function ApplyFormEditor({
       // 새 질문은 **광고주에게 안 보이는 것이 기본**이다. 반대로 두면 "카카오톡 ID" 같은 걸
       // 물어보면서 체크를 깜빡하는 순간 지원자 전원의 값이 광고주에게 나간다.
       // 보여줘야 하는 질문은 만들 때 한 번 눌러 주면 된다.
-      { id: `cq_${Date.now()}`, label: "", type: "text", required: false, share_with_company: false },
+      //
+      // id 는 난수로 만든다. 예전에는 `cq_${Date.now()}` 였는데, [질문 추가]를 빠르게 두 번
+      // 누르면 같은 밀리초가 나와 **id 가 겹쳤다.** 겹친 질문 둘은 답변이 담기는 자리
+      // (`custom_answers` 의 키)까지 같아 한쪽이 다른 쪽을 덮어썼다.
+      // 저장 쪽 검사(`requireText(q.id, "문항 ID", 100)`)는 비어 있지 않은 100자 이하 문자열이면
+      // 다 받으므로 옛 `cq_...` id 와 섞여 있어도 그대로 굴러간다. id 를 파싱하는 곳도 없다.
+      { id: crypto.randomUUID(), label: "", type: "text", required: false, share_with_company: false },
     ]);
   };
 
   const handleRemoveQuestion = (id: string) => {
+    // 질문을 지우면 **이미 들어온 답변이 보이지 않게 된다.** 답 자체는 지원자 행의
+    // `custom_answers` 에 남지만, 그것을 읽는 곳(지원자 목록 화면 · CSV · 엑셀 · 광고주 공유)이
+    // 전부 "지금 질문 목록" 을 기준으로 그린다. 같은 이름으로 다시 만들어도 새 id 가 붙어 빈 칸이다.
+    // 휴지통은 다른 입력칸 바로 옆에 있어 잘못 누르기 쉬우므로 한 번 물어본다.
+    // (캠페인 삭제처럼 이름을 옮겨 적게 하지는 않는다 — 저장을 누르기 전까지는 되돌릴 수 있고,
+    //  지운 답도 지원자 화면에서는 계속 보이기 때문에 그 정도로 무거운 확인은 과하다.)
+    const target = customQuestions.find((q) => q.id === id);
+    const label = target?.label.trim();
+    if (
+      !window.confirm(
+        `${label ? `"${label}"` : "이 "} 문항을 삭제할까요?\n\n` +
+          "이미 접수된 지원자가 이 문항에 적어 낸 답변이 지원자 목록 화면과 CSV·엑셀 내려받기, " +
+          "광고주 공유 페이지에서 더 이상 보이지 않게 됩니다. 같은 이름으로 다시 만들어도 빈 칸이라 되돌릴 수 없습니다.\n\n" +
+          "(지운 답변은 지원자 관리 화면에서 이름을 눌러 펼치면 \"지금 없는 질문\" 으로 확인할 수 있습니다. " +
+          "삭제는 [신청폼 설정 저장] 을 눌러야 반영됩니다.)"
+      )
+    ) {
+      return;
+    }
     setCustomQuestions((prev) => prev.filter((q) => q.id !== id));
   };
 
@@ -222,9 +287,36 @@ export default function ApplyFormEditor({
                 연락처·주소·생년월일 같은 건 켜지 마세요.
               </p>
               {customQuestions.map((q, idx) => (
-                <div key={q.id} className="p-4 rounded-xl bg-bg border border-border space-y-2">
+                <div
+                  key={q.id}
+                  ref={registerRef(q.id)}
+                  className={`p-4 rounded-xl bg-bg border space-y-2 transition-[border-color,box-shadow] duration-200 ${
+                    recentlyMovedId === q.id ? "border-blue-500 ring-2 ring-blue-500/20" : "border-border"
+                  }`}
+                >
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-mono text-text-muted">{idx + 1}</span>
+                    {/* 순서 변경. 이게 없어서 지웠다 다시 만들다가 답변을 날리는 일이 생겼다. */}
+                    <div className="flex items-center gap-0.5 bg-surface rounded-lg p-0.5 border border-border shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => move(idx, -1)}
+                        disabled={idx === 0}
+                        className="p-1 text-text-muted hover:text-text disabled:opacity-20 rounded hover:bg-surface2 btn-press"
+                        title="위로 이동"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => move(idx, 1)}
+                        disabled={idx === customQuestions.length - 1}
+                        className="p-1 text-text-muted hover:text-text disabled:opacity-20 rounded hover:bg-surface2 btn-press"
+                        title="아래로 이동"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                     <input
                       type="text"
                       required
@@ -271,7 +363,7 @@ export default function ApplyFormEditor({
                       />
                       <span>광고주 공개</span>
                     </label>
-                    <button type="button" onClick={() => handleRemoveQuestion(q.id)} className="p-1.5 text-text-muted hover:text-red-400 transition">
+                    <button type="button" title="문항 삭제" onClick={() => handleRemoveQuestion(q.id)} className="p-1.5 text-text-muted hover:text-red-400 transition">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>

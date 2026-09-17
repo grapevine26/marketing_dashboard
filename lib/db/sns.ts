@@ -489,7 +489,18 @@ export async function getSnsIntakeResponse(accountId: string): Promise<SnsIntake
   return row ? rowToSnsIntakeResponse(row) : null;
 }
 
-/** 응답 저장. 계정당 한 건이므로 upsert 한다. 재제출이면 id 는 유지되고 제출 시각만 바뀐다. */
+/**
+ * 응답 저장. 계정당 한 건이므로 upsert 한다. 재제출이면 id 는 유지되고 제출 시각만 바뀐다.
+ *
+ * **기존 답변 위에 덮어쓴다(병합).** 전에는 지금 문항 목록으로 `answers` 를 새로 조립해
+ * 통째로 덮어썼다. 그래서 담당자가 문항을 지우거나 [기본 템플릿으로 초기화] 를 누른 뒤
+ * 광고주가 오타 하나 고쳐 재제출하면 **지금 문항에 없는 답변이 전부 영구히 사라졌다.**
+ * 초기화가 특히 위험했다 — 맞춤 문항 id(`siq_…`)와 공용 템플릿 id(`sq_…`)는 접두사부터 달라
+ * 전체 답변이 한꺼번에 고아가 되고, 재제출 한 번에 같이 지워졌다.
+ * 대시보드가 `(삭제된 질문 …)` 으로 보존해 보여주던 백업이 바로 이 값이다.
+ *
+ * 그래서 지금 문항의 답만 새 값으로 덮고, **지금 문항에 없는 옛 키는 손대지 않는다.**
+ */
 export async function saveSnsIntakeResponse(data: {
   account_id: string;
   answers: Record<string, string>;
@@ -501,12 +512,26 @@ export async function saveSnsIntakeResponse(data: {
   const questions = account.intake_questions && account.intake_questions.length > 0
     ? account.intake_questions
     : (await getSnsIntakeTemplate()).questions;
-  const answers: Record<string, string> = {};
+
+  // 병합의 바탕. 조회 한 번이 늘지만, 이게 없으면 옛 답변을 되살릴 방법이 없다.
+  const existing = (await getSnsIntakeResponse(data.account_id))?.answers ?? {};
+  const answers: Record<string, string> = { ...existing };
+
   for (const q of questions) {
     const v = data.answers?.[q.id];
-    const text = typeof v === "string" ? v.trim() : "";
-    if (q.required && !text) throw new ValidationError(`필수 질문에 답변해주세요: ${q.question}`);
-    if (text) answers[q.id] = text.slice(0, 5000);
+    // **"안 보냄" 과 "비워서 보냄" 을 구분한다.**
+    // 옛 코드는 `if (text)` 로 빈 값을 건너뛰었다. 통째로 덮어쓰던 때는 건너뛰는 것이 곧
+    // 지우는 것이라 문제가 없었지만, 병합에서는 그대로 두면 광고주가 **일부러 비운 칸에
+    // 옛 답변이 되살아난다.** 그래서 빈 문자열로 실려 온 칸은 키를 지워 "비우기" 를 살린다.
+    // 반대로 칸 자체가 안 실려 온 경우는 "안 건드림" 으로 보고 저장된 값을 남긴다
+    // (지금 폼은 늘 전체를 보내므로 실제로는 답이 없던 칸뿐이다).
+    const submitted = typeof v === "string" ? v.trim() : undefined;
+    // 필수 검사는 **저장될 값** 기준이다. 안 건드린 칸은 이미 있는 답이 답으로 남는다.
+    const effective = submitted !== undefined ? submitted : (existing[q.id] ?? "");
+    if (q.required && !effective) throw new ValidationError(`필수 질문에 답변해주세요: ${q.question}`);
+    if (submitted === undefined) continue;
+    if (submitted) answers[q.id] = submitted.slice(0, 5000);
+    else delete answers[q.id];
   }
 
   const row = unwrap(
@@ -690,6 +715,31 @@ export interface SnsContentPatch {
   expected_updated_at?: string | null;
 }
 
+/**
+ * **광고주가 실제로 보는 칸.** 승인을 되돌릴지 판단하는 기준이다.
+ *
+ * 무엇이 광고주에게 나가는지는 `toReviewableSnsContent`(lib/db/types.ts)가 정한다.
+ * 그쪽이 승인 화면으로 넘기는 것은 id·title·scheduled_on·caption·hashtags·client_comment·
+ * media_attachments 이고, 그중 **이 함수의 patch 로 바뀌는 것은 아래 넷**이다.
+ * (`client_comment` 는 광고주가 수정요청할 때만 쓰이고, 첨부는 별도 함수가 다룬다.)
+ *
+ * 일부러 뺀 것: `media_note`(내부 제작 메모 — 승인 화면에 안 나간다), `assignee`,
+ * `post_url`, 성과 수치. 광고주가 본 적 없는 값이라 바뀌어도 승인이 무효가 되지 않는다.
+ *
+ * **`scheduled_on` 도 뺐다.** 승인 화면에 나가기는 하지만, 막으려는 것은 "광고주가 본 적 없는
+ * **원고**가 승인 완료로 남는 것" 이지 일정이 아니다. 발행일을 하루 미룰 때마다 재승인을
+ * 받아야 하면 현장에서 못 쓴다. 날짜 변경은 감사 로그에 그대로 남으므로 추적은 된다.
+ *
+ * `toReviewableSnsContent` 에 칸이 늘면 **여기도 함께 봐야 한다.**
+ */
+const CLIENT_VISIBLE_CONTENT_FIELDS = ["title", "caption", "hashtags"] as const;
+
+const CLIENT_VISIBLE_FIELD_LABELS: Record<(typeof CLIENT_VISIBLE_CONTENT_FIELDS)[number], string> = {
+  title: "제목",
+  caption: "캡션",
+  hashtags: "해시태그",
+};
+
 /** 콘텐츠 수정. 성과 수치는 게시완료(posted) 상태에서만 넣을 수 있다. 없는 id 면 null. */
 export async function updateSnsContent(id: string, patch: SnsContentPatch): Promise<SnsContent | null> {
   const current = await readSnsContentRow(id);
@@ -730,9 +780,39 @@ export async function updateSnsContent(id: string, patch: SnsContentPatch): Prom
   if (Object.keys(update).length === 0) return rowToSnsContent(current);
 
   // 조회해 둔 현재 행과 비교해 무엇이 바뀌었는지 본다(추가 쿼리 없음).
-  const statusChanged = update.status !== undefined;
+  // 아래 자동 되돌리기와 구분해야 한다. 이 둘을 합쳐 놓으면 시스템이 되돌린 것을
+  // 활동 기록이 "담당자가 상태를 바꿨습니다" 로 잘못 말한다.
+  const statusChangedByUser = update.status !== undefined;
   // 수치를 비우는 것(null)은 성과 입력으로 치지 않는다. 실제 값이 새로 들어온 경우만 문구에 드러낸다.
   const perfEntered = perfKeys.some((key) => update[key] != null && update[key] !== current[key]);
+
+  /**
+   * **승인 후 원고가 바뀌면 승인을 유지하지 않는다.**
+   *
+   * 광고주가 승인한 뒤 담당자가 캡션을 통째로 갈아엎어도 배지는 계속 [승인완료] 였다.
+   * 그러면 **광고주가 본 적 없는 원고가 "컨펌 완료" 로 남아** 그대로 게시완료까지 간다.
+   * 대행사 일에서 이건 나중에 책임 문제가 된다.
+   *
+   * 되돌릴 자리는 `producing`(제작중)이다. 광고주 수정요청(`reviewSnsContent`)도 같은 곳으로
+   * 보내므로 "다시 만들어 승인받아야 하는 원고" 가 한 칸에 모인다.
+   *
+   * 조건 두 가지:
+   * - **값이 실제로 달라졌을 때만.** 화면은 `lib/ui/changedFields.ts` 로 바뀐 칸만 보내지만,
+   *   같은 값을 다시 보내는 경로가 있을 수 있어 서버에서 현재 행과 직접 비교한다.
+   *   그래야 상태 드롭다운(상태만)이나 성과 입력으로는 되돌아가지 않는다.
+   *   (성과 수치는 위 검증 때문에 `posted` 에서만 들어오므로 애초에 겹치지 않는다.)
+   * - **부르는 쪽이 상태를 직접 지정하지 않았을 때만.** 사람이 명시한 상태를 시스템이
+   *   덮어쓰지는 않는다(예: 승인본을 게시하며 `posted` 로 올리는 경우).
+   */
+  const clientVisibleChanges = CLIENT_VISIBLE_CONTENT_FIELDS.filter(
+    (key) => update[key] !== undefined && update[key] !== current[key]
+  );
+  const approvalRevoked =
+    current.status === "approved" && !statusChangedByUser && clientVisibleChanges.length > 0;
+  if (approvalRevoked) {
+    update.status = "producing";
+    update.status_changed_at = nowIso();
+  }
 
   // 기준 시각을 보냈으면 그 사이 남이 저장했는지 본다. 어긋나면 덮어쓰지 않고 알린다.
   const row = await updateRowWithLock<SnsContentRow>({
@@ -745,7 +825,7 @@ export async function updateSnsContent(id: string, patch: SnsContentPatch): Prom
   const content = rowToSnsContent(row);
 
   const changes: string[] = [];
-  if (statusChanged) {
+  if (statusChangedByUser) {
     const statusLabel = SNS_CONTENT_STATUS_LABELS[content.status] ?? content.status;
     changes.push(`상태를 [${statusLabel}](으)로 변경`);
   }
@@ -764,8 +844,28 @@ export async function updateSnsContent(id: string, patch: SnsContentPatch): Prom
       changes.length > 0
         ? `[${content.title}] 콘텐츠의 ${changes.join("하고 ")}했습니다.`
         : `[${content.title}] 콘텐츠 내용을 수정했습니다.`,
-    details: statusChanged ? { previous: current.status, next: content.status } : null,
+    details: statusChangedByUser ? { previous: current.status, next: content.status } : null,
   });
+
+  // 되돌린 사실은 **따로 한 줄로** 남긴다. 위의 `sns_content.updated` 한 줄에 섞으면
+  // "승인 이후에 바뀌었다" 는 사실이 평범한 수정 기록에 묻힌다. 액션 이름을 나눠 두면
+  // 나중에 "승인 뒤에 원고가 바뀐 건" 만 골라 볼 수도 있다.
+  if (approvalRevoked) {
+    const changedLabels = clientVisibleChanges.map((key) => CLIENT_VISIBLE_FIELD_LABELS[key]).join(", ");
+    await insertAuditLog({
+      account_id: content.account_id,
+      entity_type: "sns_content",
+      entity_id: content.id,
+      action: "sns_content.approval_revoked",
+      actor_type: "agency",
+      summary: `[${content.title}] 광고주 승인 후 내용(${changedLabels})이 바뀌어 다시 제작중으로 되돌렸습니다. 광고주 승인을 다시 받아야 합니다.`,
+      details: {
+        previous: "approved",
+        next: content.status,
+        changed_fields: clientVisibleChanges,
+      },
+    });
+  }
 
   return content;
 }

@@ -313,6 +313,10 @@ export async function updateApplicantAgencyMemo(
  * 지원자 선정 상태 변경. 멱등: 같은 상태면 아무것도 바꾸지 않는다.
  * `selected`가 되는 순간 seeding_records를 1건 생성하고, 이후 상태가 바뀌어도 기록은 삭제하지 않는다
  * (관리시트/보고서는 `selected`인 지원자만 보여준다).
+ *
+ * 선정 취소 후 **다시 선정**하면 기존 기록이 그대로 되살아난다. 그 자체는 의도된 보존이지만
+ * 진행 흔적(단계·조회수·인게이지먼트·업로드 링크)이 남아 있으면 `seeding.carried_over` 감사 로그를 남긴다.
+ * 화면 쪽 표시는 관리시트가 `status_changed_at` 과 `seeding.updated_at` 을 비교해 따로 붙인다.
  */
 export async function updateApplicantStatus(
   applicantId: string,
@@ -356,6 +360,23 @@ export async function updateApplicantStatus(
   });
 
   if (nextStatus === "selected") {
+    // upsert 전에 기존 기록을 먼저 읽어 둔다.
+    //
+    // 선정을 취소했다가 다시 선정하면 upsert 가 아무것도 하지 않으므로(ignoreDuplicates)
+    // **옛 회차의 조회수·업로드 링크·진행 단계가 그대로 되살아난다.** 기록 보존은 의도된 것이지만,
+    // 되살아났다는 사실이 아무 데도 남지 않는 것이 문제였다. 새로 시작한 줄 알고 넘어가면 그 숫자가
+    // 캠페인 합계와 결과보고서에 그대로 들어간다.
+    //
+    // 기록을 지우거나 0 으로 되돌리지 않는다. 옛 수치를 살릴지 지울지는 담당자가 보고 판단할 일이고,
+    // 여기서 자동으로 지우면 이번에는 반대로 "조용히 사라지는" 문제가 된다. 남길 것은 사실뿐이다.
+    const existing = unwrapMaybe(
+      await db()
+        .from("seeding_records")
+        .select("*")
+        .eq("applicant_id", applicantId)
+        .maybeSingle<SeedingRecordRow>()
+    );
+
     // applicant_id 가 unique 라 이미 있으면 그대로 둔다(ignoreDuplicates). 선정이 반복돼도 기록은 하나다.
     unwrap(
       await db()
@@ -371,6 +392,40 @@ export async function updateApplicantStatus(
           { onConflict: "applicant_id", ignoreDuplicates: true }
         )
     );
+
+    // "진행 흔적" = 처음 만들어진 모습(선정완료 · 0 · 0 · 링크 없음)에서 벗어난 것.
+    // 관리시트 배지(SeedingSheetTable 의 hasCarryOverTraces)도 **같은 기준**을 쓴다.
+    // 둘이 어긋나면 화면에는 뜨는데 로그에는 없는(또는 그 반대) 경우가 생겨 서로를 못 믿게 된다.
+    if (existing) {
+      const traces: string[] = [];
+      if (existing.progress_stage !== "선정완료") traces.push(`진행 단계 [${existing.progress_stage}]`);
+      if (existing.views > 0) traces.push(`조회수 ${existing.views.toLocaleString("ko-KR")}`);
+      if (existing.engagement > 0) traces.push(`인게이지먼트 ${existing.engagement.toLocaleString("ko-KR")}`);
+      if (existing.upload_link) traces.push("업로드 링크");
+
+      if (traces.length > 0) {
+        await insertAuditLog({
+          campaign_id: applicant.campaign_id,
+          entity_type: "seeding_record",
+          entity_id: existing.id,
+          action: "seeding.carried_over",
+          actor_type: changedBy,
+          summary:
+            `${applicant.name}님을 다시 최종선정했습니다. 이전 회차의 관리시트 기록(${traces.join(", ")})이 그대로 남아 있습니다.` +
+            ` 이번 회차 수치가 아니라면 관리시트에서 직접 정리해주세요.`,
+          details: {
+            previous_status: prevStatus,
+            progress_stage: existing.progress_stage,
+            views: existing.views,
+            engagement: existing.engagement,
+            upload_link: existing.upload_link,
+            // 관리시트 배지가 쓰는 두 시각. 나중에 "왜 배지가 떴나" 를 로그만 보고도 맞춰볼 수 있게 함께 남긴다.
+            seeding_updated_at: existing.updated_at,
+            status_changed_at: applicant.status_changed_at ?? null,
+          },
+        });
+      }
+    }
   }
 
   return { applicant, changed: true };

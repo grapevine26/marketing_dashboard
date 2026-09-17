@@ -148,17 +148,20 @@ export async function getClientIp(): Promise<string | null> {
 export const PUBLIC_SUBMIT: ThrottlePolicy = { maxHits: 10, windowMs: 10 * MINUTE, lockMs: 10 * MINUTE };
 
 /**
- * 인플루언서 지원 접수만 따로 둔다. 10분에 30회.
+ * 인플루언서 지원 접수만 따로 둔다. 10분에 1000회.
  *
  * 다른 공개 폼은 링크를 받은 **한 사람**이 쓴다(광고주 한 명, 담당자 한 명). 그런데 지원폼은
  * 링크를 오픈채팅이나 SNS 에 뿌려 **불특정 다수가 동시에** 들어온다. 게다가 국내 모바일 회선은
- * 여러 명이 같은 공인 IP 로 보이므로(CGNAT), 10회로 두면 **반응이 좋은 캠페인이 스스로 문을
- * 닫는다** — 먼저 온 열 명 때문에 열한 번째 사람이 아무 잘못 없이 10분간 막힌다.
+ * 여러 명이 같은 공인 IP 로 보이므로(CGNAT), 상한이 낮으면 **반응이 좋은 캠페인이 스스로 문을
+ * 닫는다** — 먼저 온 사람들 때문에 그 뒤가 아무 잘못 없이 막힌다.
  *
- * 그렇다고 없앨 수는 없다. 스크립트로 같은 폼을 두드리면 지원자 행과 감사 로그가 그대로 쌓인다.
- * 사람이 손으로 10분에 30번 지원할 일은 없으니 그 선에서 자른다.
+ * 그래서 사람의 속도로는 절대 닿지 않는 자리에 둔다. 여기서 막고 싶은 것은 "정상 지원이 몰리는
+ * 것" 이 아니라 **스크립트가 같은 폼을 두드려 지원자 행과 감사 로그를 쌓는 것** 뿐이다.
+ * 실패한 제출은 환불되므로(`app/apply/[token]/actions.ts`) 이 숫자는 **실제로 접수된 건수**다.
+ *
+ * 천장을 아주 높이 두는 대신, 이 값이 걸렸다는 것은 사실상 자동화라는 뜻이 된다.
  */
-export const APPLY_SUBMIT: ThrottlePolicy = { maxHits: 30, windowMs: 10 * MINUTE, lockMs: 10 * MINUTE };
+export const APPLY_SUBMIT: ThrottlePolicy = { maxHits: 1000, windowMs: 10 * MINUTE, lockMs: 10 * MINUTE };
 /**
  * 링크 하나 기준 상한. 1시간 100회.
  *

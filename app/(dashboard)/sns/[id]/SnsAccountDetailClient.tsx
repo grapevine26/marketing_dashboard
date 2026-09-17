@@ -582,6 +582,8 @@ export default function SnsAccountDetailClient({
         setModalOpen(false);
         return;
       }
+      // 저장 뒤에 상태가 달라졌는지 보려면 보내기 전 값을 알아야 한다.
+      const 저장전상태 = contents.find((c) => c.id === editingId)?.status;
       const res = await safeCall(
         updateSnsContentAction(editingId, account.id, { ...patch, expected_updated_at: editingBaseline })
       );
@@ -596,8 +598,19 @@ export default function SnsAccountDetailClient({
         return setError(res.error);
       }
       setSaveConflict(false);
+      // **승인이 취소됐으면 초록 토스트로 넘기면 안 된다.**
+      // 서버는 광고주가 승인한 뒤 원고(제목·캡션·해시태그)가 바뀌면 상태를 제작중으로 되돌린다.
+      // 광고주가 본 적 없는 글이 "컨펌 완료" 로 남지 않게 하려는 것인데, 그 사실을 조용히
+      // 넘기면 담당자는 승인이 살아 있는 줄 알고 그대로 게시한다.
+      const 승인취소됨 = 저장전상태 === "approved" && res.data.status === "producing";
       setContents((prev) => prev.map((c) => (c.id === editingId ? res.data : c)));
-      toast.success("콘텐츠가 수정되었습니다.");
+      if (승인취소됨) {
+        toast.warning("내용이 바뀌어 광고주 승인이 취소되었습니다.", {
+          description: "상태가 [제작중] 으로 돌아갔습니다. 광고주에게 다시 승인을 요청해주세요.",
+        });
+      } else {
+        toast.success("콘텐츠가 수정되었습니다.");
+      }
     } else {
       const res = await safeCall(createSnsContentAction({
         accountId: account.id,
@@ -1627,6 +1640,23 @@ export default function SnsAccountDetailClient({
                   </div>
                 </label>
               </div>
+
+              {/*
+                이미 광고주 승인이 끝난 콘텐츠를 고치는 중이라면 **누르기 전에** 알린다.
+                저장하고 나서 "승인이 취소됐다" 고 말하면 이미 벌어진 일이고, 담당자는
+                광고주에게 다시 요청해야 하는 이유를 뒤늦게 알게 된다.
+                내부 메모·담당자는 광고주에게 나가지 않으므로 승인에 영향이 없다(lib/db/sns.ts).
+              */}
+              {editingId && contents.find((c) => c.id === editingId)?.status === "approved" && (
+                <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 text-text-2 text-xs space-y-1">
+                  <p className="font-semibold">이 콘텐츠는 광고주 승인이 끝난 상태입니다.</p>
+                  <p className="text-[11px] leading-relaxed">
+                    제목·캡션·해시태그를 고쳐 저장하면 승인이 취소되고 [제작중] 으로 돌아갑니다.
+                    광고주가 본 적 없는 원고가 &quot;컨펌 완료&quot; 로 남지 않게 하려는 것입니다.
+                    내부 메모·담당자·발행 예정일은 해당되지 않습니다.
+                  </p>
+                </div>
+              )}
 
               {saveConflict && (
                 <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-warn-soft text-xs space-y-2">

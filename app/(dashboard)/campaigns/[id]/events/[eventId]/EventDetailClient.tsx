@@ -254,6 +254,11 @@ export default function EventDetailClient({
   const [savingInfo, setSavingInfo] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
 
+  // 행사 일시 입력칸. 저장 직전에 `validity.badInput` 을 읽으려면 DOM 이 필요하다.
+  // state(infoForm.event_at)만으로는 "일부러 비운 것" 과 "덜 채운 것" 을 구분할 수 없다.
+  // 브라우저는 둘 다 value 를 "" 로 주기 때문이다.
+  const eventAtInputRef = useRef<HTMLInputElement>(null);
+
   // Invite
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [selectedApplicantIds, setSelectedApplicantIds] = useState<string[]>([]);
@@ -318,6 +323,35 @@ export default function EventDetailClient({
 
   const handleSaveInfo = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // (1) 덜 채운 일시는 저장하지 않는다.
+    //
+    // `<input type="datetime-local">` 은 날짜만 넣고 시간을 비운 상태도 value 를 "" 로 준다.
+    // 그대로 보내면 "일시 미정" 으로 저장되고(새 행사), 저장돼 있던 행사라면 **일시가 지워진다.**
+    // 브라우저가 `validity.badInput` 으로 "덜 채웠다" 를 알려 주므로 그때는 아예 막는다.
+    // 물어보는 것으로는 부족하다 — 이건 사용자가 원한 적 없는 상태라 되물어도 얻을 답이 없다.
+    const eventAtInput = eventAtInputRef.current;
+    if (eventAtInput?.validity.badInput) {
+      const msg = "행사 일시를 끝까지 입력해주세요. 날짜와 시간이 모두 있어야 저장됩니다. 일시를 정하지 않았다면 칸을 완전히 비워주세요.";
+      setError(msg);
+      toast.error(msg);
+      eventAtInput.focus();
+      return;
+    }
+
+    // (2) 저장돼 있던 일시를 비우는 경우에만 확인을 받는다.
+    //
+    // 일시 미정인 행사는 흔하므로 "빈 값 = 삭제" 를 무조건 막지는 않는다. 위험한 것은
+    // **이미 값이 있던 것을 비우는 경우** 뿐이다(장소만 고치려다 시간 칸을 지우는 사고).
+    const clearingEventAt = !infoForm.event_at && Boolean(event.event_at);
+    if (clearingEventAt) {
+      const ok = confirm(
+        `저장된 행사 일시(${formatKstDateTime(event.event_at)})를 지우고 "일시 미정"으로 바꿀까요?\n\n` +
+          `장소나 메모만 고치려던 것이라면 [취소] 를 누른 뒤 일시 칸을 다시 채워주세요.`
+      );
+      if (!ok) return;
+    }
+
     setSavingInfo(true);
     setError(null);
     const res = await safeCall(updateEventAction({
@@ -329,6 +363,8 @@ export default function EventDetailClient({
         venue: infoForm.venue || null,
         memo: infoForm.memo || null,
       },
+      // 위 확인창을 거쳤을 때만 붙인다. 서버는 이 표시가 없으면 저장된 일시를 지우지 않는다.
+      confirmClearEventAt: clearingEventAt,
     }));
     setSavingInfo(false);
     if (!res.ok) {
@@ -656,7 +692,9 @@ export default function EventDetailClient({
             />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <input
+                ref={eventAtInputRef}
                 type="datetime-local"
+                aria-label="행사 일시 (한국 시간)"
                 value={infoForm.event_at}
                 onChange={(e) => setInfoForm({ ...infoForm, event_at: e.target.value })}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-bg border border-border text-text text-xs focus:outline-none focus:border-teal-500"

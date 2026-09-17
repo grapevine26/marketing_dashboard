@@ -74,6 +74,13 @@ function StatusBadge({ status }: { status: ApplicantStatus }) {
   );
 }
 
+/** `custom_answers` 값 하나를 화면 글자로. 체크박스 문항은 boolean 으로 들어온다. */
+function formatAnswerValue(v: string | number | boolean | undefined): string {
+  if (v === undefined || v === null || v === "") return "-";
+  if (typeof v === "boolean") return v ? "예" : "아니오";
+  return String(v);
+}
+
 function formatFollowers(count?: number) {
   if (count == null || count === 0) return "-";
   if (count >= 10000) return `${(count / 10000).toFixed(1).replace(/\.0$/, "")}만`;
@@ -399,43 +406,82 @@ export default function ApplicantTable({
     return msgBtn ? [...statusBtns, msgBtn] : statusBtns;
   };
 
-  const renderDetails = (a: Applicant) => (
-    <div className="text-[11px] text-text-sub space-y-1">
-      {mode === "agency" && (
-        <div>
-          <span className="text-text-muted">{campaign.campaign_type === "shipping" ? "배송지: " : "방문 일정: "}</span>
-          <span className="text-text-2">
-            {campaign.campaign_type === "shipping"
-              ? a.shipping_address || "-"
-              : `${a.visit_schedule || "-"} (${a.visit_party_size || 1}명)`}
-          </span>
-        </div>
-      )}
-      {customQuestions.map((cq) => {
-        const v = a.custom_answers?.[cq.id];
-        const text = v === undefined || v === null || v === "" ? "-" : typeof v === "boolean" ? (v ? "예" : "아니오") : String(v);
-        return (
+  const renderDetails = (a: Applicant) => {
+    /**
+     * 지금 지원폼에 **없는** 질문의 옛 답변 키들.
+     *
+     * 대행사가 신청폼 편집기에서 질문을 지워도 지원자 행의 `custom_answers` 에는 답이 그대로
+     * 남는다(지우는 코드가 없다). 그런데 답을 읽는 곳은 전부 현재 질문 목록 기준이라
+     * (여기 · `lib/applicants/csv.ts` · `lib/applicants/xlsx.ts`) 화면에도 내보내기에도 안 나온다.
+     * 여기가 그 답을 볼 수 있는 유일한 자리다.
+     *
+     * **광고주에게는 절대 그리지 않는다.** 지워진 질문에는 연락처·주소 같은 것을 물어본 뒤
+     * 지운 경우가 섞여 있고, `share_with_company` 판정 자체가 남아 있지 않아 무엇이 공개 대상이었는지
+     * 알 방법이 없다. 그래서 목록을 만들기 전에 `mode` 로 먼저 끊는다 — company 모드에서는
+     * 애초에 빈 배열이라 아래 JSX 가 어떤 실수를 하더라도 그릴 것이 없다.
+     * (서버도 `sanitizeApplicantForCompany(a, allowedQuestionIds)` 로 지워진 질문의 답을 빼고
+     *  내려보내지만, 화면에서 안 그리는 것과 서버에서 안 보내는 것은 각각 따로 지켜야 한다.)
+     *
+     * 질문 문구는 어디에도 남지 않으므로 키를 그대로 보여준다. 광고주 사전설문 응답 화면
+     * (`SnsAccountDetailClient.tsx`)이 쓰는 `(삭제된 질문 …)` 표기를 그대로 따른다.
+     */
+    const orphanAnswerKeys =
+      mode === "agency"
+        ? Object.keys(a.custom_answers ?? {}).filter((k) => !customQuestions.some((cq) => cq.id === k))
+        : [];
+
+    return (
+      <div className="text-[11px] text-text-sub space-y-1">
+        {mode === "agency" && (
+          <div>
+            <span className="text-text-muted">{campaign.campaign_type === "shipping" ? "배송지: " : "방문 일정: "}</span>
+            <span className="text-text-2">
+              {campaign.campaign_type === "shipping"
+                ? a.shipping_address || "-"
+                : `${a.visit_schedule || "-"} (${a.visit_party_size || 1}명)`}
+            </span>
+          </div>
+        )}
+        {customQuestions.map((cq) => (
           <div key={cq.id}>
             <span className="text-text-muted">{cq.label}: </span>
-            <span className="text-text-2">{text}</span>
+            <span className="text-text-2">{formatAnswerValue(a.custom_answers?.[cq.id])}</span>
           </div>
-        );
-      })}
-      <div>
-        <span className="text-text-muted">2차활용 동의: </span>
-        <span className="text-text-2">{a.secondary_use_agreed ? "예" : "아니오"}</span>
-      </div>
-      {a.status_changed_at && (
+        ))}
         <div>
-          <span className="text-text-muted">선정 변경: </span>
-          <span className="text-text-2">
-            {a.status_changed_by === "company" ? "광고주" : "에이전시"} ·{" "}
-            {new Date(a.status_changed_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}
-          </span>
+          <span className="text-text-muted">2차활용 동의: </span>
+          <span className="text-text-2">{a.secondary_use_agreed ? "예" : "아니오"}</span>
         </div>
-      )}
-    </div>
-  );
+        {a.status_changed_at && (
+          <div>
+            <span className="text-text-muted">선정 변경: </span>
+            <span className="text-text-2">
+              {a.status_changed_by === "company" ? "광고주" : "에이전시"} ·{" "}
+              {new Date(a.status_changed_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}
+            </span>
+          </div>
+        )}
+        {mode === "agency" && orphanAnswerKeys.length > 0 && (
+          // 평소에는 접어 둔다. 지금 쓰는 질문의 답 사이에 섞이면 어느 것이 현재 문항인지 흐려진다.
+          // 여는 상태를 따로 기억하지 않으려고 브라우저 기본 <details> 를 쓴다 — 지원자마다 state 를
+          // 두면 목록이 다시 그려질 때(상태 변경·router.refresh) 열어 둔 것이 어긋난다.
+          <details className="pt-1.5 border-t border-border">
+            <summary className="cursor-pointer select-none text-text-muted hover:text-text-sub">
+              지금 없는 질문의 옛 답변 {orphanAnswerKeys.length}건 (대행사 전용)
+            </summary>
+            <div className="mt-1.5 space-y-1 pl-2 border-l-2 border-border">
+              {orphanAnswerKeys.map((k) => (
+                <div key={k}>
+                  <span className="text-text-muted">(삭제된 질문 {k}): </span>
+                  <span className="text-text-2">{formatAnswerValue(a.custom_answers?.[k])}</span>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="p-4 sm:p-8 rounded-2xl sm:rounded-3xl bg-surface border border-border space-y-5 sm:space-y-6 shadow-xl font-sans">

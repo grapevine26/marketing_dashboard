@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { PublicCampaign, ProgressStage, SeedingRecord } from "@/lib/db/types";
+import { Applicant, PublicCampaign, ProgressStage, SeedingRecord } from "@/lib/db/types";
 import { SeedingRow } from "@/lib/seeding/rows";
 import { getStagesForType } from "@/lib/seeding/stages";
 import { calculateDDay, ddayToneClass } from "@/lib/seeding/dday";
 import { updateSeedingRecordAction } from "./actions";
-import { Search, ExternalLink, Download, Loader2, FileSpreadsheet, Lock } from "lucide-react";
+import { Search, ExternalLink, Download, Loader2, FileSpreadsheet, Lock, History } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
 import { toast } from "@/components/Toast";
 import DownloadFileButton from "@/components/DownloadFileButton";
@@ -18,6 +18,49 @@ import DownloadFileButton from "@/components/DownloadFileButton";
  */
 const LOCKED_REASON = "관리시트 레코드가 아직 없어 입력이 잠겼습니다. 지원자 화면에서 선정 상태를 다시 지정해주세요.";
 const isLocked = (r: SeedingRecord) => r.id.startsWith("temp_");
+
+/**
+ * 두 시각의 출처가 다르다. `status_changed_at` 은 앱이 찍은 `nowIso()`, `updated_at` 은 DB 트리거의
+ * `now()` 다. 같은 순간이라도 밀리초~초 단위로 어긋날 수 있다. 되살아난 기록은 보통 며칠 차이가
+ * 나므로 1 분 여유를 두고 그 안쪽 차이는 무시한다. **갓 선정한 행에 경고가 뜨는 쪽이 더 나쁘다.**
+ */
+const CLOCK_SKEW_MS = 60_000;
+
+/**
+ * 이 기록이 **이번 선정보다 오래됐는가** (= 이전 회차 기록이 되살아났는가).
+ *
+ * 선정 취소 후 다시 선정하면 `updateApplicantStatus` 의 upsert 가 아무것도 하지 않아
+ * 옛 조회수·업로드 링크·진행 단계가 그대로 딸려 온다. 새로 시작한 줄 알고 넘어가면
+ * 그 숫자가 캠페인 합계와 결과보고서에까지 들어간다.
+ *
+ * 새 칸을 만들지 않고 이미 있는 신호 두 개로 판정한다.
+ * - **처음 선정**: 상태를 먼저 바꾸고 그 다음 기록을 만든다 → `updated_at > status_changed_at`
+ * - **재선정**: upsert 가 아무것도 안 하므로 기록 시각이 그대로다 → `status_changed_at > updated_at`
+ */
+function isRevivedRecord(app: Applicant, r: SeedingRecord): boolean {
+  // temp_ 행은 updated_at 이 지원일로 채워진 가짜 값이라 비교가 의미 없다. 잠김 안내가 따로 뜬다.
+  if (isLocked(r)) return false;
+  if (!app.status_changed_at || !r.updated_at) return false;
+  const selectedAt = Date.parse(app.status_changed_at);
+  const recordAt = Date.parse(r.updated_at);
+  if (Number.isNaN(selectedAt) || Number.isNaN(recordAt)) return false;
+  return selectedAt - recordAt > CLOCK_SKEW_MS;
+}
+
+/**
+ * 처음 만들어진 모습(선정완료 · 0 · 0 · 링크 없음)에서 벗어난 값이 있는가.
+ *
+ * 서버가 남기는 `seeding.carried_over` 감사 로그(lib/db/applicants.ts)와 **같은 기준**이어야 한다.
+ * 어긋나면 화면에는 뜨는데 로그에는 없는(또는 그 반대) 경우가 생겨 둘 다 못 믿게 된다.
+ */
+function hasCarryOverTraces(r: SeedingRecord): boolean {
+  return (
+    r.progress_stage !== "선정완료" ||
+    (r.views || 0) > 0 ||
+    (r.engagement || 0) > 0 ||
+    Boolean(r.upload_link)
+  );
+}
 
 type Patch = {
   progress_stage?: ProgressStage;
@@ -168,6 +211,27 @@ export default function SeedingSheetTable({
     </p>
   );
 
+  /**
+   * 되살아난 기록 배지.
+   *
+   * 흔적이 없는 행(선정완료 · 0 · 0 · 링크 없음)은 되살아나도 잃을 게 없어 달지 않는다.
+   * 아무 데나 붙이면 사람이 배지 자체를 무시하게 된다.
+   *
+   * 광고주 공유 화면(isReadOnly)에는 내보내지 않는다. 대행사 담당자가 정리할 내부 신호다.
+   */
+  const carryOverBadge = (app: Applicant, r: SeedingRecord) => {
+    if (isReadOnly || !isRevivedRecord(app, r) || !hasCarryOverTraces(r)) return null;
+    return (
+      <span
+        title="선정을 취소했다가 다시 선정한 행입니다. 진행 단계·조회수·인게이지먼트·업로드 링크가 이전 회차에 입력된 값일 수 있으니 확인 후 직접 정리해주세요. (자동으로 지우지 않습니다)"
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] font-semibold text-amber-400 whitespace-nowrap"
+      >
+        <History className="w-3 h-3 shrink-0" />
+        이전 회차 기록
+      </span>
+    );
+  };
+
   const stageBadge = (stage: ProgressStage) => (
     <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[11px] font-semibold">{stage}</span>
   );
@@ -229,14 +293,15 @@ export default function SeedingSheetTable({
         ) : (
           displayedRecords.map(({ applicant: app, seeding: r }) => (
             <div key={r.id} className="p-4 rounded-2xl bg-bg border border-border space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-sm text-text">{app.name}</span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold text-sm text-text shrink-0">{app.name}</span>
                 <a href={app.sns_link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline text-xs inline-flex items-center gap-1 truncate max-w-[150px]">
                   <span>{app.sns_link}</span>
                   <ExternalLink className="w-3 h-3 shrink-0" />
                 </a>
               </div>
 
+              {carryOverBadge(app, r)}
               {!isReadOnly && isLocked(r) && lockedNotice("")}
 
               <div className="space-y-2 text-xs">
@@ -356,7 +421,11 @@ export default function SeedingSheetTable({
               displayedRecords.map(({ applicant: app, seeding: r }) => (
                 <tr key={r.id} className="hover:bg-surface2 transition">
                   <td className="p-3.5 font-bold text-text whitespace-nowrap min-w-[112px]">
-                    {app.name}
+                    {/* 배지는 이름 아래 줄에 둔다. 옆에 붙이면 좁은 화면에서 이름이 밀려 잘린다. */}
+                    <div className="flex flex-col items-start gap-1">
+                      <span>{app.name}</span>
+                      {carryOverBadge(app, r)}
+                    </div>
                     {/* 표가 좌우로 잘리므로 항상 보이는 첫 칸에 둔다. */}
                     {!isReadOnly && isLocked(r) && lockedNotice("mt-1 whitespace-normal max-w-[200px]")}
                   </td>

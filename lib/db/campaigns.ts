@@ -477,16 +477,33 @@ export async function savePreSurveyResponse(data: {
 }): Promise<PreSurveyResponse> {
   // fk 가 있어 없는 캠페인엔 어차피 저장할 수 없다. uuid 형식이 아니면 타입 에러 대신 사람이 읽을 에러를 준다.
   if (!isUuid(data.campaign_id)) throw new ValidationError("캠페인을 찾을 수 없습니다.");
-  // 질문 목록 기준으로 답변을 걸러 저장한다. 목록에 없는 키는 버린다.
   const questions = await getPreSurveyQuestionsForCampaign(data.campaign_id);
-  const answers: Record<string, string> = {};
+
+  /**
+   * **옛 답변 위에 덮어쓴다. 통째로 갈아끼우지 않는다.**
+   *
+   * 전에는 지금 질문 목록으로 `answers` 를 새로 조립해 upsert 했다. 그래서 담당자가 질문을
+   * 지우거나 [기본 템플릿으로 초기화] 를 누른 뒤 광고주가 오타 하나 고치려고 재제출하면,
+   * **지금 목록에 없는 답변이 전부 영구 삭제**됐다. 재제출 전까지는 화면이 `(삭제된 질문 …)`
+   * 으로 보존해 보여주는데, 재제출 한 번이면 그 백업마저 사라졌다.
+   * (SNS 사전설문 `saveSnsIntakeResponse` 와 같은 구조였고 같은 방식으로 고쳤다.)
+   */
+  const existing = (await getPreSurveyResponse(data.campaign_id))?.answers ?? {};
+  const answers: Record<string, string> = { ...existing };
+
   for (const q of questions) {
     const v = data.answers?.[q.id];
-    const text = typeof v === "string" ? v.trim() : "";
-    if (q.required && !text) {
+    // **"안 보냄" 과 "비워서 보냄" 을 구분한다.** 병합에서는 빈 값을 그냥 건너뛰면
+    // 광고주가 일부러 비운 칸에 옛 답변이 되살아난다.
+    const submitted = typeof v === "string" ? v.trim() : undefined;
+    // 필수 검사는 **저장될 값** 기준이다. 안 건드린 칸은 이미 있는 답이 답으로 남는다.
+    const effective = submitted !== undefined ? submitted : (existing[q.id] ?? "");
+    if (q.required && !effective) {
       throw new ValidationError(`필수 질문에 답변해주세요: ${q.question}`);
     }
-    if (text) answers[q.id] = text.slice(0, 5000);
+    if (submitted === undefined) continue;
+    if (submitted) answers[q.id] = submitted.slice(0, 5000);
+    else delete answers[q.id];
   }
 
   // campaign_id 가 unique 라 upsert 한 번으로 신규·재제출을 모두 처리한다. 기존 행의 id 는 유지된다.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Campaign } from "@/lib/db/types";
 import { createEventAction } from "../campaigns/[id]/events/actions";
@@ -16,11 +16,27 @@ export default function NewGlobalEventModal({ campaigns }: { campaigns: Campaign
 
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>(campaigns[0]?.id || "");
   const [formData, setFormData] = useState({ name: "", event_at: "", venue: "", memo: "" });
+  // 저장 직전에 `validity.badInput` 을 읽으려면 DOM 이 필요하다. state 만으로는
+  // "일부러 비운 것" 과 "덜 채운 것" 을 구분할 수 없다 — 브라우저가 둘 다 "" 로 준다.
+  const eventAtInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCampaignId) {
       setErrorMsg("연계할 캠페인을 선택해주세요.");
+      return;
+    }
+
+    // 덜 채운 일시는 저장하지 않는다.
+    //
+    // `<input type="datetime-local">` 은 날짜만 넣고 시간을 비운 상태도 value 를 "" 로 준다.
+    // 그대로 보내면 아무 경고 없이 **"일시 미정" 행사가 만들어진다.** 브라우저가
+    // `validity.badInput` 으로 "덜 채웠다" 를 알려 주므로 그때는 막는다.
+    // (행사 상세의 정보 수정도 같은 검사를 한다 — EventDetailClient 의 handleSaveInfo)
+    const eventAtInput = eventAtInputRef.current;
+    if (eventAtInput?.validity.badInput) {
+      setErrorMsg("행사 일시를 끝까지 입력해주세요. 날짜와 시간이 모두 있어야 저장됩니다. 일시를 정하지 않았다면 칸을 완전히 비워주세요.");
+      eventAtInput.focus();
       return;
     }
     if (!formData.name.trim()) {
@@ -119,6 +135,7 @@ export default function NewGlobalEventModal({ campaigns }: { campaigns: Campaign
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-text-2">행사 일시 (한국 시간)</label>
                     <input
+                      ref={eventAtInputRef}
                       type="datetime-local"
                       value={formData.event_at}
                       onChange={(e) => setFormData({ ...formData, event_at: e.target.value })}
