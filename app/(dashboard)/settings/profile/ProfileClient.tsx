@@ -8,6 +8,7 @@ import { updateMyNameAction, changeMyPasswordAction } from "./actions";
 import { safeCall } from "@/lib/actions/safeCall";
 import { toast } from "@/components/Toast";
 import { Check, Crown, KeyRound, Loader2, Shield, ShieldCheck } from "lucide-react";
+import { josa } from "@/lib/ui/josa";
 
 const ROLE_ICONS = { owner: Crown, admin: ShieldCheck, staff: Shield } as const;
 
@@ -50,7 +51,7 @@ export default function ProfileClient({
     const res = await safeCall(updateMyNameAction(name));
     setSavingName(false);
     if (!res.ok) return toast.error(res.error || "이름을 바꾸지 못했습니다.");
-    toast.success(`이름을 [${res.data.display_name}](으)로 바꿨습니다.`);
+    toast.success(`이름을 [${res.data.display_name}]${josa(res.data.display_name, "로")} 바꿨습니다.`);
     // 사이드바에도 이름이 있으므로 서버에서 다시 받아온다.
     router.refresh();
   };

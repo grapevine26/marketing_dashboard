@@ -29,7 +29,7 @@ test.describe("설정 화면", () => {
     await page.getByRole("button", { name: "새 질문 문항 추가" }).click();
     await page.getByRole("button", { name: "템플릿 저장하기" }).click();
     // 같은 문구가 화면 안내와 토스트 두 곳에 뜬다. 화면 쪽(main)만 본다.
-    await expect(page.getByRole("main").getByText(/질문 내용을\(를\) 입력해주세요/)).toBeVisible();
+    await expect(page.getByRole("main").getByText(/질문 내용을 입력해주세요/)).toBeVisible();
   });
 
   test("PPT 템플릿 보관함: 내장 템플릿은 내려받기와 삭제만 되고 pptx 외 파일은 거부된다", async ({ page }) => {

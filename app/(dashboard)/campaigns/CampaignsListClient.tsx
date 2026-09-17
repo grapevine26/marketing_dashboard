@@ -19,6 +19,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
+import { josa } from "@/lib/ui/josa";
 
 interface CampaignsListClientProps {
   initialCampaigns: Campaign[];
@@ -423,7 +424,8 @@ export default function CampaignsListClient({
             <div className="space-y-1.5">
               <label htmlFor="delete-confirm-name" className="block text-xs text-text-sub">
                 삭제하려면 아래에 캠페인 이름{" "}
-                <strong className="text-text font-semibold break-all">{targetCampaign.name}</strong> 을(를)
+                <strong className="text-text font-semibold break-all">{targetCampaign.name}</strong>
+                {josa(targetCampaign.name, "을")}
                 그대로 입력하세요.
               </label>
               <input

@@ -7,6 +7,7 @@ import { getAdminClient } from "../supabase/admin";
 import { createAuthClient } from "../supabase/auth";
 import type { SessionUser } from "./roles";
 import { usernameToEmail, validateDisplayName, validatePassword } from "./username";
+import { josa } from "@/lib/ui/josa";
 
 /**
  * 본인 정보 변경.
@@ -27,7 +28,7 @@ export async function updateMyDisplayName(me: SessionUser, raw: unknown): Promis
     action: "user.name_changed",
     actor_type: "agency",
     actor_name: displayName,
-    summary: `${me.display_name}님이 이름을 [${displayName}](으)로 바꿨습니다.`,
+    summary: `${me.display_name}님이 이름을 [${displayName}]${josa(displayName, "로")} 바꿨습니다.`,
     details: { previous: me.display_name, next: displayName },
   });
   return displayName;

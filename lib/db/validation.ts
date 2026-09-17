@@ -7,6 +7,7 @@ import type {
   ProgressStage,
   SnsAccount,
 } from "./types";
+import { josa } from "@/lib/ui/josa";
 
 /** 입력값이 규칙에 어긋날 때 던진다. 서버 액션은 이 메시지를 그대로 화면에 보여준다. */
 export class ValidationError extends Error {
@@ -33,10 +34,10 @@ export function isUuid(value: unknown): value is string {
 
 export function requireText(value: unknown, label: string, max = 500): string {
   if (typeof value !== "string" || !value.trim()) {
-    throw new ValidationError(`${label}을(를) 입력해주세요.`);
+    throw new ValidationError(`${label}${josa(label, "을")} 입력해주세요.`);
   }
   if (value.trim().length > max) {
-    throw new ValidationError(`${label}은(는) ${max}자 이내로 입력해주세요.`);
+    throw new ValidationError(`${label}${josa(label, "은")} ${max}자 이내로 입력해주세요.`);
   }
   return value.trim();
 }
@@ -52,7 +53,7 @@ export function optionalText(value: unknown, max = 2000): string | null {
 export function nonNegativeInt(value: unknown, label: string): number {
   const n = typeof value === "string" ? Number(value) : value;
   if (typeof n !== "number" || !Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
-    throw new ValidationError(`${label}은(는) 0 이상의 정수여야 합니다.`);
+    throw new ValidationError(`${label}${josa(label, "은")} 0 이상의 정수여야 합니다.`);
   }
   return n;
 }
@@ -81,7 +82,7 @@ export function optionalUrl(value: unknown, label: string): string | null {
     if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error();
     return u.toString();
   } catch {
-    throw new ValidationError(`${label}은(는) http(s)로 시작하는 URL이어야 합니다.`);
+    throw new ValidationError(`${label}${josa(label, "은")} http(s)로 시작하는 URL이어야 합니다.`);
   }
 }
 

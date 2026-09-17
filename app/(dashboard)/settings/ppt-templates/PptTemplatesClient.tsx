@@ -22,6 +22,7 @@ import {
 import { Upload, Trash2, Loader2, Lock, Pencil, Download, RefreshCw, Check, X, RotateCcw } from "lucide-react";
 import { safeCall } from "@/lib/actions/safeCall";
 import { toast } from "@/components/Toast";
+import { josa } from "@/lib/ui/josa";
 
 const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
@@ -145,7 +146,7 @@ export default function PptTemplatesClient({
 
   const handleDelete = async (t: PptTemplate) => {
     const message = t.builtin
-      ? `"${t.name}"을(를) 목록에서 지울까요? 기본 템플릿이라 언제든 되살릴 수 있습니다.`
+      ? `"${t.name}"${josa(t.name, "을")} 목록에서 지울까요? 기본 템플릿이라 언제든 되살릴 수 있습니다.`
       : `"${t.name}" 템플릿을 삭제할까요? 이 템플릿을 쓰는 운영안은 PPT를 다운로드할 수 없게 됩니다.`;
     if (!confirm(message)) return;
     setError(null);

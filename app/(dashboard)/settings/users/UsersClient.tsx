@@ -40,6 +40,7 @@ import {
   UserX,
   X,
 } from "lucide-react";
+import { josa } from "@/lib/ui/josa";
 
 /**
  * 관리자용 사용자 관리 화면.
@@ -275,7 +276,7 @@ function confirmCopy(state: ConfirmState): {
       const to = nextRole ?? "staff";
       return {
         title: "등급 내리기",
-        lead: `${who}의 등급을 [${ROLE_LABELS[to]}](으)로 내릴까요?`,
+        lead: `${who}의 등급을 [${ROLE_LABELS[to]}]${josa(ROLE_LABELS[to], "로")} 내릴까요?`,
         detail:
           to === "staff"
             ? "사용자 관리와 활동 기록에 더 이상 들어올 수 없습니다. 대시보드의 나머지 기능은 그대로 씁니다."
@@ -386,7 +387,7 @@ export default function UsersClient({ initialUsers, currentUserId, myRole, invit
       toast.info(`${user.display_name} 계정을 차단했습니다.`);
     } else {
       patchUser(user.id, { role: demoteTo });
-      toast.info(`${user.display_name}의 등급을 [${ROLE_LABELS[demoteTo]}](으)로 내렸습니다.`);
+      toast.info(`${user.display_name}의 등급을 [${ROLE_LABELS[demoteTo]}]${josa(ROLE_LABELS[demoteTo], "로")} 내렸습니다.`);
     }
     setConfirmState(null);
     router.refresh();
@@ -594,7 +595,7 @@ export default function UsersClient({ initialUsers, currentUserId, myRole, invit
                                   u,
                                   () => setUserRoleAction(u.id, next),
                                   { role: next },
-                                  `${u.display_name}의 등급을 [${ROLE_LABELS[next]}](으)로 바꿨습니다.`
+                                  `${u.display_name}의 등급을 [${ROLE_LABELS[next]}]${josa(ROLE_LABELS[next], "로")} 바꿨습니다.`
                                 );
                               }}
                               className="px-2 py-1.5 rounded-lg bg-surface2 border border-border text-[11px] font-semibold text-text-sub focus:outline-none focus:border-blue-500/40 disabled:opacity-60"

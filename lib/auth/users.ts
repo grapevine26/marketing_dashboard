@@ -5,6 +5,7 @@ import { ValidationError, isUuid, nowIso } from "../db/validation";
 import { countActiveOwners, ROLE_LABELS, type SessionUser, type UserRole, type UserStatus } from "./session";
 import { normalizeUsername, usernameToEmail, validateDisplayName, validatePassword } from "./username";
 import { getAdminClient } from "../supabase/admin";
+import { josa } from "@/lib/ui/josa";
 
 /**
  * 사용자 관리. 관리자만 부른다.
@@ -296,7 +297,7 @@ export async function setUserRole(actor: SessionUser, userId: string, role: User
     target,
     "user.role_changed",
     `${actor.display_name}가 ${target.display_name}(${target.username})의 등급을 ` +
-      `[${ROLE_LABELS[target.role]}]에서 [${ROLE_LABELS[role]}](으)로 바꿨습니다.`
+      `[${ROLE_LABELS[target.role]}]에서 [${ROLE_LABELS[role]}]${josa(ROLE_LABELS[role], "로")} 바꿨습니다.`
   );
 }
 

@@ -41,6 +41,7 @@ import {
   type ProgressStage,
   type SeedingRecord,
 } from "./types";
+import { josa } from "@/lib/ui/josa";
 
 // ---------- 지원자 조회 ----------
 
@@ -355,7 +356,7 @@ export async function updateApplicantStatus(
     entity_id: applicant.id,
     action: "applicant.status_changed",
     actor_type: changedBy,
-    summary: `${actorLabel}가 ${applicant.name}님의 상태를 [${statusLabel}](으)로 변경했습니다.`,
+    summary: `${actorLabel}가 ${applicant.name}님의 상태를 [${statusLabel}]${josa(statusLabel, "로")} 변경했습니다.`,
     details: { previous: prevStatus, next: nextStatus },
   });
 
@@ -516,7 +517,7 @@ export async function updateSeedingRecord(
       action: "seeding.updated",
       actor_type: "agency",
       summary: patch.progress_stage
-        ? `${appName}님의 진행 단계를 [${patch.progress_stage}](으)로 변경했습니다.`
+        ? `${appName}님의 진행 단계를 [${patch.progress_stage}]${josa(patch.progress_stage, "로")} 변경했습니다.`
         : `${appName}님의 관리시트 정보를 수정했습니다.`,
     });
   }

@@ -65,7 +65,8 @@ describeDb("Phase 2: 감사 로그 (Audit Log)", () => {
     const logs = await getAuditLogs({ campaign_id: camp.id });
     const summaries = logs.map((l) => l.summary);
 
-    expect(summaries.some((s) => s.includes("광고주가 감사지원자님의 상태를 [최종선정](으)로 변경했습니다."))).toBe(true);
+    // 조사는 앞말에 맞춰 고른다(lib/ui/josa.ts). `최종선정` 은 받침이 있으니 "으로" 다.
+    expect(summaries.some((s) => s.includes("광고주가 감사지원자님의 상태를 [최종선정]으로 변경했습니다."))).toBe(true);
     expect(summaries.some((s) => s.includes("감사지원자님의 에이전시 메모를 수정했습니다."))).toBe(true);
   });
 

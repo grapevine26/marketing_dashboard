@@ -1,4 +1,5 @@
 import { insertAuditLog } from "./audit";
+import { josa } from "@/lib/ui/josa";
 
 /**
  * 광고주가 공유 링크로 파일을 받아간 사실을 활동 기록에 남긴다.
@@ -31,7 +32,7 @@ export async function logCompanyExport(params: {
       entity_id: params.campaignId,
       action: "company.exported",
       actor_type: "company",
-      summary: `광고주가 공유 링크로 ${params.what}을(를) 내려받았습니다. (${params.rows}건, ${params.format})`,
+      summary: `광고주가 공유 링크로 ${params.what}${josa(params.what, "을")} 내려받았습니다. (${params.rows}건, ${params.format})`,
       details: { what: params.what, format: params.format, rows: params.rows },
     });
   } catch {

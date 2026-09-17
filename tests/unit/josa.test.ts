@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { execFileSync } from "node:child_process";
 import { josa, withJosa } from "@/lib/ui/josa";
 
 /**
@@ -79,3 +80,45 @@ describe("조사 고르기", () => {
     expect(내려받기("배송/방문 관리시트")).toBe("광고주가 공유 링크로 배송/방문 관리시트를 내려받았습니다.");
   });
 });
+
+/**
+ * 한 번 걷어낸 괄호 표기가 슬그머니 돌아오는 것을 막는다.
+ *
+ * 이 종류는 한 곳만 어겨도 눈에 띄고, 고치는 사람은 보통 옆 코드를 복사해 쓴다.
+ * 그래서 "옆 코드" 가 다시 `을(를)` 이 되면 금방 퍼진다. 소스를 직접 훑어 막는다.
+ */
+describe("화면 문구에 조사 괄호가 남아 있지 않다", () => {
+  it("app·lib·components 어디에도 을(를) 류가 없다", () => {
+    let out = "";
+    try {
+      out = 괄호표기훑기();
+    } catch (err) {
+      // git grep 은 **찾은 것이 없으면 종료코드 1** 이고 execFileSync 는 그때 예외를 던진다.
+      // 즉 "통과" 가 예외로 온다. 그 외의 실패(git 없음 등)는 그대로 올려 원인을 숨기지 않는다.
+      const e = err as { status?: number };
+      if (e.status !== 1) throw err;
+    }
+    expect(out, `조사는 josa() 로 고른다. 괄호 표기가 남아 있다:
+${out}`).toBe("");
+  });
+});
+
+/** `lib/ui/josa.ts` 는 예외다 — 소리를 알 수 없을 때 돌려주는 폴백 표기를 들고 있다. */
+function 괄호표기훑기(): string {
+  return execFileSync(
+    "git",
+    [
+      "grep",
+      "-nE",
+      // TS 문자열이 백슬래시 하나를 먹으므로 두 번 쓴다. git 에는 `\(` 로 전달돼야 한다.
+      // 안 그러면 괄호가 정규식 그룹이 되어 평범한 "으로" 까지 죄다 걸린다.
+      "을\\(를\\)|를\\(을\\)|이\\(가\\)|가\\(이\\)|은\\(는\\)|는\\(은\\)|와\\(과\\)|과\\(와\\)|\\(으\\)로",
+      "--",
+      "app",
+      "lib",
+      "components",
+      ":(exclude)lib/ui/josa.ts",
+    ],
+    { encoding: "utf-8", cwd: process.cwd() }
+  ).trim();
+}

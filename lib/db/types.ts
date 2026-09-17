@@ -1,4 +1,5 @@
 import { toKstDateString } from "@/lib/seeding/dday";
+import { josa } from "@/lib/ui/josa";
 
 /** SNS 시안 미디어로 허용하는 형식과 저장 확장자. 서버와 브라우저가 같은 값을 봐야 한다. */
 export const ALLOWED_SNS_MEDIA_MIME_TYPES: Record<string, string> = {
@@ -63,9 +64,9 @@ export function unsupportedMediaMessage(fileName: string): string {
   const ext = fileExtensionOf(fileName);
   const known = KNOWN_UNSUPPORTED[ext];
   if (known) {
-    return `"${fileName}" 은(는) ${known}이라 올릴 수 없습니다. JPG나 PNG로 변환해 올려주세요.`;
+    return `"${fileName}"${josa(fileName, "은")} ${known}이라 올릴 수 없습니다. JPG나 PNG로 변환해 올려주세요.`;
   }
-  return `"${fileName}" 은(는) 지원하지 않는 형식입니다. JPG, PNG, WebP, GIF, MP4, WebM, MOV만 올릴 수 있습니다.`;
+  return `"${fileName}"${josa(fileName, "은")} 지원하지 않는 형식입니다. JPG, PNG, WebP, GIF, MP4, WebM, MOV만 올릴 수 있습니다.`;
 }
 
 

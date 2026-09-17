@@ -70,6 +70,7 @@ import {
   optionalUrl,
   requireText,
 } from "./validation";
+import { josa } from "@/lib/ui/josa";
 
 export { ALLOWED_SNS_MEDIA_MIME_TYPES, MAX_SNS_MEDIA_BYTES, isSnsAccountClosed } from "./types";
 
@@ -266,7 +267,7 @@ export async function updateSnsAccount(
     action: "sns_account.updated",
     actor_type: "agency",
     summary: statusChanged
-      ? `[${account.company_name}] SNS 계정 상태를 [${statusLabel}](으)로 변경했습니다.`
+      ? `[${account.company_name}] SNS 계정 상태를 [${statusLabel}]${josa(statusLabel, "로")} 변경했습니다.`
       : `[${account.company_name}] SNS 계정 정보를 수정했습니다.`,
     details: statusChanged ? { previous: current.status, next: account.status } : null,
   });
@@ -827,7 +828,7 @@ export async function updateSnsContent(id: string, patch: SnsContentPatch): Prom
   const changes: string[] = [];
   if (statusChangedByUser) {
     const statusLabel = SNS_CONTENT_STATUS_LABELS[content.status] ?? content.status;
-    changes.push(`상태를 [${statusLabel}](으)로 변경`);
+    changes.push(`상태를 [${statusLabel}]${josa(statusLabel, "로")} 변경`);
   }
   if (perfEntered) {
     changes.push(

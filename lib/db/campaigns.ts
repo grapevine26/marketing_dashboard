@@ -47,6 +47,7 @@ import {
   requireText,
 } from "./validation";
 import { validateWebhookUrl } from "../notifications/webhook";
+import { josa } from "@/lib/ui/josa";
 
 /** 단일 행 템플릿 테이블의 고정 id. */
 const PRE_SURVEY_TEMPLATE_ID = 1;
@@ -191,7 +192,7 @@ export async function updateCampaign(
     action: statusChanged ? "campaign.status_changed" : "campaign.updated",
     actor_type: "agency",
     summary: statusChanged
-      ? `[${row.name}] 캠페인 상태를 [${CAMPAIGN_STATUS_LABELS[row.status]}](으)로 바꿨습니다.`
+      ? `[${row.name}] 캠페인 상태를 [${CAMPAIGN_STATUS_LABELS[row.status]}]${josa(CAMPAIGN_STATUS_LABELS[row.status], "로")} 바꿨습니다.`
       : `[${row.name}] 캠페인 정보를 수정했습니다.`,
     details: statusChanged ? { previous: before.status, next: row.status } : null,
   });

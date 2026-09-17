@@ -63,6 +63,7 @@ import { guardedSave, useSaveGuard } from "@/components/PendingSaveGuard";
 import { toast } from "@/components/Toast";
 import SnsIntakeQuestionEditor from "./SnsIntakeQuestionEditor";
 import { isSnsAccountClosed } from "@/lib/db/types";
+import { josa } from "@/lib/ui/josa";
 
 const STATUS_TONE: Record<SnsContentStatus, string> = {
   planning: "text-text-sub",
@@ -401,7 +402,7 @@ export default function SnsAccountDetailClient({
       return { ok: false, error: unsupportedMediaMessage(file.name) };
     }
     if (file.size > MAX_SNS_MEDIA_BYTES) {
-      return { ok: false, error: `"${file.name}" 이(가) 50MB를 넘습니다.` };
+      return { ok: false, error: `"${file.name}"${josa(file.name, "이")} 50MB를 넘습니다.` };
     }
 
     const attachmentId = crypto.randomUUID();
@@ -449,7 +450,7 @@ export default function SnsAccountDetailClient({
       const mb = (file.size / (1024 * 1024)).toFixed(1);
       const msg = err instanceof Error ? err.message : String(err);
       const tooLarge = /body|limit|413|exceed/i.test(msg);
-      return { ok: false, error: tooLarge ? `"${file.name}" (${mb}MB)이(가) 서버 업로드 한도를 넘었습니다. 50MB 이하로 줄여주세요.` : `"${file.name}" 업로드 중 오류가 발생했습니다.` };
+      return { ok: false, error: tooLarge ? `"${file.name}" (${mb}MB)가 서버 업로드 한도를 넘었습니다. 50MB 이하로 줄여주세요.` : `"${file.name}" 업로드 중 오류가 발생했습니다.` };
     }
   };
 
@@ -744,7 +745,7 @@ export default function SnsAccountDetailClient({
     const toInt = (v: string, label: string): number | null => {
       if (v.trim() === "") return null;
       const n = Number(v);
-      if (!Number.isInteger(n) || n < 0) throw new Error(`${label}은(는) 0 이상의 정수여야 합니다.`);
+      if (!Number.isInteger(n) || n < 0) throw new Error(`${label}${josa(label, "은")} 0 이상의 정수여야 합니다.`);
       return n;
     };
     setError(null);

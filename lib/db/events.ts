@@ -50,6 +50,7 @@ import {
   RSVP_STATUSES,
   ValidationError,
 } from "./validation";
+import { josa } from "@/lib/ui/josa";
 
 // ---------- 내부 헬퍼 ----------
 
@@ -213,7 +214,7 @@ export async function updateEvent(
     action: "event.updated",
     actor_type: "agency",
     summary: changes.status
-      ? `[${event.name}] 행사 상태를 [${EVENT_STATUS_LABELS[event.status]}](으)로 변경했습니다.`
+      ? `[${event.name}] 행사 상태를 [${EVENT_STATUS_LABELS[event.status]}]${josa(EVENT_STATUS_LABELS[event.status], "로")} 변경했습니다.`
       : `[${event.name}] 행사 정보를 수정했습니다.`,
     details: changes.status ? { status: event.status } : null,
   });
@@ -488,7 +489,7 @@ export async function updateEventInvitee(
     if (ev) {
       const parts: string[] = [];
       if (rsvpChanged) {
-        parts.push(`참석 여부를 [${RSVP_STATUS_LABELS[invitee.rsvp_status]}](으)로 변경`);
+        parts.push(`참석 여부를 [${RSVP_STATUS_LABELS[invitee.rsvp_status]}]${josa(RSVP_STATUS_LABELS[invitee.rsvp_status], "로")} 변경`);
       }
       if (attendedChanged) {
         parts.push(invitee.attended ? "현장 참석을 체크" : "현장 참석 체크를 해제");

@@ -114,8 +114,9 @@ test.describe("C. SNS 운영", () => {
     await finalCard.getByPlaceholder("조회수").fill("-5");
     await finalCard.getByRole("button", { name: "성과 저장" }).click();
     // 배너와 토스트 두 곳에 뜬다. 성과 입력칸이 목록 아래라 배너가 스크롤 밖이어서 토스트를 같이 띄운다.
-    await expect(page.getByLabel("알림 메시지").getByText(/조회수은\(는\) 0 이상의 정수여야 합니다/)).toBeVisible();
-    await expect(page.getByRole("main").getByText(/조회수은\(는\) 0 이상의 정수여야 합니다/)).toBeVisible();
+    // `조회수` 는 받침이 없으니 "는" 이다. 전에는 "조회수은(는)" 이 그대로 나갔다.
+    await expect(page.getByLabel("알림 메시지").getByText(/조회수는 0 이상의 정수여야 합니다/)).toBeVisible();
+    await expect(page.getByRole("main").getByText(/조회수는 0 이상의 정수여야 합니다/)).toBeVisible();
     await finalCard.getByPlaceholder("조회수").fill("1500");
     await finalCard.getByPlaceholder("좋아요").fill("20");
     await finalCard.getByRole("button", { name: "성과 저장" }).click();

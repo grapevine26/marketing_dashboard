@@ -30,7 +30,8 @@ test.describe("B. 인플루언서 행사", () => {
     await page.getByPlaceholder("이름 *").fill("   ");
     await page.evaluate(() => document.querySelectorAll("input[required]").forEach((el) => el.removeAttribute("required")));
     await page.getByRole("button", { name: "추가", exact: true }).click();
-    await expect(page.getByText("이름을(를) 입력해주세요.")).toBeVisible();
+    // 조사는 앞말에 맞춰 고른다(lib/ui/josa.ts). `이름` 은 받침이 있으니 "을" 이다.
+    await expect(page.getByText("이름을 입력해주세요.")).toBeVisible();
     await page.getByPlaceholder("이름 *").fill("E2E 게스트");
     await page.getByRole("button", { name: "추가", exact: true }).click();
     const inviteeRow = page.getByRole("row", { name: /E2E 게스트/ });
