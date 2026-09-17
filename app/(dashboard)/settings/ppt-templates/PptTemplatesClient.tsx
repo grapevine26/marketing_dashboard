@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import CatalogHint from "./CatalogHint";
 import {
   PptTemplate,
   PptTemplateKind,
@@ -340,6 +341,9 @@ export default function PptTemplatesClient({
             className="px-3.5 py-2 rounded-xl bg-bg border border-border text-text-sub text-xs file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:bg-surface2 file:text-text"
           />
         </div>
+
+        {/* 고른 종류에 따라 바뀐다. 업로드 전에 무엇을 넣을 수 있는지 알아야 파일을 다시 만들지 않는다. */}
+        <CatalogHint kind={kind} />
 
         <div className="flex justify-end">
           <button

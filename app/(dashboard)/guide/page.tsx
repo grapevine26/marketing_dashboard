@@ -719,8 +719,15 @@ export default function GuidePage() {
           </p>
           <p className="text-xs text-text-2 leading-relaxed">
             슬라이드에 <code className="px-1 rounded bg-bg border border-border">{"{{항목명}}"}</code> 형태로 적어 둔 자리가 입력칸이
-            됩니다. 결과보고서 템플릿에서는 <code className="px-1 rounded bg-bg border border-border">{"{{표:인플루언서}}"}</code>와
-            <code className="px-1 rounded bg-bg border border-border">{"{{차트:성과}}"}</code>를 넣은 도형 자리에 표와 차트가 들어갑니다.
+            됩니다. <strong>이름은 마음대로 지으셔도 됩니다</strong> — 개수 제한도 없고, 적은 그대로 운영안 화면에 입력칸으로
+            펼쳐집니다. 다만 <strong>슬라이드 본문</strong>에 적어야 합니다(슬라이드 마스터에 적은 것은 잡히지 않습니다).
+          </p>
+          <p className="text-xs text-text-2 leading-relaxed">
+            <strong>표와 차트는 다릅니다.</strong> 이건 사람이 값을 쓰는 것이 아니라 앱이 데이터를 그려 넣는 자리라
+            <strong> 정해진 이름만</strong> 됩니다. 종류마다 쓸 수 있는 것이 다른데,
+            <strong> [공용 PPT 관리]에서 종류를 고르면 그 목록이 복사 버튼과 함께 바로 뜹니다.</strong> 거기서 보고 쓰세요.
+            슬라이드에는 <strong>빈 텍스트 상자</strong>를 놓고 그 이름만 붙여넣으면 되고, 그 상자의 위치와 크기가
+            그대로 표·차트 크기가 됩니다(진짜 표의 칸 안에 적으면 동작하지 않습니다).
             파일은 .pptx만, 15MB까지 올릴 수 있습니다. 기본 제공 템플릿은 이름·종류·파일을 바꿀 수 없지만 목록에서 지울 수는 있고, 지웠다면 같은 화면의 <strong>[지운 기본 템플릿 N개 되살리기]</strong>로 언제든 되돌립니다.
           </p>
         </div>

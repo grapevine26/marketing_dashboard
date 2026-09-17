@@ -57,6 +57,32 @@ test.describe("설정 화면", () => {
     await expect(page.getByRole("main").getByText(".pptx 파일만 업로드할 수 있습니다.")).toBeVisible();
   });
 
+  test("PPT 템플릿 보관함: 고른 종류에 맞는 표·차트 이름이 보인다", async ({ page }) => {
+    // 표·차트는 이름이 정해져 있어야 동작하는데, 그 이름을 알 곳이 어디에도 없었다.
+    // 종류를 바꾸면 목록도 따라 바뀌어야 한다 — 안 그러면 행사 템플릿에 보고서용 이름을 적는다.
+    await page.goto("/settings/ppt-templates");
+    const 종류 = page.getByLabel("템플릿 종류");
+    // 아래 목록 카드도 템플릿마다 치환 항목을 칩으로 보여준다. 안내 블록 안만 본다.
+    const 안내 = page.getByRole("region", { name: "쓸 수 있는 표와 차트" });
+
+    await 종류.selectOption("report");
+    await expect(안내.getByText("{{표:인플루언서}}")).toBeVisible();
+    await expect(안내.getByText("{{차트:성과}}")).toBeVisible();
+    await expect(안내.getByText("{{표:초청명단}}"), "행사용은 보고서에 뜨면 안 된다").toHaveCount(0);
+
+    await 종류.selectOption("event");
+    await expect(안내.getByText("{{표:초청명단}}")).toBeVisible();
+    await expect(안내.getByText("{{표:체크리스트}}")).toBeVisible();
+    await expect(안내.getByText("{{표:인플루언서}}")).toHaveCount(0);
+
+    await 종류.selectOption("sns");
+    await expect(안내.getByText("{{표:콘텐츠}}")).toBeVisible();
+    await expect(안내.getByText("{{차트:월별성과}}")).toBeVisible();
+
+    // 복사 버튼이 이름마다 하나씩 붙는다. 손으로 옮겨 적다 오타가 나면 빈 상자로 나간다.
+    await expect(page.getByRole("button", { name: "{{표:콘텐츠}} 복사" })).toBeVisible();
+  });
+
   test("PPT 템플릿 보관함: 기본 템플릿을 지우면 되살리기 버튼이 나오고 되살아난다", async ({ page }) => {
     await page.goto("/settings/ppt-templates");
     page.on("dialog", (d) => d.accept());

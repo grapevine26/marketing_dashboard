@@ -1,4 +1,6 @@
 import JSZip from "jszip";
+// 차트는 "표가 아니면 차트" 로 갈리므로 접두사를 쓰지 않는다. 표만 가져온다.
+import { TABLE_PREFIX } from "./markers";
 import pptxgen from "pptxgenjs";
 import { buildChartParts, ChartSpec } from "./chart";
 
@@ -18,9 +20,12 @@ const PLACEHOLDER_RE = /\{\{([^}]+)\}\}/g;
 const SLIDE_FILE_RE = /^ppt\/slides\/slide(\d+)\.xml$/;
 const EMU_PER_INCH = 914400;
 
-/** 표 플레이스홀더: `{{표:이름}}`, 차트 플레이스홀더: `{{차트:이름}}` */
-export const TABLE_PREFIX = "표:";
-export const CHART_PREFIX = "차트:";
+/**
+ * 표 플레이스홀더: `{{표:이름}}`, 차트 플레이스홀더: `{{차트:이름}}`
+ * 값은 `markers.ts` 에 있다 — 템플릿 업로드 화면(클라이언트)도 읽어야 하는데, 이 파일을
+ * 가져가면 JSZip 이 브라우저 번들에 딸려가기 때문이다. 쓰던 곳이 있으니 여기서 다시 내보낸다.
+ */
+export { TABLE_PREFIX, CHART_PREFIX } from "./markers";
 
 export interface TableSpec {
   headers: string[];

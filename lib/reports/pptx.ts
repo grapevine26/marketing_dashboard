@@ -1,6 +1,6 @@
 import { Report, ReportSnapshot, CAMPAIGN_STATUS_LABELS } from "@/lib/db/types";
 import { ValidationError } from "@/lib/db";
-import { fillTemplate, TableSpec, ChartSpec, TABLE_PREFIX, CHART_PREFIX } from "@/lib/ppt/engine";
+import { fillTemplate, TableSpec, ChartSpec, FillOptions, TABLE_PREFIX, CHART_PREFIX } from "@/lib/ppt/engine";
 
 /** 보고서 템플릿에서 쓸 수 있는 텍스트 치환 항목 */
 export function buildReportValues(report: Report, snapshot: ReportSnapshot): Record<string, string> {
@@ -72,8 +72,19 @@ export async function generateReportPPTX(report: Report, templateBuffer: Buffer)
   if (!snapshot) {
     throw new ValidationError("이 보고서에는 스냅샷 데이터가 없습니다. 새 보고서를 생성해주세요.");
   }
-  return fillTemplate(templateBuffer, buildReportValues(report, snapshot), {
+  return fillTemplate(templateBuffer, buildReportValues(report, snapshot), buildReportExtras(snapshot));
+}
+
+/**
+ * 결과보고서에 넣을 수 있는 표와 차트. 이름은 `lib/ppt/catalog.ts` 의 report 항목과 **같아야 한다.**
+ *
+ * 따로 함수로 뺀 이유는 테스트 때문이다. 이름이 `generateReportPPTX` 안에 박혀 있으면
+ * 카탈로그와 맞는지 확인하려면 pptx 를 통째로 만들어 열어봐야 한다. 그러면 행사·SNS 와
+ * 확인 방법이 달라지고, 다른 방법으로 확인하는 것은 언젠가 한쪽만 낡는다.
+ */
+export function buildReportExtras(snapshot: ReportSnapshot): FillOptions {
+  return {
     tables: { [`${TABLE_PREFIX}인플루언서`]: buildInfluencerTable(snapshot) },
     charts: { [`${CHART_PREFIX}성과`]: buildPerformanceChart(snapshot) },
-  });
+  };
 }
